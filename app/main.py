@@ -1,17 +1,12 @@
-"""Application entry point cho ConvertKeylogApp - giống TL main.py."""
+"""Application entry point for ConvertKeylogApp."""
 
-from gui.windows.main_window_tl_style import MainWindow
+from gui.windows.main_window import MainWindow
 
 
 def main():
-    """Main entry point cho application - giống TL."""
-    try:
-        app = MainWindow()
-        app.run()
-    except Exception as e:
-        print(f"Lỗi khởi động ứng dụng: {e}")
-        import traceback
-        traceback.print_exc()
+    """Main entry point for the application."""
+    app = MainWindow()
+    app.run()
 
 
 if __name__ == "__main__":
