@@ -1,0 +1,23 @@
+{
+  "keylog_converter": {
+    "input_formats": ["xlsx", "csv", "json"],
+    "output_formats": ["xlsx", "csv"],
+    "default_encoding": "utf-8",
+    "validation_rules": {
+      "required_columns": ["timestamp", "key_data"],
+      "optional_columns": ["metadata", "session_id"]
+    }
+  },
+  "equation_converter": {
+    "input_formats": ["xlsx", "csv"],
+    "output_formats": ["xlsx", "csv"],
+    "supported_equations": ["linear", "quadratic", "system"],
+    "max_variables": 4
+  },
+  "geometry_converter": {
+    "input_formats": ["xlsx", "csv"],
+    "output_formats": ["xlsx", "csv"],
+    "supported_shapes": ["point", "line", "plane", "circle", "sphere"],
+    "coordinate_systems": ["2d", "3d"]
+  }
+}
