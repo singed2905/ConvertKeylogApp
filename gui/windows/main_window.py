@@ -1,19 +1,16 @@
-"""Main application window - tương tự MainView của TL."""
-
 import tkinter as tk
-from tkinter import messagebox
-from gui.components.base_window import BaseWindow
+from tkinter import messagebox, filedialog
+from utils.file_utils import FileUtils
 
-
-class MainWindow(BaseWindow):
-    """Main application window implementation - giống TL MainView."""
-    
+class MainWindow:
     def __init__(self):
-        # Khởi tạo window với title và size giống TL
         self.root = tk.Tk()
         self.root.title("Convert Application - Mode Selector")
         self.root.geometry("480x320")
-        self.root.configure(bg="#e8f0f7")  # Màu nền nhẹ xanh pastel giống TL
+        self.root.configure(bg="#e8f0f7")  # Màu nền nhẹ xanh pastel
+
+        # Đường dẫn file
+        self.modes_file_path = "config/modes.json"
 
         # Load danh sách mode
         self.modes = self._load_modes()
@@ -22,16 +19,15 @@ class MainWindow(BaseWindow):
         self._setup_ui()
 
     def _load_modes(self):
-        """Load modes từ config - giống TL logic"""
         try:
-            # TODO: Implement load from config/modes.json
+            # TODO: Implement FileUtils.load_modes_from_json
             return ["Geometry Mode", "Equation Mode", "Polynomial Equation Mode"]
         except Exception as e:
             messagebox.showwarning("Cảnh báo", f"Không thể load file modes.json mặc định:\n{str(e)}")
             return ["Geometry Mode"]
 
     def _setup_ui(self):
-        """Tạo giao diện người dùng chính - hoàn toàn giống TL"""
+        """Tạo giao diện người dùng chính"""
 
         # === Tiêu đề lớn ===
         title_frame = tk.Frame(self.root, bg="#4A90E2")
@@ -59,7 +55,7 @@ class MainWindow(BaseWindow):
             fg="#333"
         ).grid(row=0, column=0, padx=10, pady=10, sticky="w")
 
-        # Custom OptionMenu (dropdown) giống TL
+        # Custom OptionMenu (dropdown)
         optionmenu = tk.OptionMenu(control_frame, self.mode_var, *self.modes)
         optionmenu.config(
             width=25,
@@ -76,7 +72,7 @@ class MainWindow(BaseWindow):
         button_frame = tk.Frame(self.root, bg="#e8f0f7")
         button_frame.pack(pady=20)
 
-        # Nút chọn mode - giống TL
+        # Nút chọn mode
         btn_select = tk.Button(
             button_frame,
             text="Mở chế độ",
@@ -91,7 +87,7 @@ class MainWindow(BaseWindow):
         )
         btn_select.grid(row=0, column=0, padx=15, pady=10)
 
-        # Nút thoát - giống TL
+        # Nút thoát
         btn_quit = tk.Button(
             button_frame,
             text="❌ Thoát",
@@ -109,7 +105,7 @@ class MainWindow(BaseWindow):
         # === Thanh thông tin dưới cùng ===
         footer = tk.Label(
             self.root,
-            text="📁 File cấu hình: config/modes.json",
+            text=f"📁 File cấu hình: {self.modes_file_path}",
             font=("Segoe UI", 9),
             bg="#dfe7ef",
             fg="#444",
@@ -118,22 +114,20 @@ class MainWindow(BaseWindow):
         footer.pack(side="bottom", fill="x")
 
     def _open_selected_mode(self):
-        """Xử lý khi chọn mode - giống TL logic"""
         selected = self.mode_var.get()
 
         if selected == "Geometry Mode":
             self._open_geometry_mode()
-        elif selected == "Equation Mode":
+        elif selected == "Equation Mode":  # 🆕 THÊM DÒNG NÀY
             self._open_equation_mode()
         elif selected == "Polynomial Equation Mode":
             self._open_polynomial_mode()
         elif selected == "Không có mode":
             messagebox.showwarning("Cảnh báo", "Vui lòng chọn một chế độ hợp lệ.")
         else:
-            messagebox.showinfo("Thông báo", f"Mode '{selected}' chưa được hỗ trợ.")
+            messagebox.showinfo("Thông báo", f"Mode '{selected}' chưa được hỗ trợ.\nHiện chỉ có 'Geometry Mode' khả dụng.")
 
     def _open_geometry_mode(self):
-        """Mở Geometry Mode window"""
         try:
             from gui.windows.geometry_window import GeometryWindow
             geometry_window = tk.Toplevel(self.root)
@@ -142,16 +136,15 @@ class MainWindow(BaseWindow):
             messagebox.showerror("Lỗi", f"Không thể mở Geometry Mode:\n{str(e)}")
 
     def _open_equation_mode(self):
-        """Mở Equation Mode window"""
         try:
             from gui.windows.equation_window import EquationWindow
             equation_window = tk.Toplevel(self.root)
             EquationWindow(equation_window)
+
         except Exception as e:
-            messagebox.showerror("Lỗi", f"Lỗi khởi động Equation Mode:\n{str(e)}")
+            messagebox.showerror("Lỗi", f"Lỗi khởi động Calculate Mode:\n{str(e)}")
 
     def _open_polynomial_mode(self):
-        """Mở Polynomial Mode window"""
         try:
             from gui.windows.polynomial_window import PolynomialWindow
             polynomial_window = tk.Toplevel(self.root)
@@ -159,17 +152,12 @@ class MainWindow(BaseWindow):
         except Exception as e:
             messagebox.showerror("Lỗi", f"Không thể mở Polynomial Mode:\n{str(e)}")
 
-    def setup_ui(self):
-        """Override từ BaseWindow - đã implement trong _setup_ui()"""
-        pass
-
     def run(self):
-        """Chạy ứng dụng - giống TL"""
         # Căn giữa cửa sổ
         self.root.eval('tk::PlaceWindow . center')
         self.root.mainloop()
 
 
 if __name__ == "__main__":
-    app = MainWindow()
+    app = MainView()
     app.run()
