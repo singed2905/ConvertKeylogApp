@@ -1,0 +1,29 @@
+{
+  "keylog_template": {
+    "filename": "keylog_template.xlsx",
+    "columns": [
+      {"name": "timestamp", "type": "datetime", "required": true},
+      {"name": "key_data", "type": "string", "required": true},
+      {"name": "metadata", "type": "json", "required": false},
+      {"name": "session_id", "type": "string", "required": false}
+    ]
+  },
+  "equation_template": {
+    "filename": "equation_template.xlsx",
+    "columns": [
+      {"name": "equation_id", "type": "string", "required": true},
+      {"name": "coefficients", "type": "string", "required": true},
+      {"name": "variables", "type": "string", "required": true},
+      {"name": "equation_type", "type": "string", "required": false}
+    ]
+  },
+  "geometry_template": {
+    "filename": "geometry_template.xlsx",
+    "columns": [
+      {"name": "shape_type", "type": "string", "required": true},
+      {"name": "coordinates", "type": "string", "required": true},
+      {"name": "parameters", "type": "string", "required": false},
+      {"name": "dimension", "type": "integer", "required": true}
+    ]
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "keylog_validation": {
+    "required_fields": ["timestamp", "key_data"],
+    "field_types": {
+      "timestamp": "datetime",
+      "key_data": "string",
+      "metadata": "json",
+      "session_id": "string"
+    },
+    "constraints": {
+      "key_data": {"min_length": 1, "max_length": 1000},
+      "session_id": {"pattern": "^[a-zA-Z0-9_-]+$"}
+    }
+  },
+  "equation_validation": {
+    "required_fields": ["equation_id", "coefficients"],
+    "field_types": {
+      "equation_id": "string",
+      "coefficients": "string",
+      "variables": "string",
+      "equation_type": "string"
+    },
+    "constraints": {
+      "coefficients": {"pattern": "^[0-9.,\\-\\s]+$"},
+      "equation_type": {"enum": ["linear", "quadratic", "system"]}
+    }
+  },
+  "geometry_validation": {
+    "required_fields": ["shape_type", "coordinates"],
+    "field_types": {
+      "shape_type": "string",
+      "coordinates": "string",
+      "parameters": "string",
+      "dimension": "integer"
+    },
+    "constraints": {
+      "shape_type": {"enum": ["point", "line", "plane", "circle", "sphere"]},
+      "dimension": {"min": 2, "max": 3}
+    }
+  }
+}
