@@ -18,6 +18,7 @@ class LargeFileProcessor:
         self.processing_cancelled = False
         self.max_memory_mb = 1000  # Limit memory usage to 1GB
         self.emergency_cleanup = False
+        self.max_rows_allowed = 250_000  # NEW: hard limit of 250,000 rows
         
     def get_memory_usage(self) -> float:
         """Get current memory usage in MB"""
@@ -38,6 +39,14 @@ class LargeFileProcessor:
         gc.collect()
         time.sleep(0.1)  # Allow GC to complete
         
+    def _enforce_row_limit(self, total_rows: int):
+        """Raise if total rows exceed the allowed hard limit"""
+        if total_rows > self.max_rows_allowed:
+            raise Exception(
+                f"File có {total_rows} dòng, vượt quá giới hạn tối đa {self.max_rows_allowed} dòng.\n"
+                f"Vui lòng chia nhỏ file hoặc lọc bớt dữ liệu trước khi import."
+            )
+    
     def estimate_optimal_chunksize(self, file_path: str) -> int:
         """Estimate optimal chunk size based on file size and available memory"""
         try:
@@ -45,60 +54,54 @@ class LargeFileProcessor:
             
             # Conservative chunking strategy for very large files
             if file_size_mb > 100:  # Files > 100MB
-                return 200  # Very small chunks for massive files
-            elif file_size_mb > 50:   # Files 50-100MB  
+                return 200
+            elif file_size_mb > 50:   # 50-100MB  
                 return 500
-            elif file_size_mb > 20:   # Files 20-50MB
+            elif file_size_mb > 20:   # 20-50MB
                 return 1000
             else:
                 return 2000
                 
         except Exception:
-            return 200  # Ultra-safe fallback for unknown files
+            return 200
     
     def read_excel_streaming(self, file_path: str, chunksize: int = None) -> Iterator[pd.DataFrame]:
         """
         Stream Excel file in very small chunks with aggressive memory management
-        Designed specifically to handle 200k+ rows without crashing
+        Designed specifically to handle up to 250k rows without crashing
         """
         if chunksize is None:
             chunksize = self.estimate_optimal_chunksize(file_path)
         
         try:
-            print(f"🔍 Analyzing large file: {os.path.basename(file_path)}")
-            
-            # Use openpyxl read-only mode for maximum memory efficiency
             import openpyxl
+            print(f"🔍 Analyzing large file: {os.path.basename(file_path)}")
             wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
             ws = wb.active
             
-            # Get dimensions without loading all data into memory
-            max_row = ws.max_row
+            max_row = ws.max_row  # includes header
             max_col = ws.max_column
+            total_rows = max(0, (max_row - 1))  # exclude header
             
-            # Fixed f-string formatting - separate comma formatting from other formats
-            print(f"📊 File dimensions: {max_row:,} rows × {max_col} columns")
+            # NEW: enforce hard limit
+            self._enforce_row_limit(total_rows)
+            
+            print(f"📊 File dimensions: {total_rows} data rows × {max_col} columns")
             print(f"📦 Using chunk size: {chunksize} rows")
-            print(f"💾 Estimated chunks: {(max_row-1)//chunksize + 1}")
+            print(f"💾 Estimated chunks: {(total_rows + chunksize - 1)//chunksize}")
             
-            # Read header row only
             header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True))
             columns = [str(cell) if cell is not None else f"Col_{i}" for i, cell in enumerate(header_row)]
+            wb.close()
             
-            wb.close()  # Close workbook immediately to free memory
-            
-            # Process file in streaming chunks
-            current_row = 2  # Start after header row
+            current_row = 2
             chunk_count = 0
             
             while current_row <= max_row:
                 try:
-                    # Pre-chunk memory check
                     if self.check_memory_limit():
                         print(f"⚠️ Memory limit reached: {self.get_memory_usage():.1f}MB")
                         self.emergency_memory_cleanup()
-                        
-                        # If still over limit after cleanup, raise error
                         if self.check_memory_limit():
                             raise MemoryError(f"Memory usage too high: {self.get_memory_usage():.1f}MB > {self.max_memory_mb}MB")
                     
@@ -106,58 +109,34 @@ class LargeFileProcessor:
                         print("🛑 Processing cancelled by user")
                         break
                     
-                    # Calculate current chunk boundaries
                     end_row = min(current_row + chunksize - 1, max_row)
                     
-                    # Fixed f-string - avoid mixing comma and other format specifiers
                     print(f"📖 Reading chunk {chunk_count + 1}: rows {current_row}-{end_row}")
-                    
-                    # Open file again for this specific chunk only
                     wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
                     ws = wb.active
-                    
-                    # Read chunk data row by row
                     chunk_data = []
                     for row in ws.iter_rows(min_row=current_row, max_row=end_row, values_only=True):
-                        # Convert None values to empty strings to avoid NaN issues
                         row_data = [str(cell) if cell is not None else "" for cell in row]
                         chunk_data.append(row_data)
+                    wb.close()
                     
-                    wb.close()  # Immediately close to free memory
-                    
-                    # Create DataFrame from chunk data if we have any
                     if chunk_data:
                         chunk_df = pd.DataFrame(chunk_data, columns=columns)
-                        
-                        # Clean up data to reduce memory usage
-                        chunk_df = chunk_df.replace('nan', '')
-                        chunk_df = chunk_df.fillna('')
-                        
+                        chunk_df = chunk_df.replace('nan', '').fillna('')
                         yield chunk_df
-                        
-                        # Aggressive cleanup after yield
-                        del chunk_df
-                        del chunk_data
+                        del chunk_df, chunk_data
                         gc.collect()
                     
-                    # Move to next chunk
                     current_row = end_row + 1
                     chunk_count += 1
-                    
-                    # Periodic memory usage reporting
-                    memory_usage = self.get_memory_usage()
-                    if chunk_count % 5 == 0:  # Report every 5 chunks
-                        print(f"💾 Memory after chunk {chunk_count}: {memory_usage:.1f}MB")
-                    
+                    if chunk_count % 5 == 0:
+                        print(f"💾 Memory after chunk {chunk_count}: {self.get_memory_usage():.1f}MB")
                 except Exception as e:
-                    # Fixed f-string formatting
                     print(f"❌ Error reading chunk starting at row {current_row}: {e}")
-                    # Skip this chunk and try to continue with next one
                     current_row += chunksize
                     continue
             
             print(f"✅ Streaming completed: {chunk_count} chunks processed")
-            
         except Exception as e:
             raise Exception(f"Lỗi đọc file lớn: {str(e)}")
     
@@ -166,6 +145,7 @@ class LargeFileProcessor:
                                 output_path: str, progress_callback: Callable = None) -> Tuple[int, int, str]:
         """
         Safely process very large Excel files with comprehensive memory management
+        Enforces a hard row limit of 250,000 rows
         Returns: (success_count, error_count, output_file_path)
         """
         
@@ -174,34 +154,28 @@ class LargeFileProcessor:
         error_count = 0
         processed_count = 0
         
-        # Import geometry service here to avoid circular imports
         from services.geometry.geometry_service import GeometryService
         
         try:
             print(f"🚀 Starting large file processing: {os.path.basename(file_path)}")
             
-            # Initialize fresh service for large file processing
+            # Estimate and enforce row limit before processing
+            total_rows = self._estimate_total_rows(file_path)
+            self._enforce_row_limit(total_rows)
+            
             service = GeometryService(self.config)
             service.set_current_shapes(shape_a, shape_b)
             service.set_kich_thuoc(dimension_a, dimension_b)
             service.set_current_operation(operation)
             
-            # Get optimal chunk size for this file
             chunk_size = self.estimate_optimal_chunksize(file_path)
             print(f"🎯 Using chunk size: {chunk_size} rows")
-            
-            # Estimate total rows for progress calculation
-            total_rows = self._estimate_total_rows(file_path)
             print(f"📊 Estimated total rows: {total_rows}")
             
-            # Initialize temp file for results buffering (saves memory)
             temp_results_file = f"{output_path}.temp_results"
             results_buffer = []
-            buffer_size = 1000  # Write to temp file every 1000 results
+            buffer_size = 1000
             
-            print("🔄 Starting streaming chunk processing...")
-            
-            # Process file in streaming chunks
             chunk_count = 0
             for chunk_df in self.read_excel_streaming(file_path, chunk_size):
                 if self.processing_cancelled:
@@ -209,20 +183,15 @@ class LargeFileProcessor:
                     break
                 
                 chunk_count += 1
-                # Fixed f-string formatting
                 print(f"⚙️ Processing chunk {chunk_count} ({len(chunk_df)} rows)")
                 
-                # Process each row in current chunk
                 for index, row in chunk_df.iterrows():
                     try:
                         if self.processing_cancelled:
                             break
-                        
-                        # Extract shape data safely
                         data_a = self._extract_shape_data_safe(row, shape_a, 'A')
                         data_b = self._extract_shape_data_safe(row, shape_b, 'B') if shape_b else {}
                         
-                        # Refresh service instance every 1000 rows to prevent memory buildup
                         if processed_count % 1000 == 0 and processed_count > 0:
                             del service
                             gc.collect()
@@ -231,103 +200,62 @@ class LargeFileProcessor:
                             service.set_kich_thuoc(dimension_a, dimension_b)
                             service.set_current_operation(operation)
                         
-                        # Process data and get encoded result
                         service.thuc_thi_tat_ca(data_a, data_b)
                         result = service.generate_final_result()
-                        
                         results_buffer.append(result)
                         success_count += 1
-                        
                     except Exception as e:
-                        # Log error but continue processing
                         results_buffer.append(f"LỖI: {str(e)}")
                         error_count += 1
                     
                     processed_count += 1
                     
-                    # Write buffer to temp file when it gets full (memory management)
                     if len(results_buffer) >= buffer_size:
                         self._write_results_buffer(temp_results_file, results_buffer)
-                        results_buffer = []  # Clear buffer
+                        results_buffer = []
                         gc.collect()
                     
-                    # Update progress callback
                     if progress_callback and processed_count % 50 == 0:
                         progress = (processed_count / total_rows) * 100 if total_rows > 0 else 0
                         progress_callback(progress, processed_count, total_rows, error_count)
                     
-                    # Emergency memory management check every 500 rows
-                    if processed_count % 500 == 0:
-                        if self.check_memory_limit():
-                            print(f"⚠️ Memory high: {self.get_memory_usage():.1f}MB - Emergency cleanup")
-                            self.emergency_memory_cleanup()
-                            
-                            # If still high after cleanup, reduce chunk size dynamically
-                            if self.check_memory_limit():
-                                chunk_size = max(chunk_size // 2, 100)
-                                print(f"📉 Reducing chunk size to: {chunk_size}")
+                    if processed_count % 500 == 0 and self.check_memory_limit():
+                        print(f"⚠️ Memory high: {self.get_memory_usage():.1f}MB - Emergency cleanup")
+                        self.emergency_memory_cleanup()
                 
-                # Cleanup after processing entire chunk
                 del chunk_df
                 gc.collect()
-                
                 print(f"✅ Chunk {chunk_count} completed. Memory: {self.get_memory_usage():.1f}MB")
             
-            # Write any remaining results in buffer
             if results_buffer:
                 self._write_results_buffer(temp_results_file, results_buffer)
-                print(f"📝 Final buffer written: {len(results_buffer)} results")
             
-            # Create final Excel output file
             print("🔧 Assembling final Excel file...")
             final_output = self._create_final_excel_from_temp(file_path, temp_results_file, output_path)
-            
-            # Clean up temporary file
             if os.path.exists(temp_results_file):
                 os.remove(temp_results_file)
-                print("🧹 Temporary file cleaned up")
             
-            print(f"🎉 Large file processing completed!")
-            # Fixed f-string formatting
-            print(f"   ✅ Success: {success_count} rows")
-            print(f"   ❌ Errors: {error_count} rows")
-            print(f"   📁 Output: {os.path.basename(final_output)}")
-            
+            print(f"🎉 Complete! Success: {success_count}, Errors: {error_count}")
             return success_count, error_count, final_output
-            
-        except MemoryError as e:
-            error_message = f"Hết bộ nhớ khi xử lý file lớn: {str(e)}"
-            error_message += "\n\nHướng dẫn khắc phục:"
-            error_message += "\n1. Đóng các ứng dụng khác để giải phóng RAM"
-            error_message += "\n2. Giảm chunk size xuống 100-300 rows"  
-            error_message += "\n3. Chia file Excel thành nhiều file nhỏ hơn"
-            error_message += "\n4. Khởi động lại máy để giải phóng memory"
-            raise Exception(error_message)
+        
         except Exception as e:
             raise Exception(f"Lỗi xử lý file lớn: {str(e)}")
     
     def _estimate_total_rows(self, file_path: str) -> int:
-        """Estimate total rows without loading entire file into memory"""
         try:
             import openpyxl
             wb = openpyxl.load_workbook(file_path, read_only=True)
             ws = wb.active
             max_row = ws.max_row if hasattr(ws, 'max_row') else 0
             wb.close()
-            return max_row - 1  # Exclude header row
+            return max(0, max_row - 1)
         except Exception:
             return 0
     
     def _extract_shape_data_safe(self, row: pd.Series, shape_type: str, group: str) -> Dict:
-        """
-        Safe data extraction with memory optimization
-        Extracts geometry data from Excel row based on shape type and group
-        """
         data_dict = {}
-        
         try:
             if group == 'A':
-                # Group A data extraction
                 if shape_type == "Điểm":
                     data_dict['point_input'] = str(row.get('data_A', '')).strip()
                 elif shape_type == "Đường thẳng":
@@ -344,9 +272,7 @@ class LargeFileProcessor:
                 elif shape_type == "Mặt cầu":
                     data_dict['sphere_center'] = str(row.get('S_data_I1', '')).strip()
                     data_dict['sphere_radius'] = str(row.get('S_data_R1', '')).strip()
-                    
-            else:  # Group B
-                # Group B data extraction  
+            else:
                 if shape_type == "Điểm":
                     data_dict['point_input'] = str(row.get('data_B', '')).strip()
                 elif shape_type == "Đường thẳng":
@@ -365,11 +291,9 @@ class LargeFileProcessor:
                     data_dict['sphere_radius'] = str(row.get('S_data_R2', '')).strip()
         except Exception as e:
             print(f"⚠️ Warning: Data extraction error for {shape_type} {group}: {e}")
-        
         return data_dict
     
     def _write_results_buffer(self, temp_file: str, results: List[str]):
-        """Write results buffer to temporary file to manage memory usage"""
         try:
             mode = 'a' if os.path.exists(temp_file) else 'w'
             with open(temp_file, mode, encoding='utf-8') as f:
@@ -379,7 +303,6 @@ class LargeFileProcessor:
             print(f"⚠️ Warning: Could not write buffer to temp file: {e}")
     
     def _read_temp_results(self, temp_file: str) -> List[str]:
-        """Read all results from temporary file"""
         try:
             with open(temp_file, 'r', encoding='utf-8') as f:
                 return [line.strip() for line in f.readlines()]
@@ -387,173 +310,83 @@ class LargeFileProcessor:
             return []
     
     def _create_final_excel_from_temp(self, original_file: str, temp_results_file: str, output_path: str) -> str:
-        """Create final Excel file by combining original data with temp results"""
-        try:
-            print("📝 Creating final Excel file...")
-            
-            # Read results from temp file
-            all_results = self._read_temp_results(temp_results_file)
-            # Fixed f-string formatting
-            print(f"📊 Loaded {len(all_results)} results from temp file")
-            
-            # Create final Excel using direct openpyxl to avoid loading entire original file
-            return self._create_excel_direct(original_file, all_results, output_path)
-            
-        except Exception as e:
-            raise Exception(f"Lỗi tạo file Excel cuối: {str(e)}")
-    
-    def _create_excel_direct(self, original_file: str, results: List[str], output_path: str) -> str:
-        """Create Excel output directly using openpyxl for maximum memory efficiency"""
         try:
             import openpyxl
             from openpyxl.styles import Font, PatternFill
             
-            print("🔧 Opening source file in read-only mode...")
-            # Open original file in read-only mode
+            print("📝 Creating final Excel file...")
+            all_results = self._read_temp_results(temp_results_file)
+            
             source_wb = openpyxl.load_workbook(original_file, read_only=True, data_only=True)
             source_ws = source_wb.active
             
-            # Create new output workbook
             output_wb = openpyxl.Workbook()
             output_ws = output_wb.active
             output_ws.title = "Processed_Results"
             
-            # Copy header and add keylog column
             header_row = next(source_ws.iter_rows(min_row=1, max_row=1, values_only=True))
             header = list(header_row) + ['Kết quả mã hóa']
-            
-            # Write formatted header
             for col_idx, header_cell in enumerate(header, 1):
                 cell = output_ws.cell(row=1, column=col_idx, value=str(header_cell))
                 cell.font = Font(bold=True, color="FFFFFF")
                 cell.fill = PatternFill(start_color="2E86AB", end_color="2E86AB", fill_type="solid")
             
-            # Process data rows one by one to avoid memory issues
-            row_count = 2  # Start after header
+            row_count = 2
             result_idx = 0
-            
-            # Fixed f-string formatting
-            print(f"📝 Writing {len(results)} results to Excel...")
-            
+            print(f"📝 Writing {len(all_results)} results to Excel...")
             for data_row in source_ws.iter_rows(min_row=2, values_only=True):
-                if result_idx >= len(results):
+                if result_idx >= len(all_results):
                     break
-                
-                # Copy original data to new file
                 for col_idx, cell_value in enumerate(data_row, 1):
                     value = str(cell_value) if cell_value is not None else ""
                     output_ws.cell(row=row_count, column=col_idx, value=value)
-                
-                # Add encoded result in keylog column
                 keylog_col = len(header)
-                result_cell = output_ws.cell(row=row_count, column=keylog_col, value=results[result_idx])
-                result_cell.font = Font(bold=True, color="2E7D32")
-                
+                output_ws.cell(row=row_count, column=keylog_col, value=all_results[result_idx])
                 row_count += 1
                 result_idx += 1
-                
-                # Memory management - periodic cleanup and reporting
-                if row_count % 1000 == 0:
-                    current_memory = self.get_memory_usage()
-                    # Fixed f-string formatting
-                    print(f"📝 Written {row_count-1} rows... (Memory: {current_memory:.1f}MB)")
-                    if self.check_memory_limit():
-                        print("🧹 Performing memory cleanup...")
-                        gc.collect()
+                if row_count % 1000 == 0 and self.check_memory_limit():
+                    gc.collect()
             
-            # Close source workbook to free memory
             source_wb.close()
-            
-            # Auto-adjust column widths (limited to first 1000 rows for performance)
-            print("🎨 Auto-adjusting column widths...")
-            for column in output_ws.columns:
-                max_length = 0
-                column_letter = column[0].column_letter
-                
-                # Check only first 1000 rows to save time
-                for i, cell in enumerate(column):
-                    if i > 1000:  # Performance limit
-                        break
-                    try:
-                        cell_length = len(str(cell.value)) if cell.value else 0
-                        if cell_length > max_length:
-                            max_length = cell_length
-                    except:
-                        pass
-                
-                # Set column width with reasonable limits
-                adjusted_width = min(max_length + 2, 50)  # Max width 50 chars
-                output_ws.column_dimensions[column_letter].width = adjusted_width
-            
-            # Save final file
-            print(f"💾 Saving final file: {output_path}")
             output_wb.save(output_path)
             output_wb.close()
-            
-            print("✅ Final Excel file created successfully")
             return output_path
-            
         except Exception as e:
             raise Exception(f"Lỗi tạo Excel trực tiếp: {str(e)}")
     
     def validate_large_file_structure(self, file_path: str, shape_a: str, shape_b: str = None) -> Dict[str, Any]:
-        """Validate large file structure without loading entire file into memory"""
         try:
             import openpyxl
-            
-            print(f"🔍 Validating large file structure: {os.path.basename(file_path)}")
-            
-            # Open in read-only mode for validation
             wb = openpyxl.load_workbook(file_path, read_only=True)
             ws = wb.active
-            
-            # Read header row only
             header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True))
             columns = [str(cell) for cell in header_row if cell is not None]
+            estimated_rows = max(0, (ws.max_row if hasattr(ws, 'max_row') else 0) - 1)
+            wb.close()
             
-            # Get basic file info
-            estimated_rows = ws.max_row - 1 if hasattr(ws, 'max_row') else 0
-            file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
+            # NEW: enforce limit at validation stage
+            over_limit = estimated_rows > self.max_rows_allowed
             
-            wb.close()  # Close immediately
-            
-            # Check required columns based on shape selection
             required_columns_A = self._get_required_columns(shape_a, 'A')
             required_columns_B = self._get_required_columns(shape_b, 'B') if shape_b else []
+            missing_columns = [col for col in (required_columns_A + required_columns_B) if col not in columns]
             
-            missing_columns = []
-            for col in required_columns_A + required_columns_B:
-                if col not in columns:
-                    missing_columns.append(col)
-            
-            # Prepare validation result
-            file_info = {
-                'valid': len(missing_columns) == 0,
-                'file_size_mb': file_size_mb,
+            return {
+                'valid': len(missing_columns) == 0 and not over_limit,
+                'file_size_mb': os.path.getsize(file_path) / (1024 * 1024),
                 'estimated_rows': estimated_rows,
                 'columns': columns,
                 'missing_columns': missing_columns,
                 'recommended_chunk_size': self.estimate_optimal_chunksize(file_path),
-                'validation_method': 'large_file_optimized'
+                'max_rows_allowed': self.max_rows_allowed,
+                'over_row_limit': over_limit,
+                'warning': 'File vượt quá giới hạn 250,000 dòng' if over_limit else ''
             }
-            
-            print(f"📋 Validation complete: {'✅ Valid' if file_info['valid'] else '❌ Invalid'}")
-            return file_info
-            
         except Exception as e:
-            return {
-                'valid': False, 
-                'error': f'Lỗi kiểm tra file: {str(e)}',
-                'validation_method': 'large_file_optimized'
-            }
+            return {'valid': False, 'error': f'Lỗi kiểm tra file: {str(e)}'}
     
     def _get_required_columns(self, shape: str, group: str) -> List[str]:
-        """Get required Excel columns for specific shape and group"""
-        if not shape:
-            return []
-            
         if group == 'A':
-            # Group A column mapping
             mapping = {
                 "Điểm": ["data_A"],
                 "Đường thẳng": ["d_P_data_A", "d_V_data_A"],
@@ -561,8 +394,7 @@ class LargeFileProcessor:
                 "Đường tròn": ["C_data_I1", "C_data_R1"],
                 "Mặt cầu": ["S_data_I1", "S_data_R1"]
             }
-        else:  # Group B
-            # Group B column mapping
+        else:
             mapping = {
                 "Điểm": ["data_B"],
                 "Đường thẳng": ["d_P_data_B", "d_V_data_B"],
@@ -570,16 +402,15 @@ class LargeFileProcessor:
                 "Đường tròn": ["C_data_I2", "C_data_R2"],
                 "Mặt cầu": ["S_data_I2", "S_data_R2"]
             }
-        
         return mapping.get(shape, [])
     
     def get_processing_statistics(self) -> Dict[str, Any]:
-        """Get current processing statistics"""
         return {
             'memory_usage_mb': self.get_memory_usage(),
             'memory_limit_mb': self.max_memory_mb,
             'memory_usage_percent': (self.get_memory_usage() / self.max_memory_mb) * 100,
             'emergency_cleanup_triggered': self.emergency_cleanup,
             'processing_cancelled': self.processing_cancelled,
-            'recommended_max_chunksize': 500 if self.get_memory_usage() > 500 else 1000
+            'recommended_max_chunksize': 500 if self.get_memory_usage() > 500 else 1000,
+            'max_rows_allowed': self.max_rows_allowed
         }
