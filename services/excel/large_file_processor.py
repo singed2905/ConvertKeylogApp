@@ -373,7 +373,7 @@ class LargeFileProcessor:
         if group == 'A':
             if shape_type == "Điểm":
                 data_dict['point_input'] = str(row.get('data_A', '')).strip()
-            elif shape type == "Đường thẳng":
+            elif shape_type == "Đường thẳng":
                 data_dict['line_A1'] = str(row.get('d_P_data_A', '')).strip()
                 data_dict['line_X1'] = str(row.get('d_V_data_A', '')).strip()
             elif shape_type == "Mặt phẳng":
