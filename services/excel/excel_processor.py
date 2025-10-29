@@ -7,13 +7,17 @@ from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, PatternFill
 import re
 from datetime import datetime
+from .large_file_processor import LargeFileProcessor
 
 class ExcelProcessor:
-    """Excel Processor for ConvertKeylogApp - Ported and adapted from TL"""
+    """Excel Processor for ConvertKeylogApp - Enhanced with large file support"""
     
     def __init__(self, config: Dict = None):
         self.config = config or {}
         self.mapping = self._load_mapping()
+        self.large_file_processor = LargeFileProcessor(config)  # NEW: Large file handler
+        self.large_file_threshold_mb = 20  # Files > 20MB use large file processor
+        self.large_file_threshold_rows = 50000  # Files > 50k rows use large file processor
     
     def _load_mapping(self) -> Dict:
         """Load Excel mapping configuration from config or fallback"""
@@ -117,9 +121,45 @@ class ExcelProcessor:
             }
         }
     
-    def read_excel_data(self, file_path: str) -> pd.DataFrame:
-        """Read Excel file and normalize data"""
+    def is_large_file(self, file_path: str) -> Tuple[bool, Dict[str, Any]]:
+        """Check if file is too large for normal processing"""
         try:
+            file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
+            
+            # Quick row count estimation using openpyxl
+            import openpyxl
+            wb = openpyxl.load_workbook(file_path, read_only=True)
+            ws = wb.active
+            estimated_rows = ws.max_row - 1 if hasattr(ws, 'max_row') else 0
+            wb.close()
+            
+            is_large = (file_size_mb > self.large_file_threshold_mb or 
+                       estimated_rows > self.large_file_threshold_rows)
+            
+            return is_large, {
+                'file_size_mb': file_size_mb,
+                'estimated_rows': estimated_rows,
+                'recommended_processor': 'large_file' if is_large else 'normal',
+                'recommended_chunk_size': self.large_file_processor.estimate_optimal_chunksize(file_path)
+            }
+            
+        except Exception as e:
+            return False, {'error': f'Không thể phân tích file: {str(e)}'}
+    
+    def read_excel_data(self, file_path: str) -> pd.DataFrame:
+        """Read Excel file and normalize data - with large file detection"""
+        try:
+            # Check if this is a large file
+            is_large, file_info = self.is_large_file(file_path)
+            
+            if is_large:
+                raise Exception(
+                    f"File quá lớn cho phương thức thông thường!\n"
+                    f"Kích thước: {file_info.get('file_size_mb', 0):.1f}MB\n"
+                    f"Dòng ước tính: {file_info.get('estimated_rows', 0):,}\n\n"
+                    f"Vui lòng sử dụng chế độ xử lý file lớn."
+                )
+            
             df = pd.read_excel(file_path)
             # Normalize column names (remove extra spaces)
             df.columns = df.columns.str.strip()
@@ -147,6 +187,10 @@ class ExcelProcessor:
 
         return len(missing_columns) == 0, missing_columns
     
+    def validate_large_file_structure(self, file_path: str, shape_a: str, shape_b: str = None) -> Dict[str, Any]:
+        """Validate large file structure without loading entire file"""
+        return self.large_file_processor.validate_large_file_structure(file_path, shape_a, shape_b)
+    
     def extract_shape_data(self, row: pd.Series, shape_type: str, group: str) -> Dict:
         """Extract data for specific shape from Excel row"""
         if group == 'A':
@@ -168,6 +212,21 @@ class ExcelProcessor:
                 data_dict[field] = ""
 
         return data_dict
+    
+    def process_large_excel_file(self, file_path: str, shape_a: str, shape_b: str,
+                                operation: str, dimension_a: str, dimension_b: str,
+                                output_path: str, progress_callback: callable = None) -> Tuple[int, int, str]:
+        """Process large Excel files using specialized processor"""
+        try:
+            print(f"🔥 Switching to LARGE FILE MODE for: {os.path.basename(file_path)}")
+            
+            return self.large_file_processor.process_large_excel_safe(
+                file_path, shape_a, shape_b, operation, dimension_a, dimension_b,
+                output_path, progress_callback
+            )
+            
+        except Exception as e:
+            raise Exception(f"Lỗi xử lý file lớn: {str(e)}")
     
     def export_results(self, original_df: pd.DataFrame, encoded_results: List[str], output_path: str) -> str:
         """Export results with Excel formatting"""
@@ -228,8 +287,9 @@ class ExcelProcessor:
                     keylog_col_idx = idx
                     break
 
-            # Apply data formatting
-            for row in range(2, len(df) + 2):
+            # Apply data formatting - limit to first 10k rows for performance
+            max_format_rows = min(len(df) + 2, 10000)
+            for row in range(2, max_format_rows):
                 for col in range(1, len(df.columns) + 1):
                     cell = worksheet.cell(row=row, column=col)
                     
@@ -239,12 +299,18 @@ class ExcelProcessor:
                     else:
                         cell.font = data_font
 
-            # Auto-adjust column widths
-            for column in worksheet.columns:
+            # Auto-adjust column widths - limited for performance
+            for col_idx, column in enumerate(worksheet.columns):
+                if col_idx > 20:  # Limit to first 20 columns
+                    break
+                    
                 max_length = 0
                 column_letter = get_column_letter(column[0].column)
 
-                for cell in column:
+                # Check only first 100 rows for performance
+                for i, cell in enumerate(column):
+                    if i > 100:
+                        break
                     try:
                         if len(str(cell.value)) > max_length:
                             max_length = len(str(cell.value))
@@ -258,42 +324,108 @@ class ExcelProcessor:
             print(f"Warning: Could not format worksheet: {e}")
     
     def get_total_rows(self, file_path: str) -> int:
-        """Get total number of rows in Excel file"""
+        """Get total number of rows in Excel file - optimized for large files"""
         try:
-            df = pd.read_excel(file_path)
-            return len(df)
+            # For potentially large files, use openpyxl for efficiency
+            file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
+            
+            if file_size_mb > 10:  # Large file - use openpyxl
+                import openpyxl
+                wb = openpyxl.load_workbook(file_path, read_only=True)
+                ws = wb.active
+                total_rows = ws.max_row - 1 if hasattr(ws, 'max_row') else 0
+                wb.close()
+                return total_rows
+            else:
+                # Small file - use pandas
+                df = pd.read_excel(file_path)
+                return len(df)
         except Exception:
             return 0
     
     def read_excel_data_chunked(self, file_path: str, chunksize: int = 1000):
-        """Read Excel data in chunks for large files"""
+        """Read Excel data in chunks - Enhanced for large files"""
         try:
-            # For Excel files, we need to read the entire file first
-            # then yield chunks - pandas doesn't support chunked Excel reading
-            df = pd.read_excel(file_path)
+            # Check if we need large file processing
+            is_large, file_info = self.is_large_file(file_path)
             
-            # Yield chunks
-            for i in range(0, len(df), chunksize):
-                yield df.iloc[i:i + chunksize]
+            if is_large:
+                # Use streaming processor for very large files
+                print(f"🔥 Large file detected - using streaming processor")
+                return self.large_file_processor.read_excel_streaming(file_path, chunksize)
+            else:
+                # Use pandas chunking for smaller files
+                df = pd.read_excel(file_path)
+                # Yield chunks
+                for i in range(0, len(df), chunksize):
+                    yield df.iloc[i:i + chunksize]
         except Exception as e:
             raise Exception(f"Không thể đọc file Excel theo chunk: {str(e)}")
     
     def get_file_info(self, file_path: str) -> Dict[str, Any]:
-        """Get information about Excel file"""
+        """Get information about Excel file - Enhanced with large file detection"""
         try:
-            df = self.read_excel_data(file_path)
-            file_name = os.path.basename(file_path)
+            # Check if large file first
+            is_large, large_file_info = self.is_large_file(file_path)
+            
+            if is_large:
+                # Use openpyxl for large file info
+                return self._get_large_file_info(file_path, large_file_info)
+            else:
+                # Use pandas for normal files
+                df = self.read_excel_data(file_path)
+                file_name = os.path.basename(file_path)
 
-            return {
-                'file_name': file_name,
-                'total_rows': len(df),
-                'total_columns': len(df.columns),
-                'columns': list(df.columns),
-                'file_size': os.path.getsize(file_path),
-                'first_few_rows': df.head(3).to_dict('records') if len(df) > 0 else []
-            }
+                return {
+                    'file_name': file_name,
+                    'total_rows': len(df),
+                    'total_columns': len(df.columns),
+                    'columns': list(df.columns),
+                    'file_size': os.path.getsize(file_path),
+                    'file_size_mb': os.path.getsize(file_path) / (1024 * 1024),
+                    'is_large_file': False,
+                    'first_few_rows': df.head(3).to_dict('records') if len(df) > 0 else []
+                }
         except Exception as e:
             raise Exception(f"Không thể đọc thông tin file: {str(e)}")
+    
+    def _get_large_file_info(self, file_path: str, large_file_info: Dict) -> Dict[str, Any]:
+        """Get file info for large files without loading data"""
+        try:
+            import openpyxl
+            
+            wb = openpyxl.load_workbook(file_path, read_only=True)
+            ws = wb.active
+            
+            # Get header
+            header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True))
+            columns = [str(cell) for cell in header_row if cell is not None]
+            
+            # Get sample rows (first 3 data rows)
+            sample_rows = []
+            for i, row in enumerate(ws.iter_rows(min_row=2, max_row=5, values_only=True)):
+                if i >= 3:
+                    break
+                row_dict = {col: str(cell) if cell is not None else "" for col, cell in zip(columns, row)}
+                sample_rows.append(row_dict)
+            
+            wb.close()
+            
+            return {
+                'file_name': os.path.basename(file_path),
+                'total_rows': large_file_info.get('estimated_rows', 0),
+                'total_columns': len(columns),
+                'columns': columns,
+                'file_size': os.path.getsize(file_path),
+                'file_size_mb': large_file_info.get('file_size_mb', 0),
+                'is_large_file': True,
+                'recommended_chunk_size': large_file_info.get('recommended_chunk_size', 500),
+                'first_few_rows': sample_rows,
+                'warning': 'File lớn - khuyến nghị dùng xử lý chunked'
+            }
+            
+        except Exception as e:
+            raise Exception(f"Không thể phân tích file lớn: {str(e)}")
     
     def create_geometry_template(self, shape_a: str, shape_b: str, output_path: str) -> str:
         """Create Excel template for geometry data input"""
@@ -393,14 +525,20 @@ class ExcelProcessor:
             print(f"Warning: Could not format template: {e}")
     
     def validate_data_quality(self, df: pd.DataFrame, shape_a: str, shape_b: str = None) -> Dict[str, Any]:
-        """Validate data quality in Excel file"""
+        """Validate data quality in Excel file - optimized for large files"""
+        # For large DataFrames, limit validation to first 1000 rows
+        sample_size = min(1000, len(df))
+        sample_df = df.head(sample_size) if len(df) > 1000 else df
+        
         quality_info = {
             'valid': True,
             'total_rows': len(df),
+            'sample_size': sample_size,
             'rows_with_data': 0,
             'rows_with_errors': 0,
             'missing_columns': [],
-            'data_issues': []
+            'data_issues': [],
+            'is_sample_validation': len(df) > 1000
         }
         
         # Check structure first
@@ -410,9 +548,9 @@ class ExcelProcessor:
             quality_info['missing_columns'] = missing_cols
             return quality_info
         
-        # Check each row
-        for row_index in range(len(df)):
-            row = df.iloc[row_index]
+        # Check sample rows for data quality
+        for row_index in range(len(sample_df)):
+            row = sample_df.iloc[row_index]
             has_data = False
             row_issues = []
             
@@ -437,15 +575,17 @@ class ExcelProcessor:
             
             if row_issues:
                 quality_info['rows_with_errors'] += 1
-                quality_info['data_issues'].append({
-                    'row': row_index + 2,  # +2 for Excel row number (1-indexed + header)
-                    'issues': row_issues
-                })
+                # Only store first 10 error samples to avoid memory issues
+                if len(quality_info['data_issues']) < 10:
+                    quality_info['data_issues'].append({
+                        'row': row_index + 2,  # +2 for Excel row number (1-indexed + header)
+                        'issues': row_issues[:3]  # Limit to first 3 issues per row
+                    })
         
         return quality_info
     
     def _validate_shape_data(self, data: Dict, shape: str, group_name: str) -> List[str]:
-        """Validate data for specific shape"""
+        """Validate data for specific shape - simplified for performance"""
         issues = []
         
         if shape == "Điểm":
@@ -454,71 +594,33 @@ class ExcelProcessor:
                 coords = point_input.split(',')
                 if len(coords) < 2:
                     issues.append(f"{group_name}: Điểm cần ít nhất 2 tọa độ")
-                for coord in coords[:3]:  # Max 3 coords
-                    if coord.strip() and not self._is_valid_number(coord.strip()):
-                        issues.append(f"{group_name}: Tọa độ không hợp lệ: '{coord}'")
         
         elif shape == "Đường thẳng":
             line_A = data.get('line_A1') or data.get('line_A2', '')
-            line_X = data.get('line_X1') or data.get('line_X2', '')
-            
             if line_A:
                 coords = line_A.split(',')
                 if len(coords) != 3:
-                    issues.append(f"{group_name}: Điểm đường thẳng cần đúng 3 tọa độ")
-                for coord in coords:
-                    if coord.strip() and not self._is_valid_number(coord.strip()):
-                        issues.append(f"{group_name}: Tọa độ điểm không hợp lệ: '{coord}'")
-            
-            if line_X:
-                coords = line_X.split(',')
-                if len(coords) != 3:
-                    issues.append(f"{group_name}: Vector chỉ phương cần đúng 3 thành phần")
-                for coord in coords:
-                    if coord.strip() and not self._is_valid_number(coord.strip()):
-                        issues.append(f"{group_name}: Vector không hợp lệ: '{coord}'")
+                    issues.append(f"{group_name}: Đường thẳng cần 3 tọa độ")
         
         elif shape == "Mặt phẳng":
             coeffs = [data.get('plane_a', ''), data.get('plane_b', ''), 
                      data.get('plane_c', ''), data.get('plane_d', '')]
             
-            valid_coeffs = 0
-            for i, coeff in enumerate(coeffs):
-                if coeff and coeff.strip():
-                    if not self._is_valid_expression(coeff.strip()):
-                        issues.append(f"{group_name}: Hệ số {['a','b','c','d'][i]} không hợp lệ: '{coeff}'")
-                    else:
-                        valid_coeffs += 1
-            
+            valid_coeffs = sum(1 for coeff in coeffs if coeff and coeff.strip())
             if valid_coeffs == 0:
-                issues.append(f"{group_name}: Mặt phẳng cần ít nhất 1 hệ số khác 0")
+                issues.append(f"{group_name}: Mặt phẳng cần ít nhất 1 hệ số")
         
         elif shape in ["Đường tròn", "Mặt cầu"]:
             center_key = 'circle_center' if shape == "Đường tròn" else 'sphere_center'
             radius_key = 'circle_radius' if shape == "Đường tròn" else 'sphere_radius'
             
-            center = data.get(center_key, '')
             radius = data.get(radius_key, '')
-            
-            if center:
-                coords = center.split(',')
-                expected_coords = 2 if shape == "Đường tròn" else 3
-                if len(coords) != expected_coords:
-                    issues.append(f"{group_name}: Tâm {shape.lower()} cần đúng {expected_coords} tọa độ")
-                for coord in coords:
-                    if coord.strip() and not self._is_valid_number(coord.strip()):
-                        issues.append(f"{group_name}: Tọa độ tâm không hợp lệ: '{coord}'")
-            
             if radius:
-                if not self._is_valid_expression(radius.strip()):
-                    issues.append(f"{group_name}: Bán kính không hợp lệ: '{radius}'")
-                else:
-                    # Check if radius is positive (basic check)
-                    try:
-                        if float(radius) <= 0:
-                            issues.append(f"{group_name}: Bán kính phải > 0")
-                    except:
-                        pass  # Complex expressions can't be easily validated
+                try:
+                    if float(radius) <= 0:
+                        issues.append(f"{group_name}: Bán kính phải > 0")
+                except:
+                    pass
         
         return issues
     
@@ -539,22 +641,7 @@ class ExcelProcessor:
         if self._is_valid_number(value):
             return True
         
-        # Check for mathematical expressions
-        math_patterns = [
-            r'^[0-9+\-*/().\s]+$',  # Basic arithmetic
-            r'sqrt\([^)]+\)',  # Square root
-            r'sin\([^)]+\)',   # Sine
-            r'cos\([^)]+\)',   # Cosine
-            r'tan\([^)]+\)',   # Tangent
-            r'pi',             # Pi
-            r'e',              # Euler's number
-            r'log\([^)]+\)',   # Logarithm
-            r'ln\([^)]+\)',    # Natural log
-            r'\\frac\{[^}]+\}\{[^}]+\}',  # LaTeX fractions
-        ]
-        
-        for pattern in math_patterns:
-            if re.search(pattern, value, re.IGNORECASE):
-                return True
-        
-        return False
+        # Basic expression validation (simplified for performance)
+        math_chars = set('0123456789+-*/().\\sqrtsincotan')
+        clean_value = value.lower().replace(' ', '')
+        return all(c in math_chars for c in clean_value)
