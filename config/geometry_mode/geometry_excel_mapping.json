@@ -1,0 +1,192 @@
+{
+  "group_a_mapping": {
+    "Điểm": {
+      "description": "Ánh xạ dữ liệu điểm cho nhóm A - 1 cột duy nhất",
+      "columns": {
+        "point_input": {
+          "excel_column": "data_A",
+          "description": "Cột chứa dữ liệu điểm A (x,y hoặc x,y,z)",
+          "required": true
+        }
+      },
+      "required_columns": ["data_A"],
+      "total_columns": 1
+    },
+    "Đường thẳng": {
+      "description": "Ánh xạ dữ liệu đường thẳng cho nhóm A - 2 cột",
+      "columns": {
+        "line_A1": {
+          "excel_column": "d_P_data_A",
+          "description": "Cột chứa điểm thuộc đường thẳng A (A1,B1,C1)",
+          "required": true
+        },
+        "line_X1": {
+          "excel_column": "d_V_data_A",
+          "description": "Cột chứa vector chỉ phương đường thẳng A (X1,Y1,Z1)",
+          "required": true
+        }
+      },
+      "required_columns": ["d_P_data_A", "d_V_data_A"],
+      "total_columns": 2
+    },
+    "Mặt phẳng": {
+      "description": "Ánh xạ dữ liệu mặt phẳng cho nhóm A - 4 cột",
+      "columns": {
+        "plane_a": {
+          "excel_column": "P1_a",
+          "description": "Hệ số a của mặt phẳng A",
+          "required": true
+        },
+        "plane_b": {
+          "excel_column": "P1_b",
+          "description": "Hệ số b của mặt phẳng A",
+          "required": true
+        },
+        "plane_c": {
+          "excel_column": "P1_c",
+          "description": "Hệ số c của mặt phẳng A",
+          "required": true
+        },
+        "plane_d": {
+          "excel_column": "P1_d",
+          "description": "Hệ số d của mặt phẳng A",
+          "required": true
+        }
+      },
+      "required_columns": ["P1_a", "P1_b", "P1_c", "P1_d"],
+      "total_columns": 4
+    },
+    "Đường tròn": {
+      "description": "Ánh xạ dữ liệu đường tròn cho nhóm A - 2 cột",
+      "columns": {
+        "circle_center": {
+          "excel_column": "C_data_I1",
+          "description": "Tọa độ tâm đường tròn A",
+          "required": true
+        },
+        "circle_radius": {
+          "excel_column": "C_data_R1",
+          "description": "Bán kính đường tròn A",
+          "required": true
+        }
+      },
+      "required_columns": ["C_data_I1", "C_data_R1"],
+      "total_columns": 2
+    },
+    "Mặt cầu": {
+      "description": "Ánh xạ dữ liệu mặt cầu cho nhóm A - 2 cột",
+      "columns": {
+        "sphere_center": {
+          "excel_column": "S_data_I1",
+          "description": "Tọa độ tâm mặt cầu A",
+          "required": true
+        },
+        "sphere_radius": {
+          "excel_column": "S_data_R1",
+          "description": "Bán kính mặt cầu A",
+          "required": true
+        }
+      },
+      "required_columns": ["S_data_I1", "S_data_R1"],
+      "total_columns": 2
+    }
+  },
+  "group_b_mapping": {
+    "Điểm": {
+      "description": "Ánh xạ dữ liệu điểm cho nhóm B - 1 cột duy nhất",
+      "columns": {
+        "point_input": {
+          "excel_column": "data_B",
+          "description": "Cột chứa dữ liệu điểm B",
+          "required": true
+        }
+      },
+      "required_columns": ["data_B"],
+      "total_columns": 1
+    },
+    "Đường thẳng": {
+      "description": "Ánh xạ dữ liệu đường thẳng cho nhóm B - 2 cột",
+      "columns": {
+        "line_A2": {
+          "excel_column": "d_P_data_B",
+          "description": "Điểm thuộc đường thẳng B",
+          "required": true
+        },
+        "line_X2": {
+          "excel_column": "d_V_data_B",
+          "description": "Vector chỉ phương đường thẳng B",
+          "required": true
+        }
+      },
+      "required_columns": ["d_P_data_B", "d_V_data_B"],
+      "total_columns": 2
+    },
+    "Mặt phẳng": {
+      "description": "Ánh xạ dữ liệu mặt phẳng cho nhóm B - 4 cột",
+      "columns": {
+        "plane_a": {
+          "excel_column": "P2_a",
+          "description": "Hệ số a của mặt phẳng B",
+          "required": true
+        },
+        "plane_b": {
+          "excel_column": "P2_b",
+          "description": "Hệ số b của mặt phẳng B",
+          "required": true
+        },
+        "plane_c": {
+          "excel_column": "P2_c",
+          "description": "Hệ số c của mặt phẳng B",
+          "required": true
+        },
+        "plane_d": {
+          "excel_column": "P2_d",
+          "description": "Hệ số d của mặt phẳng B",
+          "required": true
+        }
+      },
+      "required_columns": ["P2_a", "P2_b", "P2_c", "P2_d"],
+      "total_columns": 4
+    },
+    "Đường tròn": {
+      "description": "Ánh xạ dữ liệu đường tròn cho nhóm B - 2 cột",
+      "columns": {
+        "circle_center": {
+          "excel_column": "C_data_I2",
+          "description": "Tọa độ tâm đường tròn B",
+          "required": true
+        },
+        "circle_radius": {
+          "excel_column": "C_data_R2",
+          "description": "Bán kính đường tròn B",
+          "required": true
+        }
+      },
+      "required_columns": ["C_data_I2", "C_data_R2"],
+      "total_columns": 2
+    },
+    "Mặt cầu": {
+      "description": "Ánh xạ dữ liệu mặt cầu cho nhóm B - 2 cột",
+      "columns": {
+        "sphere_center": {
+          "excel_column": "S_data_I2",
+          "description": "Tọa độ tâm mặt cầu B",
+          "required": true
+        },
+        "sphere_radius": {
+          "excel_column": "S_data_R2",
+          "description": "Bán kính mặt cầu B",
+          "required": true
+        }
+      },
+      "required_columns": ["S_data_I2", "S_data_R2"],
+      "total_columns": 2
+    }
+  },
+  "metadata": {
+    "version": "1.0",
+    "description": "Ánh xạ dữ liệu Excel cho Geometry Mode - ConvertKeylogApp",
+    "extracted_from": "TL/config/excel_mapping.json",
+    "last_updated": "2025-10-29"
+  }
+}
