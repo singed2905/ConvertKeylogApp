@@ -404,7 +404,7 @@ Hệ số c: 6
 
 Nếu vẫn gặp vấn đề sau khi thử các giải pháp trên:
 
-1. **GitHub Issues**: https://github.com/singed2905/ConvertKeylogApp/issues
+1. **GitHub Issues**: Phòng KTCN-RD
 2. **Mô tả chi tiết**: Lỗi gì, đang làm gì, file dữ liệu như thế nào
 3. **Screenshots**: Chụp màn hình lỗi nếu có thể
 4. **System info**: OS, Python version, RAM size

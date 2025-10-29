@@ -37,10 +37,6 @@ ConvertKeylogApp là một ứng dụng desktop Python với giao diện Tkinter
 pip install pandas openpyxl tkinter psutil
 ```
 
-### Chảy ứng dụng
-```bash
-python main.py
-```
 
 ## 📖 **Cách sử dụng**
 
@@ -151,28 +147,9 @@ ConvertKeylogApp/
 - **Copy to clipboard**: 1-click copy kết quả
 - **Modern design**: Clean, intuitive interface
 
-## 🧪 **Testing**
-
-### Test cơ bản
-```bash
-python tests/test_geometry_basic.py
-```
-
-### Test Excel tích hợp
-```bash
-python tests/test_excel_full.py
-```
-
-### Test service nhanh
-```bash
-python tests/quick_run_geometry.py
-```
-
 ## 📋 **Phiên bản hỗ trợ**
 
-- **fx799, fx800, fx801, fx802, fx803**: Các dòng máy tính phổ biến
-- **Auto-detection**: Tự động phát hiện phiên bản phù hợp
-- **Config-driven**: Dễ dàng thêm phiên bản mới
+- **fx799, fx800**: Các dòng máy tính phổ biến
 
 ## 🐛 **Troubleshooting**
 
@@ -183,23 +160,15 @@ python tests/quick_run_geometry.py
 - **"Excel không đọc được"**: Đảm bảo file .xlsx/.xls không bị corrupt
 
 ### Performance tips
-- Đóng các ứng dụng khác khi xử lý Excel lớn (>10MB)
 - Sử dụng template để đảm bảo format đúng
 - Backup dữ liệu trước khi xử lý batch lớn
 
-## 🤝 **Đóng góp**
-
-Project được phát triển bởi đội ngũ ConvertKeylogApp. Mọi đóng góp và feedback đều được chào đón.
-
 ## 📜 **License**
 
-MIT License - Xem file LICENSE để biết chi tiết.
+- © Copyright 15/07/2025
+- Phần mềm thuộc bản quyền của phòng KTCN-RD
 
-## 📞 **Liên hệ**
 
-- **GitHub Issues**: Báo lỗi và góp ý
-- **Repository**: https://github.com/singed2905/ConvertKeylogApp
 
 ---
 
-**🎯 ConvertKeylogApp v2.0 - Giải pháp hoàn chỉnh cho chuyển đổi dữ liệu toán học!**
