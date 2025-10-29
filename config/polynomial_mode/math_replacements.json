@@ -1,0 +1,116 @@
+{
+  "math_function_replacements": {
+    "operators": {
+      "^": {
+        "python_equivalent": "**",
+        "description": "Power operator - converts LaTeX/math notation to Python",
+        "example": "2^3 → 2**3",
+        "category": "arithmetic"
+      }
+    },
+    "functions": {
+      "sqrt": {
+        "python_equivalent": "math.sqrt",
+        "description": "Square root function",
+        "category": "algebraic"
+      },
+      "sin": {
+        "python_equivalent": "math.sin",
+        "description": "Sine trigonometric function",
+        "category": "trigonometric"
+      },
+      "cos": {
+        "python_equivalent": "math.cos",
+        "description": "Cosine trigonometric function",
+        "category": "trigonometric"
+      },
+      "tan": {
+        "python_equivalent": "math.tan",
+        "description": "Tangent trigonometric function",
+        "category": "trigonometric"
+      },
+      "log": {
+        "python_equivalent": "math.log10",
+        "description": "Base-10 logarithm function",
+        "category": "logarithmic"
+      },
+      "ln": {
+        "python_equivalent": "math.log",
+        "description": "Natural logarithm function (base e)",
+        "category": "logarithmic"
+      },
+      "abs": {
+        "python_equivalent": "abs",
+        "description": "Absolute value function",
+        "category": "algebraic"
+      },
+      "exp": {
+        "python_equivalent": "math.exp",
+        "description": "Exponential function (e^x)",
+        "category": "exponential"
+      }
+    },
+    "constants": {
+      "pi": {
+        "python_equivalent": "math.pi",
+        "description": "Pi mathematical constant",
+        "value": 3.141592653589793
+      },
+      "e": {
+        "python_equivalent": "math.e",
+        "description": "Euler's number mathematical constant",
+        "value": 2.718281828459045
+      }
+    }
+  },
+  "latex_symbol_replacements": {
+    "mathematical_operators": {
+      "\\\\pi": {
+        "python_equivalent": "math.pi",
+        "description": "LaTeX pi symbol"
+      },
+      "\\\\cdot": {
+        "python_equivalent": "*",
+        "description": "LaTeX multiplication dot"
+      },
+      "\\\\times": {
+        "python_equivalent": "*",
+        "description": "LaTeX multiplication cross"
+      },
+      "\\\\div": {
+        "python_equivalent": "/",
+        "description": "LaTeX division symbol"
+      }
+    },
+    "delimiters": {
+      "\\\\left\\(": {
+        "python_equivalent": "(",
+        "description": "LaTeX left parenthesis"
+      },
+      "\\\\right\\)": {
+        "python_equivalent": ")",
+        "description": "LaTeX right parenthesis"
+      },
+      "\\\\left\\{": {
+        "python_equivalent": "(",
+        "description": "LaTeX left brace"
+      },
+      "\\\\right\\}": {
+        "python_equivalent": ")",
+        "description": "LaTeX right brace"
+      }
+    }
+  },
+  "fraction_patterns": {
+    "latex_fraction_regex": "\\\\frac\\{([^{}]+)\\}\\{([^{}]+)\\}",
+    "replacement_pattern": "({numerator})/({denominator})",
+    "recursive_processing": true,
+    "description": "Pattern for converting LaTeX fractions to Python division"
+  },
+  "metadata": {
+    "version": "1.0",
+    "description": "Mathematical expression replacements for LaTeX to Python conversion - ConvertKeylogApp",
+    "extracted_from": "TL/config/math_replacements.json",
+    "last_updated": "2025-10-29"
+  }
+}
