@@ -2,12 +2,15 @@ import tkinter as tk
 from tkinter import messagebox
 
 class GeometryView:
-    def __init__(self, window):
+    def __init__(self, window, config=None):
         self.window = window
         self.window.title("Geometry Mode")
         self.window.geometry("700x700")
         self.window.configure(bg="#F8F9FA")
 
+        # Lưu config được truyền vào
+        self.config = config or {}
+        
         # Biến và trạng thái
         self._initialize_variables()
         self._setup_ui()
@@ -20,9 +23,35 @@ class GeometryView:
         self.kich_thuoc_B_var = tk.StringVar(value="3")
         self.pheptoan_var = tk.StringVar(value="")
 
-        # Phên bản mặc định
-        self.phien_ban_list = ["Phiên bản 1.0", "Phiên bản 2.0", "Phiên bản 3.0"]
+        # Phên bản mặc định - lấy từ config hoặc fallback
+        self.phien_ban_list = self._get_available_versions()
         self.phien_ban_var = tk.StringVar(value=self.phien_ban_list[0])
+    
+    def _get_available_versions(self):
+        """Lấy danh sách phiên bản từ config hoặc sử dụng mặc định"""
+        try:
+            if self.config and 'common' in self.config and 'versions' in self.config['common']:
+                versions_data = self.config['common']['versions']
+                if 'versions' in versions_data:
+                    return [f"Phiên bản {v}" for v in versions_data['versions']]
+        except Exception as e:
+            print(f"Warning: Không thể load versions từ config: {e}")
+        
+        # Fallback nếu không có config
+        return ["Phiên bản fx799", "Phiên bản fx880", "Phiên bản fx801"]
+    
+    def _get_available_operations(self):
+        """Lấy danh sách phép toán từ config hoặc sử dụng mặc định"""
+        try:
+            if self.config and 'geometry' in self.config and 'operations' in self.config['geometry']:
+                operations_data = self.config['geometry']['operations']
+                if 'operations' in operations_data:
+                    return list(operations_data['operations'].keys())
+        except Exception as e:
+            print(f"Warning: Không thể load operations từ config: {e}")
+        
+        # Fallback nếu không có config
+        return ["Tương giao", "Khoảng cách", "Diện tích", "Thể tích", "PT đường thẳng"]
 
     def _setup_ui(self):
         """Setup giao diện chính"""
@@ -67,16 +96,16 @@ class GeometryView:
         logo_frame.pack(side="top", fill="x")
         tk.Label(logo_frame, text="🧠", font=("Arial", 20),
                  bg=HEADER_COLORS["primary"], fg=HEADER_COLORS["text"]).pack(side="left")
-        tk.Label(logo_frame, text="Geometry Mode", font=("Arial", 16, "bold"),
+        tk.Label(logo_frame, text="Geometry Mode v2.0", font=("Arial", 16, "bold"),
                  bg=HEADER_COLORS["primary"], fg=HEADER_COLORS["text"]).pack(side="left", padx=(5, 20))
 
-        # Operation selector
+        # Operation selector - lấy từ config
         operation_frame = tk.Frame(left_section, bg=HEADER_COLORS["primary"])
         operation_frame.pack(side="top", fill="x", pady=(5, 0))
         tk.Label(operation_frame, text="Phép toán:", font=("Arial", 10),
                  bg=HEADER_COLORS["primary"], fg=HEADER_COLORS["text"]).pack(side="left")
 
-        operations = ["Tương giao", "Khoảng cách", "Diện tích", "Thể tích", "PT đường thẳng"]
+        operations = self._get_available_operations()
         self.operation_menu = tk.OptionMenu(operation_frame, self.pheptoan_var, *operations)
         self.operation_menu.config(
             bg=HEADER_COLORS["secondary"], fg=HEADER_COLORS["text"],
@@ -99,10 +128,15 @@ class GeometryView:
             width=15, relief="flat", borderwidth=0
         )
         self.version_menu.pack(side="left", padx=(5, 0))
+        
+        # Config status indicator
+        status_text = "Config: ✅ Loaded" if self.config else "Config: ⚠️ Fallback"
+        tk.Label(center_section, text=status_text, font=("Arial", 8),
+                bg=HEADER_COLORS["primary"], fg=HEADER_COLORS["text"]).pack(side="bottom")
 
     def _setup_dropdowns(self, parent):
         """Setup dropdown chọn nhóm"""
-        shapes = ["Diểm", "Đường thẳng", "Mặt phẳng", "Đường tròn", "Mặt cầu"]
+        shapes = ["Điểm", "Đường thẳng", "Mặt phẳng", "Đường tròn", "Mặt cầu"]
 
         self.label_A = tk.Label(parent, text="Chọn nhóm A:", bg="#F8F9FA", font=("Arial", 10))
         self.label_A.grid(row=0, column=0, padx=5, pady=5, sticky="w")
@@ -171,7 +205,7 @@ class GeometryView:
     def _setup_control_frame(self):
         """Setup control frame với buttons và result display"""
         self.frame_tong = tk.LabelFrame(
-            self.main_container, text="🎉 KẾ4T QUẢ & ĐIỀU KHIỂN",
+            self.main_container, text="🎉 KẾT QUẢ & ĐIỀU KHIỂN",
             bg="#FFFFFF", font=("Arial", 10, "bold")
         )
         self.frame_tong.grid(row=4, column=0, columnspan=4, padx=10, pady=10, sticky="we")
@@ -219,11 +253,13 @@ class GeometryView:
 
     def _show_ui_only_message(self):
         """Hiện thông báo UI only"""
-        self.entry_tong.insert(tk.END, "Giao diện Geometry Mode - Chỉ demo UI, không có logic xử lý")
+        config_info = "Config loaded successfully" if self.config else "Using fallback config"
+        message = f"Geometry Mode v2.0 - Chỉ demo UI, không có logic xử lý\n{config_info}"
+        self.entry_tong.insert(tk.END, message)
 
     def _placeholder_action(self):
         """Hành động placeholder"""
-        messagebox.showinfo("Thông báo", "Chức năng đang phát triển. Chỉ là giao diện!")
+        messagebox.showinfo("Thông báo", "Chức năng đang phát triển. Chỉ là giao diện v2.0!")
 
 
 if __name__ == "__main__":
