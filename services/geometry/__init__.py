@@ -1,2 +1,3 @@
-# Geometry services package
-# Contains all geometry-related models, operations, and services
+from .geometry_service import GeometryService
+
+__all__ = ["GeometryService"]
