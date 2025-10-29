@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 class PolynomialEquationView:
-    def __init__(self, window):
+    def __init__(self, window, config=None):
         self.window = window
         self.window.title("Polynomial Equation Mode - Giải Phương Trình Bậc 2, 3, 4")
         self.window.geometry("900x1300")
@@ -15,9 +15,12 @@ class PolynomialEquationView:
         self.window.grid_rowconfigure(0, weight=1)
         self.window.grid_columnconfigure(0, weight=1)
 
+        # Lưu config được truyền vào
+        self.config = config or {}
+
         # Biến giao diện
         self.bac_phuong_trinh_var = tk.StringVar(value="2")
-        self.phien_ban_var = tk.StringVar(value="fx799")
+        self.phien_ban_var = tk.StringVar()
 
         # Biến lưu trữ các ô nhập liệu và kết quả
         self.coefficient_entries = []
@@ -27,12 +30,36 @@ class PolynomialEquationView:
         self.is_imported_mode = False
         self.has_manual_data = False
 
-        # Load danh sách phiên bản
-        self.phien_ban_list = ["fx799", "fx991", "fx570", "fx580", "fx115"]
+        # Load danh sách phiên bản từ config
+        self.phien_ban_list = self._get_available_versions()
+        self.phien_ban_var.set(self.phien_ban_list[0] if self.phien_ban_list else "fx799")
 
         self._setup_ui()
         self._update_input_fields()
         self._update_button_visibility()
+    
+    def _get_available_versions(self):
+        """Lấy danh sách phiên bản từ config hoặc sử dụng mặc định"""
+        try:
+            if self.config and 'common' in self.config and 'versions' in self.config['common']:
+                versions_data = self.config['common']['versions']
+                if 'versions' in versions_data:
+                    return versions_data['versions']
+        except Exception as e:
+            print(f"Warning: Không thể load versions từ config: {e}")
+        
+        # Fallback nếu không có config
+        return ["fx799", "fx991", "fx570", "fx580", "fx115"]
+    
+    def _get_polynomial_config(self):
+        """Lấy polynomial config từ config"""
+        try:
+            if self.config and 'polynomial' in self.config:
+                return self.config['polynomial']
+        except Exception as e:
+            print(f"Warning: Không thể load polynomial config: {e}")
+        
+        return None
 
     def _setup_ui(self):
         """Setup giao diện chính"""
@@ -52,10 +79,10 @@ class PolynomialEquationView:
         # === NHẬP HỆ SỐ ===
         self._create_input_section(main_container)
 
-        # === KẾ4T QUẢ NGHIỆM ===
+        # === KẾT QUẢ NGHIỆM ===
         self._create_roots_section(main_container)
 
-        # === KẾ4T QUẢ TỔNG ===
+        # === KẾT QUẢ TỔNG ===
         self._create_final_result_section(main_container)
 
         # === CONTROL BUTTONS ===
@@ -85,16 +112,18 @@ class PolynomialEquationView:
 
         title_label = tk.Label(
             title_frame,
-            text="POLYNOMIAL EQUATION MODE",
+            text="POLYNOMIAL EQUATION MODE v2.0",
             font=("Arial", 18, "bold"),
             bg="#1E3A8A",
             fg="white"
         )
         title_label.pack(side="left", pady=20)
 
+        # Config status trong header
+        config_status = "Config: ✅ Loaded" if self.config else "Config: ⚠️ Fallback"
         subtitle_label = tk.Label(
             title_frame,
-            text="Giải phương trình bậc 2, 3, 4 với mã hóa cho máy tính",
+            text=f"Giải phương trình bậc cao với mã hóa • {config_status}",
             font=("Arial", 11),
             bg="#1E3A8A",
             fg="#B3D9FF"
@@ -105,7 +134,7 @@ class PolynomialEquationView:
         """Tạo panel điều khiển chính"""
         control_frame = tk.LabelFrame(
             parent,
-            text="⚙️ THIỂT LẬP PHƯNG TRÌNH",
+            text="⚙️ THIẾ4T LẬP PHƯNG TRÌNH",
             font=("Arial", 12, "bold"),
             bg="#FFFFFF",
             fg="#1E3A8A",
@@ -171,9 +200,22 @@ class PolynomialEquationView:
         )
         phien_ban_menu.pack(side="left", padx=10)
         phien_ban_menu.bind("<<ComboboxSelected>>", self._on_phien_ban_changed)
+        
+        # Thông tin config
+        poly_config = self._get_polynomial_config()
+        mapping_count = len(poly_config.get('mapping', {}).get('latex_to_calculator_mappings', [])) if poly_config else 0
+        config_info = f"Mapping rules: {mapping_count}" if mapping_count > 0 else "No mapping config"
+        
+        tk.Label(
+            row2,
+            text=config_info,
+            font=("Arial", 9),
+            bg="#FFFFFF",
+            fg="#666666"
+        ).pack(side="right", padx=20)
 
     def _create_guide_section(self, parent):
-        """Tạo section hướng dẫn"""
+        """Tạo section hưỚng dẫn"""
         guide_frame = tk.LabelFrame(
             parent,
             text="💡 HƯỚNG DẪN NHẬP LIỆU",
@@ -248,7 +290,7 @@ class PolynomialEquationView:
         """Tạo section kết quả tổng"""
         self.final_frame = tk.LabelFrame(
             parent,
-            text="📦 KẾ4T QUẢ TỔNG (CHO MÁY TÍNH)",
+            text="📦 KẾT QUẢ TỔNG (CHO MÁY TÍNH)",
             font=("Arial", 12, "bold"),
             bg="#FFFFFF",
             fg="#2E7D32",
@@ -267,7 +309,10 @@ class PolynomialEquationView:
             fg="#2E7D32"
         )
         self.final_result_text.pack(padx=15, pady=12, fill="x")
-        self.final_result_text.insert("1.0", "Chưa có kết quả tổng")
+        
+        # Hiển thị thông tin config
+        config_info = "Config loaded successfully" if self.config else "Using fallback config"
+        self.final_result_text.insert("1.0", f"Polynomial Mode v2.0 - {config_info}")
 
     def _create_control_buttons(self, parent):
         """Tạo các nút điều khiển"""
@@ -355,7 +400,7 @@ class PolynomialEquationView:
         # Footer
         footer_label = tk.Label(
             parent,
-            text="Polynomial Equation Mode • Hỗ trợ giải phương trình bậc cao • Mã hóa tự động",
+            text="Polynomial Equation Mode v2.0 • Hỗ trợ giải phương trình bậc cao • Mã hóa tự động • Config-driven",
             font=("Arial", 8),
             bg="#F0F8FF",
             fg="#666666"
@@ -383,7 +428,15 @@ class PolynomialEquationView:
     def _on_phien_ban_changed(self, event=None):
         """Xử lý khi thay đổi phiên bản"""
         phien_ban = self.phien_ban_var.get()
-        self.status_label.config(text=f"🟢 Đã chọn phiên bản: {phien_ban}")
+        
+        # Lấy thêm thông tin từ config nếu có
+        config_info = ""
+        poly_config = self._get_polynomial_config()
+        if poly_config and 'math_replacements' in poly_config:
+            func_count = len(poly_config['math_replacements'].get('math_function_replacements', {}).get('functions', {}))
+            config_info = f" - Functions: {func_count}"
+        
+        self.status_label.config(text=f"🟢 Đã chọn phiên bản: {phien_ban}{config_info}")
 
     def _update_input_fields(self):
         """Cập nhật các ô nhập liệu theo bậc phương trình"""
@@ -482,7 +535,7 @@ class PolynomialEquationView:
 
     def _placeholder_action(self):
         """Hành động placeholder"""
-        messagebox.showinfo("Chức năng", "Chức năng đang phát triển. Chỉ là giao diện!")
+        messagebox.showinfo("Chức năng", "Chức năng đang phát triển. Chỉ là giao diện v2.0!")
 
     def _reset_all(self):
         """Reset tất cả dữ liệu"""
@@ -495,7 +548,8 @@ class PolynomialEquationView:
         self.roots_text.insert("1.0", "Chưa có nghiệm được tính")
 
         self.final_result_text.delete("1.0", tk.END)
-        self.final_result_text.insert("1.0", "Chưa có kết quả tổng")
+        config_info = "Config loaded successfully" if self.config else "Using fallback config"
+        self.final_result_text.insert("1.0", f"Polynomial Mode v2.0 - {config_info}")
 
         # Reset status
         bac = self.bac_phuong_trinh_var.get()
