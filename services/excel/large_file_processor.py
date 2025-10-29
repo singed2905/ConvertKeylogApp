@@ -83,7 +83,7 @@ class LargeFileProcessor:
             
             wb.close()  # Close workbook immediately
             
-            # Now read in chunks using pandas
+            # Now read in chunks using openpyxl
             current_row = 2  # Start after header
             chunk_count = 0
             
@@ -109,7 +109,8 @@ class LargeFileProcessor:
                     wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
                     ws = wb.active
                     
-                    chunk_data = []\n                    for row in ws.iter_rows(min_row=current_row, max_row=end_row, values_only=True):
+                    chunk_data = []
+                    for row in ws.iter_rows(min_row=current_row, max_row=end_row, values_only=True):
                         # Convert None values to empty strings
                         row_data = [str(cell) if cell is not None else "" for cell in row]
                         chunk_data.append(row_data)
@@ -265,7 +266,7 @@ class LargeFileProcessor:
             return success_count, error_count, final_output
             
         except MemoryError as e:
-            raise Exception(f"Hết bộ nhớ khi xử lý file lớn: {str(e)}\\n\\nHướng dẫn:\\n1. Đóng các ứng dụng khác\\n2. Giảm chunk size xuống 200-500\\n3. Chia nhỏ file Excel thành nhiều file nhỏ hơn")
+            raise Exception(f"Hết bộ nhớ khi xử lý file lớn: {str(e)}\n\nHướng dẫn:\n1. Đóng các ứng dụng khác\n2. Giảm chunk size xuống 200-500\n3. Chia nhỏ file Excel thành nhiều file nhỏ hơn")
         except Exception as e:
             raise Exception(f"Lỗi xử lý file lớn: {str(e)}")
     
@@ -329,7 +330,7 @@ class LargeFileProcessor:
             mode = 'a' if os.path.exists(temp_file) else 'w'
             with open(temp_file, mode, encoding='utf-8') as f:
                 for result in results:
-                    f.write(result + '\\n')
+                    f.write(result + '\n')
         except Exception as e:
             print(f"⚠️ Warning: Could not write buffer to temp file: {e}")
     
@@ -373,6 +374,129 @@ class LargeFileProcessor:
             
             # Copy header and add keylog column
             header_row = next(source_ws.iter_rows(min_row=1, max_row=1, values_only=True))
-            header = list(header_row) + ['Kết quả mã hóa']\n            \n            # Write header with formatting\n            for col_idx, header_cell in enumerate(header, 1):\n                cell = output_ws.cell(row=1, column=col_idx, value=str(header_cell))\n                cell.font = Font(bold=True, color=\"FFFFFF\")\n                cell.fill = PatternFill(start_color=\"2E86AB\", end_color=\"2E86AB\", fill_type=\"solid\")\n            \n            # Process data row by row to avoid memory issues\n            row_count = 2  # Start after header\n            result_idx = 0\n            \n            print(f\"📊 Writing {len(results)} results to Excel...\")\n            \n            for data_row in source_ws.iter_rows(min_row=2, values_only=True):\n                if result_idx >= len(results):\n                    break\n                \n                # Write original data\n                for col_idx, cell_value in enumerate(data_row, 1):\n                    output_ws.cell(row=row_count, column=col_idx, value=str(cell_value) if cell_value is not None else \"\")\n                \n                # Write result in keylog column\n                keylog_col = len(header)\n                result_cell = output_ws.cell(row=row_count, column=keylog_col, value=results[result_idx])\n                result_cell.font = Font(bold=True, color=\"2E7D32\")\n                \n                row_count += 1\n                result_idx += 1\n                \n                # Memory management\n                if row_count % 1000 == 0:\n                    print(f\"📝 Written {row_count-1} rows... ({self.get_memory_usage():.1f}MB)\")\n                    if self.check_memory_limit():\n                        gc.collect()\n            \n            # Close source workbook\n            source_wb.close()\n            \n            # Auto-adjust column widths (only for first 1000 rows to save time)\n            print(\"🎨 Auto-adjusting column widths...\")\n            for column in output_ws.columns:\n                max_length = 0\n                column_letter = column[0].column_letter\n                \n                # Check only first 1000 rows for performance\n                for i, cell in enumerate(column):\n                    if i > 1000:  # Limit to first 1000 rows\n                        break\n                    try:\n                        if len(str(cell.value)) > max_length:\n                            max_length = len(str(cell.value))\n                    except:\n                        pass\n                \n                adjusted_width = min(max_length + 2, 50)  # Max width 50\n                output_ws.column_dimensions[column_letter].width = adjusted_width\n            \n            # Save final file\n            print(f\"💾 Saving final file: {output_path}\")\n            output_wb.save(output_path)\n            output_wb.close()\n            \n            return output_path\n            \n        except Exception as e:\n            raise Exception(f\"Lỗi tạo Excel trực tiếp: {str(e)}\")\n    \n    def validate_large_file_structure(self, file_path: str, shape_a: str, shape_b: str = None) -> Dict[str, Any]:
+            header = list(header_row) + ['Kết quả mã hóa']
+            
+            # Write header with formatting
+            for col_idx, header_cell in enumerate(header, 1):
+                cell = output_ws.cell(row=1, column=col_idx, value=str(header_cell))
+                cell.font = Font(bold=True, color="FFFFFF")
+                cell.fill = PatternFill(start_color="2E86AB", end_color="2E86AB", fill_type="solid")
+            
+            # Process data row by row to avoid memory issues
+            row_count = 2  # Start after header
+            result_idx = 0
+            
+            print(f"📊 Writing {len(results)} results to Excel...")
+            
+            for data_row in source_ws.iter_rows(min_row=2, values_only=True):
+                if result_idx >= len(results):
+                    break
+                
+                # Write original data
+                for col_idx, cell_value in enumerate(data_row, 1):
+                    output_ws.cell(row=row_count, column=col_idx, value=str(cell_value) if cell_value is not None else "")
+                
+                # Write result in keylog column
+                keylog_col = len(header)
+                result_cell = output_ws.cell(row=row_count, column=keylog_col, value=results[result_idx])
+                result_cell.font = Font(bold=True, color="2E7D32")
+                
+                row_count += 1
+                result_idx += 1
+                
+                # Memory management
+                if row_count % 1000 == 0:
+                    print(f"📝 Written {row_count-1} rows... ({self.get_memory_usage():.1f}MB)")
+                    if self.check_memory_limit():
+                        gc.collect()
+            
+            # Close source workbook
+            source_wb.close()
+            
+            # Auto-adjust column widths (only for first 1000 rows to save time)
+            print("🎨 Auto-adjusting column widths...")
+            for column in output_ws.columns:
+                max_length = 0
+                column_letter = column[0].column_letter
+                
+                # Check only first 1000 rows for performance
+                for i, cell in enumerate(column):
+                    if i > 1000:  # Limit to first 1000 rows
+                        break
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                
+                adjusted_width = min(max_length + 2, 50)  # Max width 50
+                output_ws.column_dimensions[column_letter].width = adjusted_width
+            
+            # Save final file
+            print(f"💾 Saving final file: {output_path}")
+            output_wb.save(output_path)
+            output_wb.close()
+            
+            return output_path
+            
+        except Exception as e:
+            raise Exception(f"Lỗi tạo Excel trực tiếp: {str(e)}")
+    
+    def validate_large_file_structure(self, file_path: str, shape_a: str, shape_b: str = None) -> Dict[str, Any]:
         """Validate large file structure without loading entire file"""
-        try:\n            import openpyxl\n            \n            # Open read-only\n            wb = openpyxl.load_workbook(file_path, read_only=True)\n            ws = wb.active\n            \n            # Get header row\n            header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True))\n            columns = [str(cell) for cell in header_row if cell is not None]\n            \n            wb.close()\n            \n            # Check required columns based on shape selection\n            required_columns_A = self._get_required_columns(shape_a, 'A')\n            required_columns_B = self._get_required_columns(shape_b, 'B') if shape_b else []\n            \n            missing_columns = []\n            for col in required_columns_A + required_columns_B:\n                if col not in columns:\n                    missing_columns.append(col)\n            \n            file_info = {\n                'valid': len(missing_columns) == 0,\n                'file_size_mb': os.path.getsize(file_path) / (1024 * 1024),\n                'estimated_rows': ws.max_row - 1 if hasattr(ws, 'max_row') else 0,\n                'columns': columns,\n                'missing_columns': missing_columns,\n                'recommended_chunk_size': self.estimate_optimal_chunksize(file_path)\n            }\n            \n            return file_info\n            \n        except Exception as e:\n            return {'valid': False, 'error': f'Lỗi kiểm tra file: {str(e)}'}\n    \n    def _get_required_columns(self, shape: str, group: str) -> List[str]:\n        """Get required columns for shape and group"""\n        if group == 'A':\n            mapping = {\n                \"Điểm\": [\"data_A\"],\n                \"Đường thẳng\": [\"d_P_data_A\", \"d_V_data_A\"],\n                \"Mặt phẳng\": [\"P1_a\", \"P1_b\", \"P1_c\", \"P1_d\"],\n                \"Đường tròn\": [\"C_data_I1\", \"C_data_R1\"],\n                \"Mặt cầu\": [\"S_data_I1\", \"S_data_R1\"]\n            }\n        else:  # Group B\n            mapping = {\n                \"Điểm\": [\"data_B\"],\n                \"Đường thẳng\": [\"d_P_data_B\", \"d_V_data_B\"],\n                \"Mặt phẳng\": [\"P2_a\", \"P2_b\", \"P2_c\", \"P2_d\"],\n                \"Đường tròn\": [\"C_data_I2\", \"C_data_R2\"],\n                \"Mặt cầu\": [\"S_data_I2\", \"S_data_R2\"]\n            }\n        \n        return mapping.get(shape, [])
+        try:
+            import openpyxl
+            
+            # Open read-only
+            wb = openpyxl.load_workbook(file_path, read_only=True)
+            ws = wb.active
+            
+            # Get header row
+            header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True))
+            columns = [str(cell) for cell in header_row if cell is not None]
+            
+            wb.close()
+            
+            # Check required columns based on shape selection
+            required_columns_A = self._get_required_columns(shape_a, 'A')
+            required_columns_B = self._get_required_columns(shape_b, 'B') if shape_b else []
+            
+            missing_columns = []
+            for col in required_columns_A + required_columns_B:
+                if col not in columns:
+                    missing_columns.append(col)
+            
+            file_info = {
+                'valid': len(missing_columns) == 0,
+                'file_size_mb': os.path.getsize(file_path) / (1024 * 1024),
+                'estimated_rows': ws.max_row - 1 if hasattr(ws, 'max_row') else 0,
+                'columns': columns,
+                'missing_columns': missing_columns,
+                'recommended_chunk_size': self.estimate_optimal_chunksize(file_path)
+            }
+            
+            return file_info
+            
+        except Exception as e:
+            return {'valid': False, 'error': f'Lỗi kiểm tra file: {str(e)}'}
+    
+    def _get_required_columns(self, shape: str, group: str) -> List[str]:
+        """Get required columns for shape and group"""
+        if group == 'A':
+            mapping = {
+                "Điểm": ["data_A"],
+                "Đường thẳng": ["d_P_data_A", "d_V_data_A"],
+                "Mặt phẳng": ["P1_a", "P1_b", "P1_c", "P1_d"],
+                "Đường tròn": ["C_data_I1", "C_data_R1"],
+                "Mặt cầu": ["S_data_I1", "S_data_R1"]
+            }
+        else:  # Group B
+            mapping = {
+                "Điểm": ["data_B"],
+                "Đường thẳng": ["d_P_data_B", "d_V_data_B"],
+                "Mặt phẳng": ["P2_a", "P2_b", "P2_c", "P2_d"],
+                "Đường tròn": ["C_data_I2", "C_data_R2"],
+                "Mặt cầu": ["S_data_I2", "S_data_R2"]
+            }
+        
+        return mapping.get(shape, [])
