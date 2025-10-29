@@ -646,7 +646,519 @@ class GeometryView:
     
     # ========== DATA EXTRACTION ==========
     def _get_input_data_A(self):
-        \"\"\"L\u1ea5y d\u1eef li\u1ec7u nh\u1eadp cho nh\u00f3m A\"\"\"\n        shape = self.dropdown1_var.get()\n        data = {}\n        \n        if shape == \"\u0110i\u1ec3m\":\n            data['point_input'] = self.entry_diem_A.get() if hasattr(self, 'entry_diem_A') else ''\n        elif shape == \"\u0110\u01b0\u1eddng th\u1eb3ng\":\n            data['line_A1'] = self.entry_point_A.get() if hasattr(self, 'entry_point_A') else ''\n            data['line_X1'] = self.entry_vector_A.get() if hasattr(self, 'entry_vector_A') else ''\n        elif shape == \"M\u1eb7t ph\u1eb3ng\":\n            data['plane_a'] = self.entry_a_A.get() if hasattr(self, 'entry_a_A') else ''\n            data['plane_b'] = self.entry_b_A.get() if hasattr(self, 'entry_b_A') else ''\n            data['plane_c'] = self.entry_c_A.get() if hasattr(self, 'entry_c_A') else ''\n            data['plane_d'] = self.entry_d_A.get() if hasattr(self, 'entry_d_A') else ''\n        elif shape == \"\u0110\u01b0\u1eddng tr\u00f2n\":\n            data['circle_center'] = self.entry_center_A.get() if hasattr(self, 'entry_center_A') else ''\n            data['circle_radius'] = self.entry_radius_A.get() if hasattr(self, 'entry_radius_A') else ''\n        elif shape == \"M\u1eb7t c\u1ea7u\":\n            data['sphere_center'] = self.entry_sphere_center_A.get() if hasattr(self, 'entry_sphere_center_A') else ''\n            data['sphere_radius'] = self.entry_sphere_radius_A.get() if hasattr(self, 'entry_sphere_radius_A') else ''\n        \n        return data\n    \n    def _get_input_data_B(self):\n        \"\"\"L\u1ea5y d\u1eef li\u1ec7u nh\u1eadp cho nh\u00f3m B\"\"\"\n        shape = self.dropdown2_var.get()\n        data = {}\n        \n        if shape == \"\u0110i\u1ec3m\":\n            data['point_input'] = self.entry_diem_B.get() if hasattr(self, 'entry_diem_B') else ''\n        elif shape == \"\u0110\u01b0\u1eddng th\u1eb3ng\":\n            data['line_A2'] = self.entry_point_B.get() if hasattr(self, 'entry_point_B') else ''\n            data['line_X2'] = self.entry_vector_B.get() if hasattr(self, 'entry_vector_B') else ''\n        elif shape == \"M\u1eb7t ph\u1eb3ng\":\n            data['plane_a'] = self.entry_a_B.get() if hasattr(self, 'entry_a_B') else ''\n            data['plane_b'] = self.entry_b_B.get() if hasattr(self, 'entry_b_B') else ''\n            data['plane_c'] = self.entry_c_B.get() if hasattr(self, 'entry_c_B') else ''\n            data['plane_d'] = self.entry_d_B.get() if hasattr(self, 'entry_d_B') else ''\n        elif shape == \"\u0110\u01b0\u1eddng tr\u00f2n\":\n            data['circle_center'] = self.entry_center_B.get() if hasattr(self, 'entry_center_B') else ''\n            data['circle_radius'] = self.entry_radius_B.get() if hasattr(self, 'entry_radius_B') else ''\n        elif shape == \"M\u1eb7t c\u1ea7u\":\n            data['sphere_center'] = self.entry_sphere_center_B.get() if hasattr(self, 'entry_sphere_center_B') else ''\n            data['sphere_radius'] = self.entry_sphere_radius_B.get() if hasattr(self, 'entry_sphere_radius_B') else ''\n        \n        return data\n    \n    # ========== PROCESSING METHODS ==========\n    def _process_group_A(self):\n        \"\"\"X\u1eed l\u00fd nh\u00f3m A\"\"\"\n        try:\n            if not self.geometry_service:\n                messagebox.showerror(\"L\u1ed7i\", \"GeometryService ch\u01b0a \u0111\u01b0\u1ee3c kh\u1edfi t\u1ea1o!\")\n                return\n            \n            data_A = self._get_input_data_A()\n            result = self.geometry_service.thuc_thi_A(data_A)\n            self._update_result_display(f\"Nh\u00f3m A \u0111\u00e3 x\u1eed l\u00fd: {result}\")\n        except Exception as e:\n            messagebox.showerror(\"L\u1ed7i\", f\"L\u1ed7i x\u1eed l\u00fd nh\u00f3m A: {str(e)}\")\n    \n    def _process_group_B(self):\n        \"\"\"X\u1eed l\u00fd nh\u00f3m B\"\"\"\n        try:\n            if not self.geometry_service:\n                messagebox.showerror(\"L\u1ed7i\", \"GeometryService ch\u01b0a \u0111\u01b0\u1ee3c kh\u1edfi t\u1ea1o!\")\n                return\n                \n            data_B = self._get_input_data_B()\n            result = self.geometry_service.thuc_thi_B(data_B)\n            self._update_result_display(f\"Nh\u00f3m B \u0111\u00e3 x\u1eed l\u00fd: {result}\")\n        except Exception as e:\n            messagebox.showerror(\"L\u1ed7i\", f\"L\u1ed7i x\u1eed l\u00fd nh\u00f3m B: {str(e)}\")\n    \n    def _process_all(self):\n        \"\"\"Th\u1ef1c thi t\u1ea5t c\u1ea3 - Core function!\"\"\"\n        try:\n            if not self.geometry_service:\n                messagebox.showerror(\"L\u1ed7i\", \"GeometryService ch\u01b0a \u0111\u01b0\u1ee3c kh\u1edfi t\u1ea1o!\")\n                return\n            \n            # Ki\u1ec3m tra xem \u0111\u00e3 ch\u1ecdn ph\u00e9p to\u00e1n v\u00e0 h\u00ecnh d\u1ea1ng ch\u01b0a\n            if not self.pheptoan_var.get():\n                messagebox.showwarning(\"C\u1ea3nh b\u00e1o\", \"Vui l\u00f2ng ch\u1ecdn ph\u00e9p to\u00e1n!\")\n                return\n            \n            if not self.dropdown1_var.get():\n                messagebox.showwarning(\"C\u1ea3nh b\u00e1o\", \"Vui l\u00f2ng ch\u1ecdn h\u00ecnh d\u1ea1ng cho nh\u00f3m A!\")\n                return\n            \n            # L\u1ea5y d\u1eef li\u1ec7u\n            data_A = self._get_input_data_A()\n            data_B = self._get_input_data_B()\n            \n            # X\u1eed l\u00fd\n            result_A, result_B = self.geometry_service.thuc_thi_tat_ca(data_A, data_B)\n            \n            # Sinh k\u1ebft qu\u1ea3 cu\u1ed1i c\u00f9ng\n            final_result = self.geometry_service.generate_final_result()\n            \n            # Hi\u1ec3n th\u1ecb k\u1ebft qu\u1ea3 - matching TL style\n            message = f\"\u2728 K\u1ebft qu\u1ea3 m\u00e3 h\u00f3a (cho m\u00e1y t\u00ednh):\\n{final_result}\\n\\n\"\n            message += f\"\ud83d\udcc8 Chi ti\u1ebft x\u1eed l\u00fd:\\n\"\n            message += f\"Ph\u00e9p to\u00e1n: {self.pheptoan_var.get()}\\n\"\n            message += f\"Nh\u00f3m A ({self.dropdown1_var.get()}): {result_A}\\n\"\n            if self.pheptoan_var.get() not in [\"Di\u1ec7n t\u00edch\", \"Th\u1ec3 t\u00edch\"]:\n                message += f\"Nh\u00f3m B ({self.dropdown2_var.get()}): {result_B}\"\n            \n            self._update_result_display(message)\n            \n        except Exception as e:\n            messagebox.showerror(\"L\u1ed7i\", f\"L\u1ed7i th\u1ef1c thi: {str(e)}\")\n    \n    # ========== SIMPLIFIED EXCEL METHODS - FILENAME ONLY ON IMPORT ==========\n    def _import_excel(self):\n        \"\"\"Ch\u1ec9 ch\u1ecdn file v\u00e0 l\u01b0u l\u1ea1i T\u00caN FILE, KH\u00d4NG \u0111\u1ecdc n\u1ed9i dung\"\"\"\n        try:\n            file_path = filedialog.askopenfilename(\n                title=\"Ch\u1ecdn file Excel\",\n                filetypes=[(\"Excel files\", \"*.xlsx *.xls\")]\n            )\n            \n            if not file_path:\n                return\n            \n            # Ki\u1ec3m tra extension\n            file_ext = os.path.splitext(file_path)[1].lower()\n            if file_ext not in ['.xlsx', '.xls']:\n                messagebox.showerror(\"L\u1ed7i\", \"Ch\u1ec9 h\u1ed7 tr\u1ee3 file Excel (.xlsx, .xls)!\")\n                return\n            \n            # Ki\u1ec3m tra file t\u1ed3n t\u1ea1i\n            if not os.path.exists(file_path):\n                messagebox.showerror(\"L\u1ed7i\", \"File kh\u00f4ng t\u1ed3n t\u1ea1i!\")\n                return\n            \n            # L\u01b0u ch\u1ec9 th\u00f4ng tin t\u00ean file, KH\u00d4NG \u0111\u1ecdc n\u1ed9i dung\n            self.imported_file_path = file_path\n            self.imported_file_name = os.path.basename(file_path)\n            self.imported_data = True\n            self.manual_data_entered = False\n            self.is_large_file = False  # Reset, s\u1ebd detect \u1edf b\u01b0\u1edbc process\n            \n            # Clear v\u00e0 kh\u00f3a c\u00e1c input th\u1ee7 c\u00f4ng\n            self._clear_and_lock_inputs()\n            \n            # Hi\u1ec3n th\u1ecb import buttons\n            self._show_import_buttons()\n            \n            # C\u1eadp nh\u1eadt status \u0111\u01a1n gi\u1ea3n (ch\u1ec9 t\u00ean file)\n            file_size_mb = os.path.getsize(file_path) / (1024 * 1024)\n            status_message = (\n                f\"\ud83d\udcc1 \u0110\u00e3 import file: {self.imported_file_name}\\n\"\n                f\"\ud83d\udccf K\u00edch th\u01b0\u1edbc: {file_size_mb:.1f}MB\\n\\n\"\n                f\"\u26a0\ufe0f L\u01b0u \u00fd: Ch\u01b0a \u0111\u1ecdc n\u1ed9i dung file.\\n\"\n                f\"Vi\u1ec7c \u0111\u1ecdc, ki\u1ec3m tra v\u00e0 x\u1eed l\u00fd s\u1ebd th\u1ef1c hi\u1ec7n khi b\u1ea5m 'X\u1eed l\u00fd File Excel'.\\n\\n\"\n                f\"\ud83d\udcaa Ready for anti-crash processing!\"\n            )\n            \n            self.excel_status_label.config(text=f\"Excel: \ud83d\udcc1 {self.imported_file_name[:15]}...\")\n            self._update_result_display(status_message)\n        \n        except Exception as e:\n            messagebox.showerror(\"L\u1ed7i Import\", f\"L\u1ed7i import Excel: {str(e)}\")\n\n    def _process_excel_batch(self):\n        \"\"\"\u0110\u1ecdc v\u00e0 x\u1eed l\u00fd file Excel (ch\u1ec9 \u0111\u1ecdc \u1edf b\u01b0\u1edbc n\u00e0y)\"\"\"\n        try:\n            if not self.imported_data or not self.imported_file_path:\n                messagebox.showwarning(\"C\u1ea3nh b\u00e1o\", \"Ch\u01b0a import file Excel n\u00e0o!\")\n                return\n            \n            if not self.geometry_service:\n                messagebox.showerror(\"L\u1ed7i\", \"GeometryService ch\u01b0a s\u1eb5n s\u00e0ng!\")\n                return\n            \n            # Ki\u1ec3m tra file v\u1eabn t\u1ed3n t\u1ea1i\n            if not os.path.exists(self.imported_file_path):\n                messagebox.showerror(\"L\u1ed7i\", f\"File kh\u00f4ng t\u1ed3n t\u1ea1i: {self.imported_file_path}\")\n                return\n            \n            # H\u1ecfi l\u01b0u output tr\u01b0\u1edbc khi x\u1eed l\u00fd\n            original_name = os.path.splitext(self.imported_file_name)[0]\n            default_output = f\"{original_name}_encoded_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx\"\n            output_path = filedialog.asksaveasfilename(\n                title=\"Ch\u1ecdn n\u01a1i l\u01b0u k\u1ebft qu\u1ea3\",\n                defaultextension=\".xlsx\",\n                filetypes=[(\"Excel files\", \"*.xlsx\")],\n                initialvalue=default_output\n            )\n            if not output_path:\n                return\n            \n            # L\u1ea5y setting hi\u1ec7n t\u1ea1i\n            shape_a = self.dropdown1_var.get()\n            shape_b = self.dropdown2_var.get() if self.pheptoan_var.get() not in [\"Di\u1ec7n t\u00edch\", \"Th\u1ec3 t\u00edch\"] else None\n            operation = self.pheptoan_var.get()\n            dimension_a = self.kich_thuoc_A_var.get()\n            dimension_b = self.kich_thuoc_B_var.get()\n            \n            # T\u1ea1o progress window\n            progress_window = self._create_progress_window(\"\u0110ang x\u1eed l\u00fd file Excel...\")\n            \n            def progress_callback(progress, processed, total, errors):\n                if hasattr(self, 'progress_var') and not self.processing_cancelled:\n                    try:\n                        self.progress_var.set(progress)\n                        memory_usage = self._get_memory_usage()\n                        progress_text = f\"\u0110ang x\u1eed l\u00fd: {processed:,}/{total:,} d\u00f2ng\\nL\u1ed7i: {errors:,}\\nMemory: {memory_usage:.1f}MB\"\n                        self.progress_label.config(text=progress_text)\n                        \n                        # C\u1eadp nh\u1eadt memory status\n                        if memory_usage > 800:\n                            self.memory_status_label.config(text=f\"\ud83d\udcbe Memory: {memory_usage:.1f}MB (\ud83d\udd25 High)\", fg=\"#F44336\")\n                        elif memory_usage > 500:\n                            self.memory_status_label.config(text=f\"\ud83d\udcbe Memory: {memory_usage:.1f}MB (\u26a0\ufe0f Medium)\", fg=\"#FF9800\")\n                        else:\n                            self.memory_status_label.config(text=f\"\ud83d\udcbe Memory: {memory_usage:.1f}MB (\u2705 OK)\", fg=\"#4CAF50\")\n                        \n                        progress_window.update()\n                    except Exception:\n                        pass\n            \n            def process_thread():\n                try:\n                    # CH\u1ec8 T\u1ea0I \u0110\u00c2Y m\u1edbi \u0111\u1ecdc v\u00e0 x\u1eed l\u00fd file (service t\u1ef1 detect large/normal)\n                    results, output_file, success_count, error_count = self.geometry_service.process_excel_batch(\n                        self.imported_file_path, shape_a, shape_b, operation,\n                        dimension_a, dimension_b, output_path, progress_callback\n                    )\n                    \n                    if not self.processing_cancelled:\n                        progress_window.destroy()\n                        \n                        # Hi\u1ec3n th\u1ecb k\u1ebft qu\u1ea3 th\u00e0nh c\u00f4ng\n                        result_message = (\n                            f\"\ud83c\udf89 Ho\u00e0n th\u00e0nh x\u1eed l\u00fd Excel!\\n\\n\"\n                            f\"\ud83d\udcc1 File g\u1ed1c: {self.imported_file_name}\\n\"\n                            f\"\ud83d\udcc1 Output: {os.path.basename(output_file)}\\n\"\n                            f\"\u2705 Success: {success_count:,} rows\\n\"\n                            f\"\u274c Errors: {error_count:,} rows\\n\"\n                            f\"\ud83d\udcbe Peak memory: {self._get_memory_usage():.1f}MB\\n\\n\"\n                        )\n                        \n                        if isinstance(results, list) and len(results) > 0:\n                            result_message += f\"\ud83d\udcdd Sample result:\\n{results[0][:80]}...\"\n                        else:\n                            result_message += \"\ud83d\udcdd Results written directly to file for memory efficiency\"\n                        \n                        self._update_result_display(result_message)\n                        messagebox.showinfo(\"Ho\u00e0n th\u00e0nh\", \n                            f\"\ud83c\udf89 X\u1eed l\u00fd Excel th\u00e0nh c\u00f4ng!\\n\\n\"\n                            f\"\u2705 Processed: {success_count:,} rows\\n\"\n                            f\"\u274c Errors: {error_count:,} rows\\n\\n\"\n                            f\"File \u0111\u00e3 l\u01b0u:\\n{output_file}\")\n                \n                except Exception as e:\n                    if not self.processing_cancelled:\n                        progress_window.destroy()\n                        messagebox.showerror(\"L\u1ed7i X\u1eed l\u00fd\", f\"L\u1ed7i x\u1eed l\u00fd Excel: {str(e)}\")\n            \n            # Start processing thread\n            thread = threading.Thread(target=process_thread)\n            thread.daemon = True\n            thread.start()\n        \n        except Exception as e:\n            messagebox.showerror(\"L\u1ed7i X\u1eed l\u00fd\", f\"L\u1ed7i x\u1eed l\u00fd Excel: {str(e)}\")\n    \n    def _create_progress_window(self, title):\n        \"\"\"Create progress dialog window\"\"\"\n        progress_window = tk.Toplevel(self.window)\n        progress_window.title(title)\n        progress_window.geometry(\"450x180\")\n        progress_window.resizable(False, False)\n        progress_window.grab_set()\n        progress_window.transient(self.window)\n        \n        # Title\n        tk.Label(progress_window, text=title, font=(\"Arial\", 12, \"bold\")).pack(pady=10)\n        \n        # Progress bar\n        self.progress_var = tk.DoubleVar()\n        progress_bar = ttk.Progressbar(\n            progress_window, variable=self.progress_var, \n            maximum=100, length=350, mode='determinate'\n        )\n        progress_bar.pack(pady=10)\n        \n        # Progress label\n        self.progress_label = tk.Label(progress_window, text=\"Chu\u1ea9n b\u1ecb...\", font=(\"Arial\", 10))\n        self.progress_label.pack(pady=5)\n        \n        # Warning\n        warning_label = tk.Label(\n            progress_window, \n            text=\"\u26a0\ufe0f \u0110\u1eebng \u0111\u00f3ng c\u1eeda s\u1ed5! \u0110ang x\u1eed l\u00fd v\u1edbi anti-crash protection.\",\n            font=(\"Arial\", 8), fg=\"#FF9800\"\n        )\n        warning_label.pack(pady=5)\n        \n        # Cancel button\n        def cancel_processing():\n            self.processing_cancelled = True\n            messagebox.showinfo(\"\u0110\u00e3 h\u1ee7y\", \"\u0110\u00e3 y\u00eau c\u1ea7u h\u1ee7y x\u1eed l\u00fd. Vui l\u00f2ng \u0111\u1ee3i...\")\n            progress_window.after(2000, progress_window.destroy)\n        \n        tk.Button(progress_window, text=\"\ud83d\uded1 H\u1ee7y\", command=cancel_processing,\n                 bg=\"#F44336\", fg=\"white\", font=(\"Arial\", 10)).pack(pady=10)\n        \n        return progress_window\n    \n    def _export_excel(self):\n        \"\"\"Xu\u1ea5t k\u1ebft qu\u1ea3 ra Excel\"\"\"\n        try:\n            if not self.geometry_service:\n                messagebox.showerror(\"L\u1ed7i\", \"GeometryService ch\u01b0a s\u1eb5n s\u00e0ng!\")\n                return\n            \n            final_result = self.geometry_service.generate_final_result()\n            if not final_result:\n                messagebox.showwarning(\"C\u1ea3nh b\u00e1o\", \"Ch\u01b0a c\u00f3 k\u1ebft qu\u1ea3 n\u00e0o \u0111\u1ec3 xu\u1ea5t!\\n\\nVui l\u00f2ng th\u1ef1c thi t\u00ednh to\u00e1n tr\u01b0\u1edbc.\")\n                return\n            \n            default_name = f\"geometry_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx\"\n            output_path = filedialog.asksaveasfilename(\n                title=\"Xu\u1ea5t k\u1ebft qu\u1ea3 ra Excel\",\n                defaultextension=\".xlsx\",\n                filetypes=[(\"Excel files\", \"*.xlsx\")],\n                initialvalue=default_name\n            )\n            \n            if not output_path:\n                return\n            \n            exported_file = self.geometry_service.export_single_result(output_path)\n            messagebox.showinfo(\"Xu\u1ea5t th\u00e0nh c\u00f4ng\", f\"K\u1ebft qu\u1ea3 \u0111\u00e3 l\u01b0u t\u1ea1i:\\n{exported_file}\")\n            \n        except Exception as e:\n            messagebox.showerror(\"L\u1ed7i Xu\u1ea5t\", f\"L\u1ed7i xu\u1ea5t Excel: {str(e)}\")\n    \n    def _create_template(self):\n        \"\"\"Create Excel template\"\"\"\n        try:\n            shape_a = self.dropdown1_var.get()\n            shape_b = self.dropdown2_var.get() if self.pheptoan_var.get() not in [\"Di\u1ec7n t\u00edch\", \"Th\u1ec3 t\u00edch\"] else None\n            \n            if not shape_a:\n                messagebox.showwarning(\"C\u1ea3nh b\u00e1o\", \"Vui l\u00f2ng ch\u1ecdn h\u00ecnh d\u1ea1ng tr\u01b0\u1edbc!\")\n                return\n            \n            template_name = f\"template_{shape_a}\" + (f\"_{shape_b}\" if shape_b else \"\") + f\"_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx\"\n            \n            output_path = filedialog.asksaveasfilename(\n                title=\"L\u01b0u template Excel\",\n                defaultextension=\".xlsx\",\n                filetypes=[(\"Excel files\", \"*.xlsx\")],\n                initialvalue=template_name\n            )\n            \n            if not output_path:\n                return\n            \n            template_file = self.geometry_service.create_excel_template_for_geometry(shape_a, shape_b, output_path)\n            \n            messagebox.showinfo(\"T\u1ea1o template th\u00e0nh c\u00f4ng\", \n                f\"Template Excel \u0111\u00e3 t\u1ea1o t\u1ea1i:\\n{template_file}\\n\\n\"\n                f\"B\u1ea1n c\u00f3 th\u1ec3 \u0111i\u1ec1n d\u1eef li\u1ec7u v\u00e0o template n\u00e0y r\u1ed3i import l\u1ea1i.\\n\\n\"\n                f\"\ud83d\udca1 Tip: Template h\u1ed7 tr\u1ee3 \u0111\u1ebfn 250,000 d\u00f2ng v\u1edbi anti-crash system!\")\n            \n        except Exception as e:\n            messagebox.showerror(\"L\u1ed7i\", f\"L\u1ed7i t\u1ea1o template: {str(e)}\")\n    \n    def _quit_import_mode(self):\n        \"\"\"Tho\u00e1t ch\u1ebf \u0111\u1ed9 import v\u00e0 quay l\u1ea1i manual\"\"\"\n        try:\n            result = messagebox.askyesno(\"Tho\u00e1t ch\u1ebf \u0111\u1ed9 import\", \n                \"B\u1ea1n c\u00f3 ch\u1eafc mu\u1ed1n tho\u00e1t ch\u1ebf \u0111\u1ed9 import Excel v\u00e0 quay l\u1ea1i nh\u1eadp th\u1ee7 c\u00f4ng?\")\n            \n            if result:\n                self.imported_data = False\n                self.imported_file_path = \"\"\n                self.imported_file_name = \"\"\n                self.manual_data_entered = False\n                self.is_large_file = False\n                \n                self._unlock_and_clear_inputs()\n                self._hide_action_buttons()\n                \n                self._update_result_display(\"\u2728 \u0110\u00e3 quay l\u1ea1i ch\u1ebf \u0111\u1ed9 nh\u1eadp th\u1ee7 c\u00f4ng.\\nNh\u1eadp d\u1eef li\u1ec7u v\u00e0o c\u00e1c \u00f4 tr\u00ean \u0111\u1ec3 b\u1eaft \u0111\u1ea7u.\")\n                self.excel_status_label.config(text=\"\ud83d\udcca Excel: \u2705 Ready\")\n        \n        except Exception as e:\n            messagebox.showerror(\"L\u1ed7i\", f\"L\u1ed7i tho\u00e1t ch\u1ebf \u0111\u1ed9 import: {str(e)}\")\n    \n    def _clear_and_lock_inputs(self):\n        \"\"\"Clear and lock all input fields when Excel is imported\"\"\"\n        entries = self._get_all_input_entries()\n        for entry in entries:\n            try:\n                entry.delete(0, tk.END)\n                entry.config(state='disabled', bg='#E0E0E0')\n            except:\n                pass\n    \n    def _unlock_and_clear_inputs(self):\n        \"\"\"Unlock and clear all input fields for manual input\"\"\"\n        entries = self._get_all_input_entries()\n        for entry in entries:\n            try:\n                entry.config(state='normal', bg='white')\n                entry.delete(0, tk.END)\n            except:\n                pass\n    \n    def _update_result_display(self, message):\n        \"\"\"C\u1eadp nh\u1eadt hi\u1ec3n th\u1ecb k\u1ebft qu\u1ea3 v\u1edbi m\u00e0u s\u1eafc\"\"\"\n        self.entry_tong.delete(1.0, tk.END)\n        self.entry_tong.insert(tk.END, message)\n        \n        # Color coding\n        if \"L\u1ed7i\" in message or \"l\u1ed7i\" in message:\n            self.entry_tong.config(bg=\"#FFEBEE\", fg=\"#D32F2F\")\n        elif \"\u0110\u00e3 import\" in message or \"Ho\u00e0n th\u00e0nh\" in message:\n            self.entry_tong.config(bg=\"#E8F5E8\", fg=\"#388E3C\")\n        elif \"\u0110ang x\u1eed l\u00fd\" in message:\n            self.entry_tong.config(bg=\"#FFF3E0\", fg=\"#F57C00\")\n        else:\n            self.entry_tong.config(bg=\"#F8F9FA\", fg=\"#2E86AB\")\n    \n    def _show_ready_message(self):\n        \"\"\"Hi\u1ec3n th\u00f4ng b\u00e1o s\u1eb5n s\u00e0ng\"\"\"\n        if self.geometry_service:\n            message = \"\u2728 Geometry Mode v2.1 - Anti-Crash Excel! \ud83d\udcaa\\n\\n\"\n            message += \"\ud83d\udcdd Ch\u1ebf \u0111\u1ed9 th\u1ee7 c\u00f4ng: Nh\u1eadp d\u1eef li\u1ec7u v\u00e0o c\u00e1c \u00f4, b\u1ea5m 'Th\u1ef1c thi t\u1ea5t c\u1ea3'\\n\"\n            message += \"\ud83d\udcc1 Ch\u1ebf \u0111\u1ed9 Excel: B\u1ea5m 'Import Excel' ch\u1ecdn file, r\u1ed3i 'X\u1eed l\u00fd File Excel'\\n\\n\"\n            message += \"\ud83d\udd25 NEW: Enhanced Import Logic\\n\"\n            message += \"\u2705 Import ch\u1ec9 l\u01b0u t\u00ean file (nhanh)\\n\"\n            message += \"\u2705 \u0110\u1ecdc file ch\u1ec9 khi x\u1eed l\u00fd (ti\u1ebft ki\u1ec7m memory)\\n\"\n            message += \"\u2705 Auto-detect large files (250k rows limit)\\n\"\n            message += \"\u2705 Crash protection v\u1edbi memory monitoring\\n\\n\"\n            message += \"\ud83d\udca1 T\u00ednh n\u0103ng: Import-defer-read, Batch, Chunked, Anti-Crash\"\n        else:\n            message = \"\u26a0\ufe0f GeometryService kh\u00f4ng kh\u1edfi t\u1ea1o \u0111\u01b0\u1ee3c.\\nVui l\u00f2ng ki\u1ec3m tra c\u00e0i \u0111\u1eb7t!\"\n        \n        self.entry_tong.insert(tk.END, message)\n\n    def _setup_control_frame(self):\n        \"\"\"Setup control frame v\u1edbi buttons v\u00e0 result display\"\"\"\n        self.frame_tong = tk.LabelFrame(\n            self.main_container, text=\"\ud83c\udf89 K\u1ebeT QU\u1ea2 & \u0110I\u1ec0U KHI\u1ec2N\",\n            bg=\"#FFFFFF\", font=(\"Arial\", 10, \"bold\")\n        )\n        self.frame_tong.grid(row=8, column=0, columnspan=4, padx=10, pady=10, sticky=\"we\")\n\n        # Text widget hi\u1ec3n th\u1ecb k\u1ebft qu\u1ea3\n        self.entry_tong = tk.Text(\n            self.main_container,\n            width=80, height=8,\n            font=(\"Courier New\", 9), wrap=tk.WORD,\n            bg=\"#F8F9FA\", fg=\"black\",\n            relief=\"solid\", bd=1, padx=5, pady=5\n        )\n        self.entry_tong.grid(row=9, column=0, columnspan=4, padx=5, pady=5, sticky=\"we\")\n\n        # N\u00fat Import Excel\n        self.btn_import_excel = tk.Button(\n            self.frame_tong, text=\"\ud83d\udcc1 Import Excel (Fast Select - 250k limit!)\",\n            command=self._import_excel,\n            bg=\"#FF9800\", fg=\"white\", font=(\"Arial\", 9, \"bold\")\n        )\n        self.btn_import_excel.grid(row=0, column=0, columnspan=4, pady=5, sticky=\"we\")\n\n        # Frame cho n\u00fat th\u1ee7 c\u00f4ng\n        self.frame_buttons_manual = tk.Frame(self.frame_tong, bg=\"#FFFFFF\")\n        self.frame_buttons_manual.grid(row=1, column=0, columnspan=4, pady=5, sticky=\"we\")\n\n        tk.Button(self.frame_buttons_manual, text=\"\ud83d\udd04 X\u1eed l\u00fd Nh\u00f3m A\",\n                  command=self._process_group_A,\n                  bg=\"#2196F3\", fg=\"white\", font=(\"Arial\", 9)).grid(row=0, column=0, padx=5)\n        tk.Button(self.frame_buttons_manual, text=\"\ud83d\udd04 X\u1eed l\u00fd Nh\u00f3m B\",\n                  command=self._process_group_B,\n                  bg=\"#2196F3\", fg=\"white\", font=(\"Arial\", 9)).grid(row=0, column=1, padx=5)\n        tk.Button(self.frame_buttons_manual, text=\"\ud83d\ude80 Th\u1ef1c thi t\u1ea5t c\u1ea3\",\n                  command=self._process_all,\n                  bg=\"#4CAF50\", fg=\"white\", font=(\"Arial\", 9, \"bold\")).grid(row=0, column=2, padx=5)\n        tk.Button(self.frame_buttons_manual, text=\"\ud83d\udcbe Xu\u1ea5t Excel\",\n                  command=self._export_excel,\n                  bg=\"#FF9800\", fg=\"white\", font=(\"Arial\", 9, \"bold\")).grid(row=0, column=3, padx=5)\n        \n        # Frame cho n\u00fat import mode\n        self.frame_buttons_import = tk.Frame(self.frame_tong, bg=\"#FFFFFF\")\n        self.frame_buttons_import.grid(row=1, column=0, columnspan=4, pady=5, sticky=\"we\")\n        \n        tk.Button(self.frame_buttons_import, text=\"\ud83d\udd25 X\u1eed l\u00fd File Excel\",\n                  command=self._process_excel_batch,\n                  bg=\"#F44336\", fg=\"white\", font=(\"Arial\", 9, \"bold\")).grid(row=0, column=0, padx=5)\n        tk.Button(self.frame_buttons_import, text=\"\ud83d\udcc1 Import File Kh\u00e1c\",\n                  command=self._import_excel,\n                  bg=\"#2196F3\", fg=\"white\", font=(\"Arial\", 9)).grid(row=0, column=1, padx=5)\n        tk.Button(self.frame_buttons_import, text=\"\ud83d\udcdd T\u1ea1o Template\",\n                  command=self._create_template,\n                  bg=\"#9C27B0\", fg=\"white\", font=(\"Arial\", 9)).grid(row=0, column=2, padx=5)\n        tk.Button(self.frame_buttons_import, text=\"\u21a9\ufe0f Quay l\u1ea1i\",\n                  command=self._quit_import_mode,\n                  bg=\"#607D8B\", fg=\"white\", font=(\"Arial\", 9)).grid(row=0, column=3, padx=5)\n        \n        # Initially hide import buttons\n        self.frame_buttons_import.grid_remove()\n        self.frame_buttons_manual.grid_remove()
+        """Lấy dữ liệu nhập cho nhóm A"""
+        shape = self.dropdown1_var.get()
+        data = {}
+        
+        if shape == "Điểm":
+            data['point_input'] = self.entry_diem_A.get() if hasattr(self, 'entry_diem_A') else ''
+        elif shape == "Đường thẳng":
+            data['line_A1'] = self.entry_point_A.get() if hasattr(self, 'entry_point_A') else ''
+            data['line_X1'] = self.entry_vector_A.get() if hasattr(self, 'entry_vector_A') else ''
+        elif shape == "Mặt phẳng":
+            data['plane_a'] = self.entry_a_A.get() if hasattr(self, 'entry_a_A') else ''
+            data['plane_b'] = self.entry_b_A.get() if hasattr(self, 'entry_b_A') else ''
+            data['plane_c'] = self.entry_c_A.get() if hasattr(self, 'entry_c_A') else ''
+            data['plane_d'] = self.entry_d_A.get() if hasattr(self, 'entry_d_A') else ''
+        elif shape == "Đường tròn":
+            data['circle_center'] = self.entry_center_A.get() if hasattr(self, 'entry_center_A') else ''
+            data['circle_radius'] = self.entry_radius_A.get() if hasattr(self, 'entry_radius_A') else ''
+        elif shape == "Mặt cầu":
+            data['sphere_center'] = self.entry_sphere_center_A.get() if hasattr(self, 'entry_sphere_center_A') else ''
+            data['sphere_radius'] = self.entry_sphere_radius_A.get() if hasattr(self, 'entry_sphere_radius_A') else ''
+        
+        return data
+    
+    def _get_input_data_B(self):
+        """Lấy dữ liệu nhập cho nhóm B"""
+        shape = self.dropdown2_var.get()
+        data = {}
+        
+        if shape == "Điểm":
+            data['point_input'] = self.entry_diem_B.get() if hasattr(self, 'entry_diem_B') else ''
+        elif shape == "Đường thẳng":
+            data['line_A2'] = self.entry_point_B.get() if hasattr(self, 'entry_point_B') else ''
+            data['line_X2'] = self.entry_vector_B.get() if hasattr(self, 'entry_vector_B') else ''
+        elif shape == "Mặt phẳng":
+            data['plane_a'] = self.entry_a_B.get() if hasattr(self, 'entry_a_B') else ''
+            data['plane_b'] = self.entry_b_B.get() if hasattr(self, 'entry_b_B') else ''
+            data['plane_c'] = self.entry_c_B.get() if hasattr(self, 'entry_c_B') else ''
+            data['plane_d'] = self.entry_d_B.get() if hasattr(self, 'entry_d_B') else ''
+        elif shape == "Đường tròn":
+            data['circle_center'] = self.entry_center_B.get() if hasattr(self, 'entry_center_B') else ''
+            data['circle_radius'] = self.entry_radius_B.get() if hasattr(self, 'entry_radius_B') else ''
+        elif shape == "Mặt cầu":
+            data['sphere_center'] = self.entry_sphere_center_B.get() if hasattr(self, 'entry_sphere_center_B') else ''
+            data['sphere_radius'] = self.entry_sphere_radius_B.get() if hasattr(self, 'entry_sphere_radius_B') else ''
+        
+        return data
+    
+    # ========== PROCESSING METHODS ==========
+    def _process_group_A(self):
+        """Xử lý nhóm A"""
+        try:
+            if not self.geometry_service:
+                messagebox.showerror("Lỗi", "GeometryService chưa được khởi tạo!")
+                return
+            
+            data_A = self._get_input_data_A()
+            result = self.geometry_service.thuc_thi_A(data_A)
+            self._update_result_display(f"Nhóm A đã xử lý: {result}")
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Lỗi xử lý nhóm A: {str(e)}")
+    
+    def _process_group_B(self):
+        """Xử lý nhóm B"""
+        try:
+            if not self.geometry_service:
+                messagebox.showerror("Lỗi", "GeometryService chưa được khởi tạo!")
+                return
+                
+            data_B = self._get_input_data_B()
+            result = self.geometry_service.thuc_thi_B(data_B)
+            self._update_result_display(f"Nhóm B đã xử lý: {result}")
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Lỗi xử lý nhóm B: {str(e)}")
+    
+    def _process_all(self):
+        """Thực thi tất cả - Core function!"""
+        try:
+            if not self.geometry_service:
+                messagebox.showerror("Lỗi", "GeometryService chưa được khởi tạo!")
+                return
+            
+            # Kiểm tra xem đã chọn phép toán và hình dạng chưa
+            if not self.pheptoan_var.get():
+                messagebox.showwarning("Cảnh báo", "Vui lòng chọn phép toán!")
+                return
+            
+            if not self.dropdown1_var.get():
+                messagebox.showwarning("Cảnh báo", "Vui lòng chọn hình dạng cho nhóm A!")
+                return
+            
+            # Lấy dữ liệu
+            data_A = self._get_input_data_A()
+            data_B = self._get_input_data_B()
+            
+            # Xử lý
+            result_A, result_B = self.geometry_service.thuc_thi_tat_ca(data_A, data_B)
+            
+            # Sinh kết quả cuối cùng
+            final_result = self.geometry_service.generate_final_result()
+            
+            # Hiển thị kết quả - matching TL style
+            message = f"✨ Kết quả mã hóa (cho máy tính):\n{final_result}\n\n"
+            message += f"📈 Chi tiết xử lý:\n"
+            message += f"Phép toán: {self.pheptoan_var.get()}\n"
+            message += f"Nhóm A ({self.dropdown1_var.get()}): {result_A}\n"
+            if self.pheptoan_var.get() not in ["Diện tích", "Thể tích"]:
+                message += f"Nhóm B ({self.dropdown2_var.get()}): {result_B}"
+            
+            self._update_result_display(message)
+            
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Lỗi thực thi: {str(e)}")
+    
+    # ========== SIMPLIFIED EXCEL METHODS - FILENAME ONLY ON IMPORT ==========
+    def _import_excel(self):
+        """Chỉ chọn file và lưu lại TÊN FILE, KHÔNG đọc nội dung"""
+        try:
+            file_path = filedialog.askopenfilename(
+                title="Chọn file Excel",
+                filetypes=[("Excel files", "*.xlsx *.xls")]
+            )
+            
+            if not file_path:
+                return
+            
+            # Kiểm tra extension
+            file_ext = os.path.splitext(file_path)[1].lower()
+            if file_ext not in ['.xlsx', '.xls']:
+                messagebox.showerror("Lỗi", "Chỉ hỗ trợ file Excel (.xlsx, .xls)!")
+                return
+            
+            # Kiểm tra file tồn tại
+            if not os.path.exists(file_path):
+                messagebox.showerror("Lỗi", "File không tồn tại!")
+                return
+            
+            # Lưu chỉ thông tin tên file, KHÔNG đọc nội dung
+            self.imported_file_path = file_path
+            self.imported_file_name = os.path.basename(file_path)
+            self.imported_data = True
+            self.manual_data_entered = False
+            self.is_large_file = False  # Reset, sẽ detect ở bước process
+            
+            # Clear và khóa các input thủ công
+            self._clear_and_lock_inputs()
+            
+            # Hiển thị import buttons
+            self._show_import_buttons()
+            
+            # Cập nhật status đơn giản (chỉ tên file)
+            file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
+            status_message = (
+                f"📁 Đã import file: {self.imported_file_name}\n"
+                f"📏 Kích thước: {file_size_mb:.1f}MB\n\n"
+                f"⚠️ Lưu ý: Chưa đọc nội dung file.\n"
+                f"Việc đọc, kiểm tra và xử lý sẽ thực hiện khi bấm 'Xử lý File Excel'.\n\n"
+                f"💪 Ready for anti-crash processing!"
+            )
+            
+            self.excel_status_label.config(text=f"Excel: 📁 {self.imported_file_name[:15]}...")
+            self._update_result_display(status_message)
+        
+        except Exception as e:
+            messagebox.showerror("Lỗi Import", f"Lỗi import Excel: {str(e)}")
+
+    def _process_excel_batch(self):
+        """Đọc và xử lý file Excel (chỉ đọc ở bước này)"""
+        try:
+            if not self.imported_data or not self.imported_file_path:
+                messagebox.showwarning("Cảnh báo", "Chưa import file Excel nào!")
+                return
+            
+            if not self.geometry_service:
+                messagebox.showerror("Lỗi", "GeometryService chưa sẵn sàng!")
+                return
+            
+            # Kiểm tra file vẫn tồn tại
+            if not os.path.exists(self.imported_file_path):
+                messagebox.showerror("Lỗi", f"File không tồn tại: {self.imported_file_path}")
+                return
+            
+            # Hỏi lưu output trước khi xử lý
+            original_name = os.path.splitext(self.imported_file_name)[0]
+            default_output = f"{original_name}_encoded_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            output_path = filedialog.asksaveasfilename(
+                title="Chọn nơi lưu kết quả",
+                defaultextension=".xlsx",
+                filetypes=[("Excel files", "*.xlsx")],
+                initialvalue=default_output
+            )
+            if not output_path:
+                return
+            
+            # Lấy setting hiện tại
+            shape_a = self.dropdown1_var.get()
+            shape_b = self.dropdown2_var.get() if self.pheptoan_var.get() not in ["Diện tích", "Thể tích"] else None
+            operation = self.pheptoan_var.get()
+            dimension_a = self.kich_thuoc_A_var.get()
+            dimension_b = self.kich_thuoc_B_var.get()
+            
+            # Tạo progress window
+            progress_window = self._create_progress_window("Đang xử lý file Excel...")
+            
+            def progress_callback(progress, processed, total, errors):
+                if hasattr(self, 'progress_var') and not self.processing_cancelled:
+                    try:
+                        self.progress_var.set(progress)
+                        memory_usage = self._get_memory_usage()
+                        progress_text = f"Đang xử lý: {processed:,}/{total:,} dòng\nLỗi: {errors:,}\nMemory: {memory_usage:.1f}MB"
+                        self.progress_label.config(text=progress_text)
+                        
+                        # Cập nhật memory status
+                        if memory_usage > 800:
+                            self.memory_status_label.config(text=f"💾 Memory: {memory_usage:.1f}MB (🔥 High)", fg="#F44336")
+                        elif memory_usage > 500:
+                            self.memory_status_label.config(text=f"💾 Memory: {memory_usage:.1f}MB (⚠️ Medium)", fg="#FF9800")
+                        else:
+                            self.memory_status_label.config(text=f"💾 Memory: {memory_usage:.1f}MB (✅ OK)", fg="#4CAF50")
+                        
+                        progress_window.update()
+                    except Exception:
+                        pass
+            
+            def process_thread():
+                try:
+                    # CHỈ TẠI ĐÂY mới đọc và xử lý file (service tự detect large/normal)
+                    results, output_file, success_count, error_count = self.geometry_service.process_excel_batch(
+                        self.imported_file_path, shape_a, shape_b, operation,
+                        dimension_a, dimension_b, output_path, progress_callback
+                    )
+                    
+                    if not self.processing_cancelled:
+                        progress_window.destroy()
+                        
+                        # Hiển thị kết quả thành công
+                        result_message = (
+                            f"🎉 Hoàn thành xử lý Excel!\n\n"
+                            f"📁 File gốc: {self.imported_file_name}\n"
+                            f"📁 Output: {os.path.basename(output_file)}\n"
+                            f"✅ Success: {success_count:,} rows\n"
+                            f"❌ Errors: {error_count:,} rows\n"
+                            f"💾 Peak memory: {self._get_memory_usage():.1f}MB\n\n"
+                        )
+                        
+                        if isinstance(results, list) and len(results) > 0:
+                            result_message += f"📝 Sample result:\n{results[0][:80]}..."
+                        else:
+                            result_message += "📝 Results written directly to file for memory efficiency"
+                        
+                        self._update_result_display(result_message)
+                        messagebox.showinfo("Hoàn thành", 
+                            f"🎉 Xử lý Excel thành công!\n\n"
+                            f"✅ Processed: {success_count:,} rows\n"
+                            f"❌ Errors: {error_count:,} rows\n\n"
+                            f"File đã lưu:\n{output_file}")
+                
+                except Exception as e:
+                    if not self.processing_cancelled:
+                        progress_window.destroy()
+                        messagebox.showerror("Lỗi Xử lý", f"Lỗi xử lý Excel: {str(e)}")
+            
+            # Start processing thread
+            thread = threading.Thread(target=process_thread)
+            thread.daemon = True
+            thread.start()
+        
+        except Exception as e:
+            messagebox.showerror("Lỗi Xử lý", f"Lỗi xử lý Excel: {str(e)}")
+    
+    def _create_progress_window(self, title):
+        """Create progress dialog window"""
+        progress_window = tk.Toplevel(self.window)
+        progress_window.title(title)
+        progress_window.geometry("450x180")
+        progress_window.resizable(False, False)
+        progress_window.grab_set()
+        progress_window.transient(self.window)
+        
+        # Title
+        tk.Label(progress_window, text=title, font=("Arial", 12, "bold")).pack(pady=10)
+        
+        # Progress bar
+        self.progress_var = tk.DoubleVar()
+        progress_bar = ttk.Progressbar(
+            progress_window, variable=self.progress_var, 
+            maximum=100, length=350, mode='determinate'
+        )
+        progress_bar.pack(pady=10)
+        
+        # Progress label
+        self.progress_label = tk.Label(progress_window, text="Chuẩn bị...", font=("Arial", 10))
+        self.progress_label.pack(pady=5)
+        
+        # Warning
+        warning_label = tk.Label(
+            progress_window, 
+            text="⚠️ Đừng đóng cửa sổ! Đang xử lý với anti-crash protection.",
+            font=("Arial", 8), fg="#FF9800"
+        )
+        warning_label.pack(pady=5)
+        
+        # Cancel button
+        def cancel_processing():
+            self.processing_cancelled = True
+            messagebox.showinfo("Đã hủy", "Đã yêu cầu hủy xử lý. Vui lòng đợi...")
+            progress_window.after(2000, progress_window.destroy)
+        
+        tk.Button(progress_window, text="🛑 Hủy", command=cancel_processing,
+                 bg="#F44336", fg="white", font=("Arial", 10)).pack(pady=10)
+        
+        return progress_window
+    
+    def _export_excel(self):
+        """Xuất kết quả ra Excel"""
+        try:
+            if not self.geometry_service:
+                messagebox.showerror("Lỗi", "GeometryService chưa sẵn sàng!")
+                return
+            
+            final_result = self.geometry_service.generate_final_result()
+            if not final_result:
+                messagebox.showwarning("Cảnh báo", "Chưa có kết quả nào để xuất!\n\nVui lòng thực thi tính toán trước.")
+                return
+            
+            default_name = f"geometry_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            output_path = filedialog.asksaveasfilename(
+                title="Xuất kết quả ra Excel",
+                defaultextension=".xlsx",
+                filetypes=[("Excel files", "*.xlsx")],
+                initialvalue=default_name
+            )
+            
+            if not output_path:
+                return
+            
+            exported_file = self.geometry_service.export_single_result(output_path)
+            messagebox.showinfo("Xuất thành công", f"Kết quả đã lưu tại:\n{exported_file}")
+            
+        except Exception as e:
+            messagebox.showerror("Lỗi Xuất", f"Lỗi xuất Excel: {str(e)}")
+    
+    def _create_template(self):
+        """Create Excel template"""
+        try:
+            shape_a = self.dropdown1_var.get()
+            shape_b = self.dropdown2_var.get() if self.pheptoan_var.get() not in ["Diện tích", "Thể tích"] else None
+            
+            if not shape_a:
+                messagebox.showwarning("Cảnh báo", "Vui lòng chọn hình dạng trước!")
+                return
+            
+            template_name = f"template_{shape_a}" + (f"_{shape_b}" if shape_b else "") + f"_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            
+            output_path = filedialog.asksaveasfilename(
+                title="Lưu template Excel",
+                defaultextension=".xlsx",
+                filetypes=[("Excel files", "*.xlsx")],
+                initialvalue=template_name
+            )
+            
+            if not output_path:
+                return
+            
+            template_file = self.geometry_service.create_excel_template_for_geometry(shape_a, shape_b, output_path)
+            
+            messagebox.showinfo("Tạo template thành công", 
+                f"Template Excel đã tạo tại:\n{template_file}\n\n"
+                f"Bạn có thể điền dữ liệu vào template này rồi import lại.\n\n"
+                f"💡 Tip: Template hỗ trợ đến 250,000 dòng với anti-crash system!")
+            
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Lỗi tạo template: {str(e)}")
+    
+    def _quit_import_mode(self):
+        """Thoát chế độ import và quay lại manual"""
+        try:
+            result = messagebox.askyesno("Thoát chế độ import", 
+                "Bạn có chắc muốn thoát chế độ import Excel và quay lại nhập thủ công?")
+            
+            if result:
+                self.imported_data = False
+                self.imported_file_path = ""
+                self.imported_file_name = ""
+                self.manual_data_entered = False
+                self.is_large_file = False
+                
+                self._unlock_and_clear_inputs()
+                self._hide_action_buttons()
+                
+                self._update_result_display("✨ Đã quay lại chế độ nhập thủ công.\nNhập dữ liệu vào các ô trên để bắt đầu.")
+                self.excel_status_label.config(text="📊 Excel: ✅ Ready")
+        
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Lỗi thoát chế độ import: {str(e)}")
+    
+    def _clear_and_lock_inputs(self):
+        """Clear and lock all input fields when Excel is imported"""
+        entries = self._get_all_input_entries()
+        for entry in entries:
+            try:
+                entry.delete(0, tk.END)
+                entry.config(state='disabled', bg='#E0E0E0')
+            except:
+                pass
+    
+    def _unlock_and_clear_inputs(self):
+        """Unlock and clear all input fields for manual input"""
+        entries = self._get_all_input_entries()
+        for entry in entries:
+            try:
+                entry.config(state='normal', bg='white')
+                entry.delete(0, tk.END)
+            except:
+                pass
+    
+    def _update_result_display(self, message):
+        """Cập nhật hiển thị kết quả với màu sắc"""
+        self.entry_tong.delete(1.0, tk.END)
+        self.entry_tong.insert(tk.END, message)
+        
+        # Color coding
+        if "Lỗi" in message or "lỗi" in message:
+            self.entry_tong.config(bg="#FFEBEE", fg="#D32F2F")
+        elif "Đã import" in message or "Hoàn thành" in message:
+            self.entry_tong.config(bg="#E8F5E8", fg="#388E3C")
+        elif "Đang xử lý" in message:
+            self.entry_tong.config(bg="#FFF3E0", fg="#F57C00")
+        else:
+            self.entry_tong.config(bg="#F8F9FA", fg="#2E86AB")
+    
+    def _show_ready_message(self):
+        """Hiển thông báo sẵn sàng"""
+        if self.geometry_service:
+            message = "✨ Geometry Mode v2.1 - Anti-Crash Excel! 💪\n\n"
+            message += "📝 Chế độ thủ công: Nhập dữ liệu vào các ô, bấm 'Thực thi tất cả'\n"
+            message += "📁 Chế độ Excel: Bấm 'Import Excel' chọn file, rồi 'Xử lý File Excel'\n\n"
+            message += "🔥 NEW: Enhanced Import Logic\n"
+            message += "✅ Import chỉ lưu tên file (nhanh)\n"
+            message += "✅ Đọc file chỉ khi xử lý (tiết kiệm memory)\n"
+            message += "✅ Auto-detect large files (250k rows limit)\n"
+            message += "✅ Crash protection với memory monitoring\n\n"
+            message += "💡 Tính năng: Import-defer-read, Batch, Chunked, Anti-Crash"
+        else:
+            message = "⚠️ GeometryService không khởi tạo được.\nVui lòng kiểm tra cài đặt!"
+        
+        self.entry_tong.insert(tk.END, message)
+
+    def _setup_control_frame(self):
+        """Setup control frame với buttons và result display"""
+        self.frame_tong = tk.LabelFrame(
+            self.main_container, text="🎉 KẾT QUẢ & ĐIỀU KHIỂN",
+            bg="#FFFFFF", font=("Arial", 10, "bold")
+        )
+        self.frame_tong.grid(row=8, column=0, columnspan=4, padx=10, pady=10, sticky="we")
+
+        # Text widget hiển thị kết quả
+        self.entry_tong = tk.Text(
+            self.main_container,
+            width=80, height=8,
+            font=("Courier New", 9), wrap=tk.WORD,
+            bg="#F8F9FA", fg="black",
+            relief="solid", bd=1, padx=5, pady=5
+        )
+        self.entry_tong.grid(row=9, column=0, columnspan=4, padx=5, pady=5, sticky="we")
+
+        # Nút Import Excel
+        self.btn_import_excel = tk.Button(
+            self.frame_tong, text="📁 Import Excel (Fast Select - 250k limit!)",
+            command=self._import_excel,
+            bg="#FF9800", fg="white", font=("Arial", 9, "bold")
+        )
+        self.btn_import_excel.grid(row=0, column=0, columnspan=4, pady=5, sticky="we")
+
+        # Frame cho nút thủ công
+        self.frame_buttons_manual = tk.Frame(self.frame_tong, bg="#FFFFFF")
+        self.frame_buttons_manual.grid(row=1, column=0, columnspan=4, pady=5, sticky="we")
+
+        tk.Button(self.frame_buttons_manual, text="🔄 Xử lý Nhóm A",
+                  command=self._process_group_A,
+                  bg="#2196F3", fg="white", font=("Arial", 9)).grid(row=0, column=0, padx=5)
+        tk.Button(self.frame_buttons_manual, text="🔄 Xử lý Nhóm B",
+                  command=self._process_group_B,
+                  bg="#2196F3", fg="white", font=("Arial", 9)).grid(row=0, column=1, padx=5)
+        tk.Button(self.frame_buttons_manual, text="🚀 Thực thi tất cả",
+                  command=self._process_all,
+                  bg="#4CAF50", fg="white", font=("Arial", 9, "bold")).grid(row=0, column=2, padx=5)
+        tk.Button(self.frame_buttons_manual, text="💾 Xuất Excel",
+                  command=self._export_excel,
+                  bg="#FF9800", fg="white", font=("Arial", 9, "bold")).grid(row=0, column=3, padx=5)
+        
+        # Frame cho nút import mode
+        self.frame_buttons_import = tk.Frame(self.frame_tong, bg="#FFFFFF")
+        self.frame_buttons_import.grid(row=1, column=0, columnspan=4, pady=5, sticky="we")
+        
+        tk.Button(self.frame_buttons_import, text="🔥 Xử lý File Excel",
+                  command=self._process_excel_batch,
+                  bg="#F44336", fg="white", font=("Arial", 9, "bold")).grid(row=0, column=0, padx=5)
+        tk.Button(self.frame_buttons_import, text="📁 Import File Khác",
+                  command=self._import_excel,
+                  bg="#2196F3", fg="white", font=("Arial", 9)).grid(row=0, column=1, padx=5)
+        tk.Button(self.frame_buttons_import, text="📝 Tạo Template",
+                  command=self._create_template,
+                  bg="#9C27B0", fg="white", font=("Arial", 9)).grid(row=0, column=2, padx=5)
+        tk.Button(self.frame_buttons_import, text="↩️ Quay lại",
+                  command=self._quit_import_mode,
+                  bg="#607D8B", fg="white", font=("Arial", 9)).grid(row=0, column=3, padx=5)
+        
+        # Initially hide import buttons
+        self.frame_buttons_import.grid_remove()
+        self.frame_buttons_manual.grid_remove()
 
 
-if __name__ == \"__main__\":\n    root = tk.Tk()\n    app = GeometryView(root)\n    root.mainloop()\n
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = GeometryView(root)
+    root.mainloop()
