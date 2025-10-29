@@ -6,6 +6,7 @@ import os
 from .models import Point2D, Point3D, Line3D, Plane, Circle, Sphere, BaseGeometry
 from .mapping_adapter import GeometryMappingAdapter
 from .excel_loader import GeometryExcelLoader
+from services.excel.excel_processor import ExcelProcessor
 from utils.config_loader import config_loader
 
 class GeometryService:
@@ -15,6 +16,7 @@ class GeometryService:
         self.config = config or {}
         self.mapping_adapter = GeometryMappingAdapter(config)
         self.excel_loader = GeometryExcelLoader(config)
+        self.excel_processor = ExcelProcessor(config)  # NEW: Excel processor integration
         
         # Data storage - matching TL structure
         self.ket_qua_A1 = []  # Line A point coordinates 
@@ -280,6 +282,306 @@ class GeometryService:
         result_B = self.thuc_thi_B(data_dict_B)
         return result_A, result_B
     
+    # ========== EXCEL INTEGRATION - NEW METHODS ==========
+    def process_excel_batch(self, file_path: str, shape_a: str, shape_b: str, 
+                           operation: str, dimension_a: str, dimension_b: str,
+                           output_path: str = None, progress_callback: callable = None) -> Tuple[List[str], str, int, int]:
+        """Process entire Excel file in batch - matching TL functionality"""
+        try:
+            # Read and validate Excel file
+            df = self.excel_processor.read_excel_data(file_path)
+            is_valid, missing_cols = self.excel_processor.validate_excel_structure(df, shape_a, shape_b)
+
+            if not is_valid:
+                raise Exception(f"Thiếu các cột: {', '.join(missing_cols)}")
+
+            encoded_results = []
+            processed_count = 0
+            error_count = 0
+            total_rows = len(df)
+
+            # Process each row
+            for index, row in df.iterrows():
+                try:
+                    # Set current state for this row
+                    self.set_current_shapes(shape_a, shape_b)
+                    self.set_kich_thuoc(dimension_a, dimension_b)
+                    self.current_operation = operation
+
+                    # Extract data for both groups
+                    data_a = self.excel_processor.extract_shape_data(row, shape_a, 'A')
+                    data_b = self.excel_processor.extract_shape_data(row, shape_b, 'B') if shape_b else {}
+
+                    # Process data
+                    self.thuc_thi_tat_ca(data_a, data_b)
+                    result = self.generate_final_result()
+
+                    encoded_results.append(result)
+                    processed_count += 1
+                    
+                    # Update progress if callback provided
+                    if progress_callback and (processed_count % 10 == 0 or processed_count == total_rows):
+                        progress = (processed_count / total_rows) * 100
+                        progress_callback(progress, processed_count, total_rows, error_count)
+
+                except Exception as e:
+                    # Log error but continue with next row
+                    encoded_results.append(f"LỖI: {str(e)}")
+                    error_count += 1
+                    print(f"Lỗi dòng {index + 1}: {str(e)}")
+
+            # Generate output path if not provided
+            if not output_path:
+                original_name = os.path.splitext(os.path.basename(file_path))[0]
+                output_path = f"{original_name}_encoded_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+                output_path = os.path.join(os.path.dirname(file_path), output_path)
+
+            # Export results
+            output_file = self.excel_processor.export_results(df, encoded_results, output_path)
+
+            return encoded_results, output_file, processed_count, error_count
+
+        except Exception as e:
+            raise Exception(f"Lỗi xử lý file Excel: {str(e)}")
+    
+    def process_excel_batch_chunked(self, file_path: str, shape_a: str, shape_b: str,
+                                  operation: str, dimension_a: str, dimension_b: str,
+                                  chunksize: int = 1000, progress_callback: callable = None) -> Tuple[List[str], str, int, int]:
+        """Process large Excel file in chunks - matching TL functionality"""
+        try:
+            # Get total rows for progress calculation
+            total_rows = self.excel_processor.get_total_rows(file_path)
+            processed_count = 0
+            error_count = 0
+            all_results = []
+            
+            # Validate structure first
+            df_sample = self.excel_processor.read_excel_data(file_path)
+            is_valid, missing_cols = self.excel_processor.validate_excel_structure(df_sample, shape_a, shape_b)
+            if not is_valid:
+                raise Exception(f"Thiếu các cột: {', '.join(missing_cols)}")
+
+            # Process in chunks
+            chunk_iterator = self.excel_processor.read_excel_data_chunked(file_path, chunksize)
+
+            for chunk_idx, chunk_df in enumerate(chunk_iterator):
+                chunk_results = []
+
+                # Process each row in chunk
+                for index, row in chunk_df.iterrows():
+                    try:
+                        # Set current state
+                        self.set_current_shapes(shape_a, shape_b)
+                        self.set_kich_thuoc(dimension_a, dimension_b)
+                        self.current_operation = operation
+
+                        # Extract and process data
+                        data_a = self.excel_processor.extract_shape_data(row, shape_a, 'A')
+                        data_b = self.excel_processor.extract_shape_data(row, shape_b, 'B') if shape_b else {}
+
+                        self.thuc_thi_tat_ca(data_a, data_b)
+                        result = self.generate_final_result()
+
+                        chunk_results.append(result)
+                        processed_count += 1
+
+                    except Exception as e:
+                        chunk_results.append(f"LỖI: {str(e)}")
+                        error_count += 1
+
+                    # Update progress every 10 rows
+                    if progress_callback and processed_count % 10 == 0:
+                        progress = (processed_count / total_rows) * 100 if total_rows > 0 else 0
+                        progress_callback(progress, processed_count, total_rows, error_count)
+
+                all_results.extend(chunk_results)
+
+                # Memory cleanup after each chunk
+                del chunk_df
+                import gc
+                gc.collect()
+
+            # Export final results
+            original_name = os.path.splitext(os.path.basename(file_path))[0]
+            output_path = f"{original_name}_batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            output_path = os.path.join(os.path.dirname(file_path), output_path)
+
+            final_df = self.excel_processor.read_excel_data(file_path)
+            output_file = self.excel_processor.export_results(final_df, all_results, output_path)
+
+            return all_results, output_file, processed_count, error_count
+
+        except Exception as e:
+            raise Exception(f"Lỗi xử lý file Excel theo chunk: {str(e)}")
+    
+    def validate_excel_file(self, file_path: str, shape_a: str, shape_b: str = None) -> Dict[str, Any]:
+        """Comprehensive Excel file validation"""
+        try:
+            # Basic file validation
+            if not os.path.exists(file_path):
+                return {'valid': False, 'error': 'File không tồn tại'}
+            
+            # Read file info
+            file_info = self.excel_processor.get_file_info(file_path)
+            
+            # Structure validation
+            df = self.excel_processor.read_excel_data(file_path)
+            structure_valid, missing_cols = self.excel_processor.validate_excel_structure(df, shape_a, shape_b)
+            
+            # Data quality validation
+            quality_info = self.excel_processor.validate_data_quality(df, shape_a, shape_b)
+            
+            return {
+                'valid': structure_valid and quality_info['valid'],
+                'file_info': file_info,
+                'structure_issues': missing_cols,
+                'quality_issues': quality_info,
+                'ready_for_processing': structure_valid and quality_info['rows_with_data'] > 0
+            }
+            
+        except Exception as e:
+            return {'valid': False, 'error': f'Lỗi kiểm tra file: {str(e)}'}
+    
+    def export_single_result(self, output_path: str = None) -> str:
+        """Export current single result to Excel"""
+        try:
+            if output_path is None:
+                output_path = f"geometry_single_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+                output_path = os.path.join(os.getcwd(), output_path)
+
+            # Prepare comprehensive export data
+            data = self._prepare_comprehensive_export_data()
+            df = pd.DataFrame(data)
+
+            # Create Excel with multiple sheets
+            with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
+                df.to_excel(writer, sheet_name='Geometry Data', index=False)
+
+                # Add summary sheet
+                summary_data = self._prepare_summary_data()
+                summary_df = pd.DataFrame(summary_data)
+                summary_df.to_excel(writer, sheet_name='Summary', index=False)
+                
+                # Format worksheets
+                self._format_export_worksheets(writer, df, summary_df)
+
+            return output_path
+
+        except ImportError:
+            raise Exception("Thư viện openpyxl chưa được cài đặt. Vui lòng cài đặt bằng lệnh: pip install openpyxl")
+        except Exception as e:
+            raise Exception(f"Lỗi xuất Excel: {str(e)}")
+    
+    def _prepare_comprehensive_export_data(self):
+        """Prepare comprehensive data for Excel export - matching TL structure"""
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # Base data
+        data = {
+            "Thời gian": [timestamp],
+            "Phép toán": [self.current_operation],
+            "Đối tượng A": [self.current_shape_A],
+            "Đối tượng B": [
+                self.current_shape_B if self.current_operation not in ["Diện tích", "Thể tích"] else "Không có"],
+            "Kết quả mã hóa": [self.generate_final_result()],
+            "Kích thước A": [self.kich_thuoc_A],
+            "Kích thước B": [self.kich_thuoc_B]
+        }
+
+        # Add detailed data based on shape types
+        self._add_detailed_export_data(data, "A", self.current_shape_A, self.raw_data_A)
+
+        if self.current_operation not in ["Diện tích", "Thể tích"]:
+            self._add_detailed_export_data(data, "B", self.current_shape_B, self.raw_data_B)
+
+        return data
+    
+    def _add_detailed_export_data(self, data, group, shape_type, raw_data):
+        """Add detailed export data for specific group and shape type - matching TL"""
+        prefix = f"Nhóm {group} - "
+
+        if shape_type == "Điểm":
+            point_input = raw_data.get('point_input', '')
+            coords = point_input.split(',') if point_input else []
+            
+            data[f"{prefix}Toạ độ X"] = [coords[0] if len(coords) > 0 else ""]
+            data[f"{prefix}Toạ độ Y"] = [coords[1] if len(coords) > 1 else ""]
+            if group == "A":
+                data[f"{prefix}Toạ độ X (mã hóa)"] = [self.ket_qua_diem_A[0] if len(self.ket_qua_diem_A) > 0 else ""]
+                data[f"{prefix}Toạ độ Y (mã hóa)"] = [self.ket_qua_diem_A[1] if len(self.ket_qua_diem_A) > 1 else ""]
+                if int(self.kich_thuoc_A) == 3:
+                    data[f"{prefix}Toạ độ Z"] = [coords[2] if len(coords) > 2 else ""]
+                    data[f"{prefix}Toạ độ Z (mã hóa)"] = [self.ket_qua_diem_A[2] if len(self.ket_qua_diem_A) > 2 else ""]
+            else:
+                data[f"{prefix}Toạ độ X (mã hóa)"] = [self.ket_qua_diem_B[0] if len(self.ket_qua_diem_B) > 0 else ""]
+                data[f"{prefix}Toạ độ Y (mã hóa)"] = [self.ket_qua_diem_B[1] if len(self.ket_qua_diem_B) > 1 else ""]
+                if int(self.kich_thuoc_B) == 3:
+                    data[f"{prefix}Toạ độ Z"] = [coords[2] if len(coords) > 2 else ""]
+                    data[f"{prefix}Toạ độ Z (mã hóa)"] = [self.ket_qua_diem_B[2] if len(self.ket_qua_diem_B) > 2 else ""]
+
+        elif shape_type == "Đường thẳng":
+            line_A = raw_data.get('line_A1') or raw_data.get('line_A2', '')
+            line_X = raw_data.get('line_X1') or raw_data.get('line_X2', '')
+            
+            point_coords = line_A.split(',') if line_A else []
+            vector_coords = line_X.split(',') if line_X else []
+            
+            data[f"{prefix}Điểm A"] = [point_coords[0] if len(point_coords) > 0 else ""]
+            data[f"{prefix}Điểm B"] = [point_coords[1] if len(point_coords) > 1 else ""]
+            data[f"{prefix}Điểm C"] = [point_coords[2] if len(point_coords) > 2 else ""]
+            data[f"{prefix}Vector X"] = [vector_coords[0] if len(vector_coords) > 0 else ""]
+            data[f"{prefix}Vector Y"] = [vector_coords[1] if len(vector_coords) > 1 else ""]
+            data[f"{prefix}Vector Z"] = [vector_coords[2] if len(vector_coords) > 2 else ""]
+
+        # Add other shape types as needed...
+    
+    def _prepare_summary_data(self):
+        """Prepare summary data for Excel export"""
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        summary = {
+            "Thời gian xuất": [timestamp],
+            "Tổng số đối tượng": ["2" if self.current_operation not in ["Diện tích", "Thể tích"] else "1"],
+            "Phép toán thực hiện": [self.current_operation],
+            "Đối tượng chính": [self.current_shape_A],
+            "Đối tượng phụ": [
+                self.current_shape_B if self.current_operation not in ["Diện tích", "Thể tích"] else "Không có"],
+            "Trạng thái": ["Đã xử lý và mã hóa"],
+            "Độ dài kết quả": [len(self.generate_final_result())],
+            "Ghi chú": ["Dữ liệu đã được mã hóa theo quy tắc mapping"]
+        }
+
+        return summary
+    
+    def _format_export_worksheets(self, writer, main_df, summary_df):
+        """Format export worksheets"""
+        try:
+            # Format main sheet
+            main_ws = writer.sheets['Geometry Data']
+            self.excel_processor._format_results_worksheet(main_ws, main_df)
+            
+            # Format summary sheet
+            summary_ws = writer.sheets['Summary']
+            header_font = Font(name='Arial', size=12, bold=True, color='FFFFFF')
+            header_fill = PatternFill(start_color='4CAF50', end_color='4CAF50', fill_type='solid')
+            
+            for col in range(1, len(summary_df.columns) + 1):
+                cell = summary_ws.cell(row=1, column=col)
+                cell.font = header_font
+                cell.fill = header_fill
+                
+        except Exception as e:
+            print(f"Warning: Could not format export worksheets: {e}")
+    
+    def create_template_for_shapes(self, shape_a: str, shape_b: str = None, output_path: str = None) -> str:
+        """Create Excel template for specific shape combination"""
+        if output_path is None:
+            shapes_name = f"{shape_a}" + (f"_{shape_b}" if shape_b else "")
+            output_path = f"template_{shapes_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            output_path = os.path.join(os.getcwd(), output_path)
+        
+        return self.excel_processor.create_geometry_template(shape_a, shape_b, output_path)
+    
     def generate_final_result(self) -> str:
         """Generate the final encoded string - matching TL behavior"""
         if not self.current_shape_A or not self.current_operation:
@@ -494,3 +796,16 @@ class GeometryService:
             "encoded_result": self.generate_final_result(),
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
+    
+    # ========== NEW EXCEL METHODS ==========
+    def get_excel_file_info(self, file_path: str) -> Dict[str, Any]:
+        """Get comprehensive Excel file information"""
+        return self.excel_processor.get_file_info(file_path)
+    
+    def validate_excel_file_for_geometry(self, file_path: str, shape_a: str, shape_b: str = None) -> Dict[str, Any]:
+        """Validate Excel file for geometry processing"""
+        return self.validate_excel_file(file_path, shape_a, shape_b)
+    
+    def create_excel_template_for_geometry(self, shape_a: str, shape_b: str = None, output_path: str = None) -> str:
+        """Create Excel template for specific geometry shapes"""
+        return self.create_template_for_shapes(shape_a, shape_b, output_path)
