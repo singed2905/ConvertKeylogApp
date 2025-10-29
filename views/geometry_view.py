@@ -1142,7 +1142,7 @@ class GeometryView:
             bg="#9C27B0", fg="white", font=("Arial", 9, "bold"),
             width=20
         )
-        self.btn_copy_result.grid(row=10, column=0, columnspan=4, pady=5)
+        self.btn_copy_result.grid(row=10,  column=0, sticky="w", padx=0, pady=5)
         self.btn_copy_result.grid_remove()  # Ẩn ban đầu
 
         # Nút Import Excel
