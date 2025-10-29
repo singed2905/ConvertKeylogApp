@@ -76,8 +76,9 @@ class LargeFileProcessor:
             max_row = ws.max_row
             max_col = ws.max_column
             
+            # Fixed f-string formatting - separate comma formatting from other formats
             print(f"📊 File dimensions: {max_row:,} rows × {max_col} columns")
-            print(f"📦 Using chunk size: {chunksize:,} rows")
+            print(f"📦 Using chunk size: {chunksize} rows")
             print(f"💾 Estimated chunks: {(max_row-1)//chunksize + 1}")
             
             # Read header row only
@@ -108,7 +109,8 @@ class LargeFileProcessor:
                     # Calculate current chunk boundaries
                     end_row = min(current_row + chunksize - 1, max_row)
                     
-                    print(f"📖 Reading chunk {chunk_count + 1}: rows {current_row:,}-{end_row:,}")
+                    # Fixed f-string - avoid mixing comma and other format specifiers
+                    print(f"📖 Reading chunk {chunk_count + 1}: rows {current_row}-{end_row}")
                     
                     # Open file again for this specific chunk only
                     wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
@@ -148,7 +150,8 @@ class LargeFileProcessor:
                         print(f"💾 Memory after chunk {chunk_count}: {memory_usage:.1f}MB")
                     
                 except Exception as e:
-                    print(f"❌ Error reading chunk starting at row {current_row:,}: {e}")
+                    # Fixed f-string formatting
+                    print(f"❌ Error reading chunk starting at row {current_row}: {e}")
                     # Skip this chunk and try to continue with next one
                     current_row += chunksize
                     continue
@@ -185,11 +188,11 @@ class LargeFileProcessor:
             
             # Get optimal chunk size for this file
             chunk_size = self.estimate_optimal_chunksize(file_path)
-            print(f"🎯 Using chunk size: {chunk_size:,} rows")
+            print(f"🎯 Using chunk size: {chunk_size} rows")
             
             # Estimate total rows for progress calculation
             total_rows = self._estimate_total_rows(file_path)
-            print(f"📊 Estimated total rows: {total_rows:,}")
+            print(f"📊 Estimated total rows: {total_rows}")
             
             # Initialize temp file for results buffering (saves memory)
             temp_results_file = f"{output_path}.temp_results"
@@ -206,7 +209,8 @@ class LargeFileProcessor:
                     break
                 
                 chunk_count += 1
-                print(f"⚙️ Processing chunk {chunk_count} ({len(chunk_df):,} rows)")
+                # Fixed f-string formatting
+                print(f"⚙️ Processing chunk {chunk_count} ({len(chunk_df)} rows)")
                 
                 # Process each row in current chunk
                 for index, row in chunk_df.iterrows():
@@ -284,8 +288,9 @@ class LargeFileProcessor:
                 print("🧹 Temporary file cleaned up")
             
             print(f"🎉 Large file processing completed!")
-            print(f"   ✅ Success: {success_count:,} rows")
-            print(f"   ❌ Errors: {error_count:,} rows")
+            # Fixed f-string formatting
+            print(f"   ✅ Success: {success_count} rows")
+            print(f"   ❌ Errors: {error_count} rows")
             print(f"   📁 Output: {os.path.basename(final_output)}")
             
             return success_count, error_count, final_output
@@ -388,7 +393,8 @@ class LargeFileProcessor:
             
             # Read results from temp file
             all_results = self._read_temp_results(temp_results_file)
-            print(f"📊 Loaded {len(all_results):,} results from temp file")
+            # Fixed f-string formatting
+            print(f"📊 Loaded {len(all_results)} results from temp file")
             
             # Create final Excel using direct openpyxl to avoid loading entire original file
             return self._create_excel_direct(original_file, all_results, output_path)
@@ -426,7 +432,8 @@ class LargeFileProcessor:
             row_count = 2  # Start after header
             result_idx = 0
             
-            print(f"📝 Writing {len(results):,} results to Excel...")
+            # Fixed f-string formatting
+            print(f"📝 Writing {len(results)} results to Excel...")
             
             for data_row in source_ws.iter_rows(min_row=2, values_only=True):
                 if result_idx >= len(results):
@@ -448,7 +455,8 @@ class LargeFileProcessor:
                 # Memory management - periodic cleanup and reporting
                 if row_count % 1000 == 0:
                     current_memory = self.get_memory_usage()
-                    print(f"📝 Written {row_count-1:,} rows... (Memory: {current_memory:.1f}MB)")
+                    # Fixed f-string formatting
+                    print(f"📝 Written {row_count-1} rows... (Memory: {current_memory:.1f}MB)")
                     if self.check_memory_limit():
                         print("🧹 Performing memory cleanup...")
                         gc.collect()
