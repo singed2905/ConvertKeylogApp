@@ -54,16 +54,16 @@ class LargeFileProcessor:
             
             # OPTIMIZED chunk sizes for single-workbook streaming
             if file_size_mb > 100:    # Files > 100MB
-                return 3000  # Large but manageable for memory
-            elif file_size_mb > 50:   # 50-100MB (like user's 45.9MB file)  
-                return 5000  # Optimal for 45MB+ files
+                return 3000
+            elif file_size_mb > 50:   # 50-100MB  
+                return 5000
             elif file_size_mb > 20:   # 20-50MB
-                return 7000  # Aggressive for medium files
+                return 7000
             else:
-                return 10000  # Maximum speed for small files
+                return 10000
                 
         except Exception:
-            return 5000  # Optimized fallback
+            return 5000
     
     def _get_actual_total_rows(self, file_path: str) -> int:
         """Get ACTUAL total rows by reading file header info"""
@@ -92,70 +92,55 @@ class LargeFileProcessor:
             print(f"🚀 PHƯƠNG ÁN A: Single-workbook streaming")
             print(f"📁 File: {os.path.basename(file_path)}")
             
-            # MỞ WORKBOOK 1 LẦN DUY NHẤT
             wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
             ws = wb.active
             
-            # Lấy thông tin file
             max_row = ws.max_row if hasattr(ws, 'max_row') and ws.max_row else 0
             max_col = ws.max_column if hasattr(ws, 'max_column') else 0
-            total_rows = max(0, max_row - 1)  # Exclude header
+            total_rows = max(0, max_row - 1)
             
-            # Enforce row limit
             self._enforce_row_limit(total_rows)
             
             print(f"📊 Dimensions: {total_rows:,} rows × {max_col} columns")
             print(f"⚡ Chunk size: {chunksize:,} rows")
             print(f"📦 Estimated chunks: {(total_rows + chunksize - 1) // chunksize}")
             
-            # Đọc header 1 lần
             try:
                 header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True))
                 columns = [str(cell) if cell is not None else f"Col_{i}" 
                           for i, cell in enumerate(header_row)]
             except Exception:
-                # Fallback if no header
                 columns = [f"Col_{i}" for i in range(max_col)]
             
-            # STREAM THEO CHUNK - KHÔNG ĐÓNG WORKBOOK
-            current_row = 2  # Start from row 2 (after header)
+            current_row = 2
             chunk_count = 0
             
             while current_row <= max_row and not self.processing_cancelled:
                 try:
                     end_row = min(current_row + chunksize - 1, max_row)
-                    
                     print(f"⚡ Reading chunk {chunk_count + 1}: rows {current_row:,}-{end_row:,}")
-                    
-                    # ĐỌC VÙNG KHÔNG ĐÓNG WORKBOOK
                     chunk_data = []
                     for row in ws.iter_rows(min_row=current_row, max_row=end_row, values_only=True):
                         row_data = [str(cell) if cell is not None else "" for cell in row]
                         chunk_data.append(row_data)
                     
                     if chunk_data:
-                        chunk_df = pd.DataFrame(chunk_data, columns=columns)
-                        chunk_df = chunk_df.fillna('')  # Clean and fast
+                        chunk_df = pd.DataFrame(chunk_data, columns=columns).fillna('')
                         yield chunk_df
                         del chunk_df, chunk_data
-                        
-                        # Minimal cleanup (every 10 chunks for speed)
                         if chunk_count % 10 == 0 and chunk_count > 0:
                             gc.collect()
                             print(f"🧹 Cleanup checkpoint: Memory {self.get_memory_usage():.1f}MB")
                     
                     current_row = end_row + 1
                     chunk_count += 1
-                    
                 except Exception as e:
                     print(f"❌ Error reading chunk {chunk_count + 1}: {e}")
-                    current_row += chunksize  # Skip problematic chunk
+                    current_row += chunksize
                     continue
             
-            # ĐÓNG WORKBOOK 1 LẦN CUỐI
             wb.close()
             print(f"✅ Single-workbook streaming completed: {chunk_count} chunks")
-            
         except Exception as e:
             raise Exception(f"Lỗi streaming single-workbook: {str(e)}")
     
@@ -172,17 +157,15 @@ class LargeFileProcessor:
         error_count = 0
         processed_count = 0
         start_time = time.time()
+        temp_results_file = f"{output_path}.temp_results"
         
         from services.geometry.geometry_service import GeometryService
         
         try:
             print(f"🚀 PHƯƠNG ÁN A - HIGH-SPEED processing: {os.path.basename(file_path)}")
-            
-            # Get ACTUAL total rows (not estimation)
             total_rows = self._get_actual_total_rows(file_path)
             self._enforce_row_limit(total_rows)
             
-            # Initialize service once
             service = GeometryService(self.config)
             service.set_current_shapes(shape_a, shape_b)
             service.set_kich_thuoc(dimension_a, dimension_b)
@@ -192,16 +175,11 @@ class LargeFileProcessor:
             print(f"⚡ Optimized chunk size: {chunk_size:,} rows")
             print(f"🎯 Target: {total_rows:,} rows at 400+ rows/sec")
             
-            # Results buffering
-            temp_results_file = f"{output_path}.temp_results"
             results_buffer = []
-            buffer_size = 5000  # Large buffer for speed
-            
+            buffer_size = 5000
             chunk_count = 0
             last_speed_check = time.time()
-            last_eta_update = time.time()
             
-            # Use SINGLE-WORKBOOK streaming
             for chunk_df in self.read_excel_streaming_single_workbook(file_path, chunk_size):
                 if self.processing_cancelled:
                     break
@@ -209,106 +187,77 @@ class LargeFileProcessor:
                 chunk_count += 1
                 chunk_start = time.time()
                 
-                # Process chunk
                 chunk_results = []
                 for index, row in chunk_df.iterrows():
                     try:
                         if self.processing_cancelled:
                             break
-                            
                         data_a = self._extract_shape_data_fast(row, shape_a, 'A')
                         data_b = self._extract_shape_data_fast(row, shape_b, 'B') if shape_b else {}
-                        
-                        # Service recreation only every 10k rows for speed
                         if processed_count % 10000 == 0 and processed_count > 0:
                             service = GeometryService(self.config)
                             service.set_current_shapes(shape_a, shape_b)
                             service.set_kich_thuoc(dimension_a, dimension_b)
                             service.set_current_operation(operation)
-                        
                         service.thuc_thi_tat_ca(data_a, data_b)
                         result = service.generate_final_result()
                         chunk_results.append(result)
                         success_count += 1
-                        
                     except Exception as e:
                         chunk_results.append(f"LỖI: {str(e)}")
                         error_count += 1
-                    
                     processed_count += 1
                 
-                # Add results to buffer
                 results_buffer.extend(chunk_results)
-                
-                # Write buffer when full (less frequent for speed)
                 if len(results_buffer) >= buffer_size:
                     self._write_results_buffer_fast(temp_results_file, results_buffer)
                     results_buffer = []
                 
-                # Calculate speeds
                 chunk_time = time.time() - chunk_start
-                chunk_speed = len(chunk_df) / chunk_time if chunk_time >= 0.5 else None  # Only if meaningful
-                
+                chunk_speed = len(chunk_df) / chunk_time if chunk_time >= 0.5 else None
                 current_time = time.time()
                 elapsed = current_time - start_time
                 avg_speed = processed_count / elapsed if elapsed > 0 else 0
                 
-                # Progress callback (every 100 rows for balance of accuracy vs speed)
                 if progress_callback and processed_count % 100 == 0:
-                    processed_display = min(processed_count, total_rows)  # Clamp progress
+                    processed_display = min(processed_count, total_rows)
                     progress_percent = (processed_display / total_rows) * 100 if total_rows > 0 else 0
                     progress_callback(progress_percent, processed_display, total_rows, error_count)
                 
-                # Speed reporting every 5 seconds with ETA
                 if current_time - last_speed_check >= 5:
                     processed_display = min(processed_count, total_rows)
                     progress_percent = (processed_display / total_rows) * 100 if total_rows > 0 else 0
-                    
-                    # Calculate ETA
                     remaining_rows = total_rows - processed_display
                     eta_seconds = remaining_rows / max(avg_speed, 1e-6) if remaining_rows > 0 else 0
                     eta_minutes = int(eta_seconds // 60)
                     eta_secs = int(eta_seconds % 60)
                     eta_str = f"{eta_minutes:02d}:{eta_secs:02d}"
-                    
-                    # Format speed display
                     if chunk_speed is not None:
                         speed_display = f"🔥 Speed: {avg_speed:.0f} rows/sec (avg) | {chunk_speed:.0f} rows/sec (current)"
                     else:
                         speed_display = f"🔥 Speed: {avg_speed:.0f} rows/sec (avg)"
-                    
                     print(f"{speed_display} | Progress: {processed_display:,}/{total_rows:,} ({progress_percent:.1f}%) | ETA: {eta_str}")
                     last_speed_check = current_time
                 
-                # Memory check every 5 chunks for speed
                 if chunk_count % 5 == 0 and self.check_memory_limit():
                     print(f"⚠️ Memory: {self.get_memory_usage():.1f}MB - Quick cleanup")
                     gc.collect()
                 
                 del chunk_df
             
-            # Write remaining buffer
             if results_buffer:
                 self._write_results_buffer_fast(temp_results_file, results_buffer)
             
-            # Create final Excel file
             print("🔧 Creating final Excel file with high-speed method...")
             final_output = self._create_excel_direct_fast(file_path, temp_results_file, output_path)
             
-            # Cleanup temp file
-            if os.path.exists(temp_results_file):
-                os.remove(temp_results_file)
-            
-            # Final speed report
             total_time = time.time() - start_time
             final_speed = processed_count / total_time if total_time > 0 else 0
-            
             print(f"🏁 PHƯƠNG ÁN A COMPLETED!")
             print(f"⚡ Final speed: {final_speed:.0f} rows/sec (Target: 400+ rows/sec)")
             print(f"📊 Total: {processed_count:,} rows in {total_time:.1f}s")
             print(f"✅ Success: {success_count:,} | ❌ Errors: {error_count:,}")
             
-            # Performance assessment
             if final_speed >= 400:
                 print(f"🎉 PERFORMANCE TARGET ACHIEVED! ({final_speed:.0f} ≥ 400 rows/sec)")
             elif final_speed >= 300:
@@ -317,18 +266,22 @@ class LargeFileProcessor:
                 print(f"⚠️ Below target speed. Consider SSD, more RAM, or smaller chunks.")
             
             return success_count, error_count, final_output
-        
         except Exception as e:
             raise Exception(f"Lỗi xử lý PHƯƠNG ÁN A: {str(e)}")
+        finally:
+            # ALWAYS CLEANUP TEMP FILE EVEN ON ERROR OR CANCEL
+            try:
+                if os.path.exists(temp_results_file):
+                    os.remove(temp_results_file)
+                    print(f"🧹 Cleaned up temp file: {temp_results_file}")
+            except Exception as cleanup_err:
+                print(f"⚠️ Could not remove temp file: {cleanup_err}")
     
     def _extract_shape_data_fast(self, row: pd.Series, shape_type: str, group: str) -> Dict:
         """OPTIMIZED data extraction - minimal string operations"""
         data_dict = {}
-        
         if not shape_type:
             return data_dict
-        
-        # Direct access for speed (no try/except overhead)
         if group == 'A':
             if shape_type == "Điểm":
                 data_dict['point_input'] = str(row.get('data_A', '')).strip()
@@ -346,7 +299,7 @@ class LargeFileProcessor:
             elif shape_type == "Mặt cầu":
                 data_dict['sphere_center'] = str(row.get('S_data_I1', '')).strip()
                 data_dict['sphere_radius'] = str(row.get('S_data_R1', '')).strip()
-        else:  # Group B
+        else:
             if shape_type == "Điểm":
                 data_dict['point_input'] = str(row.get('data_B', '')).strip()
             elif shape_type == "Đường thẳng":
@@ -363,15 +316,14 @@ class LargeFileProcessor:
             elif shape_type == "Mặt cầu":
                 data_dict['sphere_center'] = str(row.get('S_data_I2', '')).strip()
                 data_dict['sphere_radius'] = str(row.get('S_data_R2', '')).strip()
-        
         return data_dict
     
     def _write_results_buffer_fast(self, temp_file: str, results: List[str]):
         """HIGH-SPEED buffer writing with large I/O buffer"""
         try:
             mode = 'a' if os.path.exists(temp_file) else 'w'
-            with open(temp_file, mode, encoding='utf-8', buffering=16384) as f:  # 16KB buffer
-                f.write('\n'.join(results) + '\n')  # Batch write
+            with open(temp_file, mode, encoding='utf-8', buffering=16384) as f:
+                f.write('\n'.join(results) + '\n')
         except Exception as e:
             print(f"⚠️ Warning: Fast buffer write failed: {e}")
     
@@ -379,7 +331,7 @@ class LargeFileProcessor:
         """HIGH-SPEED results reading"""
         try:
             with open(temp_file, 'r', encoding='utf-8', buffering=16384) as f:
-                return f.read().strip().split('\n')  # Batch read and split
+                return f.read().strip().split('\n')
         except Exception:
             return []
     
@@ -388,23 +340,14 @@ class LargeFileProcessor:
         try:
             print("⚡ HIGH-SPEED Excel assembly...")
             all_results = self._read_temp_results_fast(temp_results_file)
-            
-            # Try pandas approach first (fastest for large files)
             try:
                 original_df = pd.read_excel(original_file, dtype=str, keep_default_na=False, engine='openpyxl')
-                
-                # Ensure results match data rows
                 results_to_add = all_results[:len(original_df)]
                 if len(results_to_add) < len(original_df):
                     results_to_add.extend([''] * (len(original_df) - len(results_to_add)))
-                
                 original_df['Kết quả mã hóa'] = results_to_add
-                
-                # High-speed save
                 with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
                     original_df.to_excel(writer, sheet_name='Results', index=False)
-                    
-                    # Minimal auto-width for readability
                     worksheet = writer.sheets['Results']
                     for column in worksheet.columns:
                         max_length = 0
@@ -412,18 +355,15 @@ class LargeFileProcessor:
                         for cell in column:
                             try:
                                 if cell.value and len(str(cell.value)) > max_length:
-                                    max_length = min(len(str(cell.value)), 40)  # Cap for speed
+                                    max_length = min(len(str(cell.value)), 40)
                             except:
                                 pass
                         worksheet.column_dimensions[column_letter].width = max(max_length + 2, 10)
-                
                 print("✅ HIGH-SPEED Excel creation completed!")
                 return output_path
-                
             except Exception as pandas_error:
                 print(f"⚠️ Pandas method failed: {pandas_error}")
                 return self._create_excel_openpyxl_fast(original_file, all_results, output_path)
-                
         except Exception as e:
             raise Exception(f"Lỗi tạo Excel HIGH-SPEED: {str(e)}")
     
@@ -431,53 +371,37 @@ class LargeFileProcessor:
         """Fast openpyxl fallback method"""
         try:
             import openpyxl
-            
             print("🔄 Using openpyxl fast method...")
             source_wb = openpyxl.load_workbook(original_file, read_only=True, data_only=True)
             source_ws = source_wb.active
             output_wb = openpyxl.Workbook()
             output_ws = output_wb.active
             output_ws.title = "Results"
-            
-            # Copy header
             header_row = next(source_ws.iter_rows(min_row=1, max_row=1, values_only=True))
             header = list(header_row) + ['Kết quả mã hóa']
             for col_idx, header_cell in enumerate(header, 1):
                 output_ws.cell(row=1, column=col_idx, value=str(header_cell) if header_cell else "")
-            
-            # Copy data with results (fast, minimal formatting)
             row_count = 2
             result_idx = 0
             for data_row in source_ws.iter_rows(min_row=2, values_only=True):
                 if result_idx >= len(results):
                     break
-                    
-                # Copy original data
                 for col_idx, cell_value in enumerate(data_row, 1):
                     value = str(cell_value) if cell_value is not None else ""
                     output_ws.cell(row=row_count, column=col_idx, value=value)
-                
-                # Add result
                 output_ws.cell(row=row_count, column=len(header), value=results[result_idx])
-                
                 row_count += 1
                 result_idx += 1
-                
-                # Periodic memory cleanup
                 if row_count % 5000 == 0:
                     gc.collect()
-            
             source_wb.close()
             output_wb.save(output_path)
             output_wb.close()
-            
             print("✅ Openpyxl fast method completed!")
             return output_path
-            
         except Exception as e:
             raise Exception(f"Lỗi openpyxl fast fallback: {str(e)}")
     
-    # Use high-speed method as main method
     def process_large_excel_safe(self, file_path: str, shape_a: str, shape_b: str,
                                 operation: str, dimension_a: str, dimension_b: str,
                                 output_path: str, progress_callback: Callable = None) -> Tuple[int, int, str]:
@@ -488,23 +412,18 @@ class LargeFileProcessor:
     def validate_large_file_structure(self, file_path: str, shape_a: str, shape_b: str = None) -> Dict[str, Any]:
         """Fast validation with actual row counting"""
         try:
-            # Get actual file info
             actual_rows = self._get_actual_total_rows(file_path)
             file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
-            
-            # Quick header check
             header_df = pd.read_excel(file_path, nrows=0, engine='openpyxl')
             columns = header_df.columns.tolist()
-            
             over_limit = actual_rows > self.max_rows_allowed
             required_columns_A = self._get_required_columns(shape_a, 'A')
             required_columns_B = self._get_required_columns(shape_b, 'B') if shape_b else []
             missing_columns = [col for col in (required_columns_A + required_columns_B) if col not in columns]
-            
             return {
                 'valid': len(missing_columns) == 0 and not over_limit,
                 'file_size_mb': file_size_mb,
-                'actual_rows': actual_rows,  # Use actual instead of estimated
+                'actual_rows': actual_rows,
                 'columns': columns,
                 'missing_columns': missing_columns,
                 'recommended_chunk_size': self.estimate_optimal_chunksize(file_path),
@@ -517,10 +436,8 @@ class LargeFileProcessor:
             return {'valid': False, 'error': f'Lỗi kiểm tra file: {str(e)}'}
     
     def _get_required_columns(self, shape: str, group: str) -> List[str]:
-        """Get required columns mapping"""
         if not shape:
             return []
-            
         if group == 'A':
             mapping = {
                 "Điểm": ["data_A"],
@@ -540,7 +457,6 @@ class LargeFileProcessor:
         return mapping.get(shape, [])
     
     def get_processing_statistics(self) -> Dict[str, Any]:
-        """Enhanced statistics for PHƯƠNG ÁN A"""
         return {
             'memory_usage_mb': self.get_memory_usage(),
             'memory_limit_mb': self.max_memory_mb,
