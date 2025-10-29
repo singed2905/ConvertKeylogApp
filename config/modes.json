@@ -1,5 +1,7 @@
 {
   "modes": [
-    "Keylog Converter Mode"
+    "Geometry Mode",
+    "Equation Mode",
+    "Polynomial Equation Mode"
   ]
 }
