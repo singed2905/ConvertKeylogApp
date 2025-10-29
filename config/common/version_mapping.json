@@ -1,0 +1,11 @@
+{
+  "version_file_mapping": {
+    "fx799": "fx799_config.json",
+    "fx880": "fx880_config.json",
+    "fx801": "fx801_config.json",
+    "fx802": "fx802_config.json",
+    "fx803": "fx803_config.json"
+  },
+  "default_version": "fx799",
+  "description": "Ánh xạ phiên bản máy tính với file cấu hình tương ứng"
+}
