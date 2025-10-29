@@ -1,19 +1,32 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, filedialog
 
 class GeometryView:
     def __init__(self, window, config=None):
         self.window = window
-        self.window.title("Geometry Mode")
-        self.window.geometry("700x700")
+        self.window.title("Geometry Mode - Now with Logic!")
+        self.window.geometry("800x800")
         self.window.configure(bg="#F8F9FA")
 
         # Lưu config được truyền vào
         self.config = config or {}
         
+        # Import và khởi tạo GeometryService (lazy loading)
+        self.geometry_service = None
+        self._initialize_service()
+        
         # Biến và trạng thái
         self._initialize_variables()
         self._setup_ui()
+    
+    def _initialize_service(self):
+        """Khởi tạo GeometryService"""
+        try:
+            from services.geometry.geometry_service import GeometryService
+            self.geometry_service = GeometryService(self.config)
+        except Exception as e:
+            print(f"Warning: Could not initialize GeometryService: {e}")
+            self.geometry_service = None
 
     def _initialize_variables(self):
         """Khởi tạo tất cả biến"""
@@ -26,6 +39,13 @@ class GeometryView:
         # Phên bản mặc định - lấy từ config hoặc fallback
         self.phien_ban_list = self._get_available_versions()
         self.phien_ban_var = tk.StringVar(value=self.phien_ban_list[0])
+        
+        # Bind các thay đổi để cập nhật service
+        self.dropdown1_var.trace('w', self._on_shape_changed)
+        self.dropdown2_var.trace('w', self._on_shape_changed)
+        self.pheptoan_var.trace('w', self._on_operation_changed)
+        self.kich_thuoc_A_var.trace('w', self._on_dimension_changed)
+        self.kich_thuoc_B_var.trace('w', self._on_dimension_changed)
     
     def _get_available_versions(self):
         """Lấy danh sách phiên bản từ config hoặc sử dụng mặc định"""
@@ -41,17 +61,94 @@ class GeometryView:
         return ["Phiên bản fx799", "Phiên bản fx880", "Phiên bản fx801"]
     
     def _get_available_operations(self):
-        """Lấy danh sách phép toán từ config hoặc sử dụng mặc định"""
+        """Lấy danh sách phép toán"""
+        if self.geometry_service:
+            return self.geometry_service.get_available_operations()
+        else:
+            return ["Tương giao", "Khoảng cách", "Diện tích", "Thể tích", "PT đường thẳng"]
+    
+    def _on_shape_changed(self, *args):
+        """Xử lý khi thay đổi hình dạng"""
+        if self.geometry_service:
+            self.geometry_service.set_current_shapes(self.dropdown1_var.get(), self.dropdown2_var.get())
+        self._update_input_frames()
+    
+    def _on_operation_changed(self, *args):
+        """Xử lý khi thay đổi phép toán"""
+        operation = self.pheptoan_var.get()
+        if operation and self.geometry_service:
+            self.geometry_service.set_current_operation(operation)
+            # Cập nhật dropdown options theo phép toán
+            available_shapes = self.geometry_service.update_dropdown_options(operation)
+            self._update_shape_dropdowns(available_shapes)
+        self._update_input_frames()
+    
+    def _on_dimension_changed(self, *args):
+        """Xử lý khi thay đổi kích thước"""
+        if self.geometry_service:
+            self.geometry_service.set_kich_thuoc(self.kich_thuoc_A_var.get(), self.kich_thuoc_B_var.get())
+    
+    def _update_shape_dropdowns(self, available_shapes):
+        """Cập nhật các dropdown theo phép toán"""
         try:
-            if self.config and 'geometry' in self.config and 'operations' in self.config['geometry']:
-                operations_data = self.config['geometry']['operations']
-                if 'operations' in operations_data:
-                    return list(operations_data['operations'].keys())
+            # Cập nhật dropdown A
+            menu_A = self.dropdown1_menu['menu']
+            menu_A.delete(0, 'end')
+            for shape in available_shapes:
+                menu_A.add_command(label=shape, command=tk._setit(self.dropdown1_var, shape))
+            
+            # Cập nhật dropdown B (nếu cần)
+            if self.pheptoan_var.get() not in ["Diện tích", "Thể tích"]:
+                menu_B = self.dropdown2_menu['menu']
+                menu_B.delete(0, 'end')
+                for shape in available_shapes:
+                    menu_B.add_command(label=shape, command=tk._setit(self.dropdown2_var, shape))
         except Exception as e:
-            print(f"Warning: Không thể load operations từ config: {e}")
+            print(f"Warning: Could not update dropdowns: {e}")
+    
+    def _update_input_frames(self):
+        """Cập nhật hiển thị các frame nhập liệu"""
+        # Ẩn các frame cũ trước
+        frames_to_hide = []
+        for attr_name in dir(self):
+            if attr_name.startswith('frame_A_') or attr_name.startswith('frame_B_'):
+                frame = getattr(self, attr_name, None)
+                if frame and hasattr(frame, 'grid_remove'):
+                    try:
+                        frame.grid_remove()
+                    except:
+                        pass
         
-        # Fallback nếu không có config
-        return ["Tương giao", "Khoảng cách", "Diện tích", "Thể tích", "PT đường thẳng"]
+        # Hiển thị frame cho nhóm A
+        shape_A = self.dropdown1_var.get()
+        if shape_A:
+            self._show_input_frame_A(shape_A)
+        
+        # Hiển thị frame cho nhóm B (nếu cần)
+        if self.pheptoan_var.get() not in ["Diện tích", "Thể tích"]:
+            shape_B = self.dropdown2_var.get()
+            if shape_B:
+                self._show_input_frame_B(shape_B)
+    
+    def _show_input_frame_A(self, shape):
+        """Hiển thị frame nhập liệu cho nhóm A"""
+        try:
+            if shape == "Điểm" and hasattr(self, 'frame_A_diem'):
+                self.frame_A_diem.grid()
+            elif shape == "Đường thẳng" and hasattr(self, 'frame_A_duong'):
+                self.frame_A_duong.grid()
+            # Add other shapes when frames are created
+        except Exception as e:
+            print(f"Warning: Could not show frame A for {shape}: {e}")
+    
+    def _show_input_frame_B(self, shape):
+        """Hiển thị frame nhập liệu cho nhóm B"""
+        try:
+            if shape == "Điểm" and hasattr(self, 'frame_B_diem'):
+                self.frame_B_diem.grid()
+            # Add other shapes when frames are created
+        except Exception as e:
+            print(f"Warning: Could not show frame B for {shape}: {e}")
 
     def _setup_ui(self):
         """Setup giao diện chính"""
@@ -66,12 +163,12 @@ class GeometryView:
         top_frame.grid(row=0, column=0, columnspan=4, padx=10, pady=5, sticky="we")
 
         self._setup_dropdowns(top_frame)
-        self._setup_group_a_frames()
+        self._setup_group_a_frames()  # Chỉ tạo frame cần thiết trước
         self._setup_group_b_frames()
         self._setup_control_frame()
         
-        # Hiện thông báo
-        self._show_ui_only_message()
+        # Hiển thông báo ban đầu
+        self._show_ready_message()
 
     def _create_header(self):
         """Tạo header"""
@@ -96,10 +193,10 @@ class GeometryView:
         logo_frame.pack(side="top", fill="x")
         tk.Label(logo_frame, text="🧠", font=("Arial", 20),
                  bg=HEADER_COLORS["primary"], fg=HEADER_COLORS["text"]).pack(side="left")
-        tk.Label(logo_frame, text="Geometry Mode v2.0", font=("Arial", 16, "bold"),
+        tk.Label(logo_frame, text="Geometry Mode v2.0 - With Logic!", font=("Arial", 16, "bold"),
                  bg=HEADER_COLORS["primary"], fg=HEADER_COLORS["text"]).pack(side="left", padx=(5, 20))
 
-        # Operation selector - lấy từ config
+        # Operation selector - lấy từ service
         operation_frame = tk.Frame(left_section, bg=HEADER_COLORS["primary"])
         operation_frame.pack(side="top", fill="x", pady=(5, 0))
         tk.Label(operation_frame, text="Phép toán:", font=("Arial", 10),
@@ -129,14 +226,18 @@ class GeometryView:
         )
         self.version_menu.pack(side="left", padx=(5, 0))
         
-        # Config status indicator
-        status_text = "Config: ✅ Loaded" if self.config else "Config: ⚠️ Fallback"
+        # Service status indicator
+        status_text = "Service: ✅ Ready" if self.geometry_service else "Service: ⚠️ Error"
         tk.Label(center_section, text=status_text, font=("Arial", 8),
                 bg=HEADER_COLORS["primary"], fg=HEADER_COLORS["text"]).pack(side="bottom")
 
     def _setup_dropdowns(self, parent):
         """Setup dropdown chọn nhóm"""
-        shapes = ["Điểm", "Đường thẳng", "Mặt phẳng", "Đường tròn", "Mặt cầu"]
+        shapes = []
+        if self.geometry_service:
+            shapes = self.geometry_service.get_available_shapes()
+        else:
+            shapes = ["Điểm", "Đường thẳng", "Mặt phẳng", "Đường tròn", "Mặt cầu"]
 
         self.label_A = tk.Label(parent, text="Chọn nhóm A:", bg="#F8F9FA", font=("Arial", 10))
         self.label_A.grid(row=0, column=0, padx=5, pady=5, sticky="w")
@@ -164,21 +265,25 @@ class GeometryView:
         tk.Label(self.frame_A_diem, text="Kích thước:", bg="#FFFFFF").grid(row=0, column=0)
         tk.OptionMenu(self.frame_A_diem, self.kich_thuoc_A_var, "2", "3").grid(row=0, column=1)
 
-        tk.Label(self.frame_A_diem, text="Nhập toạ độ:", bg="#FFFFFF").grid(row=1, column=0)
+        tk.Label(self.frame_A_diem, text="Nhập toạ độ (x,y,z):", bg="#FFFFFF").grid(row=1, column=0)
         self.entry_diem_A = tk.Entry(self.frame_A_diem, width=40)
-        self.entry_diem_A.grid(row=1, column=1)
-
+        self.entry_diem_A.grid(row=1, column=1, columnspan=2, sticky="we")
+        
         # Frame Đường thẳng A
         self.frame_A_duong = tk.LabelFrame(
             self.main_container, text="📏 NHÓM A - Đường thẳng",
             bg="#FFFFFF", fg="#1B5299", font=("Arial", 10, "bold")
         )
-        self.frame_A_duong.grid(row=2, column=0, columnspan=4, padx=10, pady=5, sticky="we")
+        self.frame_A_duong.grid(row=1, column=0, columnspan=4, padx=10, pady=5, sticky="we")
 
-        tk.Label(self.frame_A_duong, text="Nhập A1,B1,C1:", bg="#FFFFFF").grid(row=0, column=0)
-        self.entry_duong_A = tk.Entry(self.frame_A_duong, width=40)
-        self.entry_duong_A.grid(row=0, column=1)
-
+        tk.Label(self.frame_A_duong, text="Điểm (A,B,C):", bg="#FFFFFF").grid(row=0, column=0)
+        self.entry_point_A = tk.Entry(self.frame_A_duong, width=30)
+        self.entry_point_A.grid(row=0, column=1)
+        
+        tk.Label(self.frame_A_duong, text="Vector (X,Y,Z):", bg="#FFFFFF").grid(row=1, column=0)
+        self.entry_vector_A = tk.Entry(self.frame_A_duong, width=30)
+        self.entry_vector_A.grid(row=1, column=1)
+        
         # Ẩn tất cả frame ban đầu
         self.frame_A_diem.grid_remove()
         self.frame_A_duong.grid_remove()
@@ -195,12 +300,141 @@ class GeometryView:
         tk.Label(self.frame_B_diem, text="Kích thước:", bg="#FFFFFF").grid(row=0, column=0)
         tk.OptionMenu(self.frame_B_diem, self.kich_thuoc_B_var, "2", "3").grid(row=0, column=1)
 
-        tk.Label(self.frame_B_diem, text="Nhập toạ độ:", bg="#FFFFFF").grid(row=1, column=0)
+        tk.Label(self.frame_B_diem, text="Nhập toạ độ (x,y,z):", bg="#FFFFFF").grid(row=1, column=0)
         self.entry_diem_B = tk.Entry(self.frame_B_diem, width=40)
-        self.entry_diem_B.grid(row=1, column=1)
+        self.entry_diem_B.grid(row=1, column=1, columnspan=2, sticky="we")
 
         # Ẩn frame ban đầu
         self.frame_B_diem.grid_remove()
+    
+    def _get_input_data_A(self):
+        """Lấy dữ liệu nhập cho nhóm A"""
+        shape = self.dropdown1_var.get()
+        data = {}
+        
+        if shape == "Điểm":
+            data['point_input'] = self.entry_diem_A.get() if hasattr(self, 'entry_diem_A') else ''
+        elif shape == "Đường thẳng":
+            data['line_A1'] = self.entry_point_A.get() if hasattr(self, 'entry_point_A') else ''
+            data['line_X1'] = self.entry_vector_A.get() if hasattr(self, 'entry_vector_A') else ''
+        # Add other shapes data extraction when needed
+        
+        return data
+    
+    def _get_input_data_B(self):
+        """Lấy dữ liệu nhập cho nhóm B"""
+        shape = self.dropdown2_var.get()
+        data = {}
+        
+        if shape == "Điểm":
+            data['point_input'] = self.entry_diem_B.get() if hasattr(self, 'entry_diem_B') else ''
+        # Add other shapes data extraction when needed
+        
+        return data
+    
+    def _process_group_A(self):
+        """Xử lý nhóm A"""
+        try:
+            if not self.geometry_service:
+                messagebox.showerror("Lỗi", "GeometryService chưa được khởi tạo!")
+                return
+            
+            data_A = self._get_input_data_A()
+            result = self.geometry_service.thuc_thi_A(data_A)
+            self._update_result_display(f"Nhóm A đã xử lý: {result}")
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Lỗi xử lý nhóm A: {str(e)}")
+    
+    def _process_group_B(self):
+        """Xử lý nhóm B"""
+        try:
+            if not self.geometry_service:
+                messagebox.showerror("Lỗi", "GeometryService chưa được khởi tạo!")
+                return
+                
+            data_B = self._get_input_data_B()
+            result = self.geometry_service.thuc_thi_B(data_B)
+            self._update_result_display(f"Nhóm B đã xử lý: {result}")
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Lỗi xử lý nhóm B: {str(e)}")
+    
+    def _process_all(self):
+        """Thực thi tất cả - Core function!"""
+        try:
+            if not self.geometry_service:
+                messagebox.showerror("Lỗi", "GeometryService chưa được khởi tạo!")
+                return
+            
+            # Kiểm tra xem đã chọn phép toán và hình dạng chưa
+            if not self.pheptoan_var.get():
+                messagebox.showwarning("Cảnh báo", "Vui lòng chọn phép toán!")
+                return
+            
+            if not self.dropdown1_var.get():
+                messagebox.showwarning("Cảnh báo", "Vui lòng chọn hình dạng cho nhóm A!")
+                return
+            
+            # Lấy dữ liệu
+            data_A = self._get_input_data_A()
+            data_B = self._get_input_data_B()
+            
+            # Xử lý
+            result_A, result_B = self.geometry_service.thuc_thi_tat_ca(data_A, data_B)
+            
+            # Sinh kết quả cuối cùng
+            final_result = self.geometry_service.generate_final_result()
+            
+            # Hiển thị kết quả - matching TL style
+            message = f"✨ Kết quả mã hóa (cho máy tính):\n{final_result}\n\n"
+            message += f"📈 Chi tiết xử lý:\n"
+            message += f"Phép toán: {self.pheptoan_var.get()}\n"
+            message += f"Nhóm A ({self.dropdown1_var.get()}): {result_A}\n"
+            if self.pheptoan_var.get() not in ["Diện tích", "Thể tích"]:
+                message += f"Nhóm B ({self.dropdown2_var.get()}): {result_B}"
+            
+            self._update_result_display(message)
+            
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Lỗi thực thi: {str(e)}")
+    
+    def _import_excel(self):
+        """Import dữ liệu từ Excel"""
+        try:
+            file_path = filedialog.askopenfilename(
+                title="Chọn file Excel",
+                filetypes=[("Excel files", "*.xlsx *.xls")]
+            )
+            
+            if file_path:
+                self._update_result_display(f"Chức năng import Excel sẽ được hoàn thiện sau.\nFile đã chọn: {file_path}")
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Lỗi import Excel: {str(e)}")
+    
+    def _export_excel(self):
+        """Xuất kết quả ra Excel"""
+        try:
+            self._update_result_display("Chức năng export Excel sẽ được hoàn thiện sau.")
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Lỗi export Excel: {str(e)}")
+    
+    def _update_result_display(self, message):
+        """Cập nhật hiển thị kết quả"""
+        self.entry_tong.delete(1.0, tk.END)
+        self.entry_tong.insert(tk.END, message)
+    
+    def _show_ready_message(self):
+        """Hiện thông báo sẵn sàng"""
+        if self.geometry_service:
+            message = "✨ Geometry Mode v2.0 - Đã tích hợp logic từ TL!\n"
+            message += "Chọn phép toán và hình dạng, sau đó nhập dữ liệu để thực thi."
+        else:
+            message = "⚠️ GeometryService không khởi tạo được.\nVui lòng kiểm tra cài đặt!"
+        
+        self.entry_tong.insert(tk.END, message)
+
+    def _placeholder_action(self):
+        """Hành động placeholder - không dùng nữa"""
+        messagebox.showinfo("Thông báo", "Chức năng đang phát triển. Chỉ là giao diện v2.0!")
 
     def _setup_control_frame(self):
         """Setup control frame với buttons và result display"""
@@ -212,10 +446,10 @@ class GeometryView:
 
         # Text widget hiển thị kết quả
         self.entry_tong = tk.Text(
-            self.frame_tong,
+            self.main_container,
             width=80,
-            height=3,
-            font=("Arial", 10),
+            height=4,
+            font=("Courier New", 9),
             wrap=tk.WORD,
             bg="#F8F9FA",
             fg="black",
@@ -229,7 +463,7 @@ class GeometryView:
         # Nút Import Excel
         self.btn_import_excel = tk.Button(
             self.frame_tong, text="📁 Import Excel",
-            command=self._placeholder_action,
+            command=self._import_excel,
             bg="#FF9800", fg="white", font=("Arial", 9, "bold")
         )
         self.btn_import_excel.grid(row=1, column=0, columnspan=4, pady=5, sticky="we")
@@ -239,27 +473,17 @@ class GeometryView:
         self.frame_buttons.grid(row=2, column=0, columnspan=4, pady=5, sticky="we")
 
         tk.Button(self.frame_buttons, text="🔄 Xử lý Nhóm A",
-                  command=self._placeholder_action,
+                  command=self._process_group_A,
                   bg="#2196F3", fg="white", font=("Arial", 9)).grid(row=0, column=0, padx=5)
         tk.Button(self.frame_buttons, text="🔄 Xử lý Nhóm B",
-                  command=self._placeholder_action,
+                  command=self._process_group_B,
                   bg="#2196F3", fg="white", font=("Arial", 9)).grid(row=0, column=1, padx=5)
         tk.Button(self.frame_buttons, text="🚀 Thực thi tất cả",
-                  command=self._placeholder_action,
+                  command=self._process_all,
                   bg="#4CAF50", fg="white", font=("Arial", 9, "bold")).grid(row=0, column=2, padx=5)
         tk.Button(self.frame_buttons, text="💾 Xuất Excel",
-                  command=self._placeholder_action,
+                  command=self._export_excel,
                   bg="#FF9800", fg="white", font=("Arial", 9, "bold")).grid(row=0, column=3, padx=5)
-
-    def _show_ui_only_message(self):
-        """Hiện thông báo UI only"""
-        config_info = "Config loaded successfully" if self.config else "Using fallback config"
-        message = f"Geometry Mode v2.0 - Chỉ demo UI, không có logic xử lý\n{config_info}"
-        self.entry_tong.insert(tk.END, message)
-
-    def _placeholder_action(self):
-        """Hành động placeholder"""
-        messagebox.showinfo("Thông báo", "Chức năng đang phát triển. Chỉ là giao diện v2.0!")
 
 
 if __name__ == "__main__":
