@@ -746,11 +746,11 @@ class GeometryView:
             # Sinh kết quả cuối cùng
             final_result = self.geometry_service.generate_final_result()
             
-            # Hiển thị kết quả - matching TL style
-            message = f"✨ Kết quả mã hóa (cho máy tính):\n{final_result}\n\n"
-            message += f"📈 Chi tiết xử lý:\n"
-            message += f"Phép toán: {self.pheptoan_var.get()}\n"
-            message += f"Nhóm A ({self.dropdown1_var.get()}): {result_A}\n"
+            # Hiển thị kết quả
+            message = f"✨ Kết quả mã hóa (cho máy tính):\\n{final_result}\\n\\n"
+            message += f"📈 Chi tiết xử lý:\\n"
+            message += f"Phép toán: {self.pheptoan_var.get()}\\n"
+            message += f"Nhóm A ({self.dropdown1_var.get()}): {result_A}\\n"
             if self.pheptoan_var.get() not in ["Diện tích", "Thể tích"]:
                 message += f"Nhóm B ({self.dropdown2_var.get()}): {result_B}"
             
@@ -798,10 +798,10 @@ class GeometryView:
             # Cập nhật status đơn giản (chỉ tên file)
             file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
             status_message = (
-                f"📁 Đã import file: {self.imported_file_name}\n"
-                f"📏 Kích thước: {file_size_mb:.1f}MB\n\n"
-                f"⚠️ Lưu ý: Chưa đọc nội dung file.\n"
-                f"Việc đọc, kiểm tra và xử lý sẽ thực hiện khi bấm 'Xử lý File Excel'.\n\n"
+                f"📁 Đã import file: {self.imported_file_name}\\n"
+                f"📏 Kích thước: {file_size_mb:.1f}MB\\n\\n"
+                f"⚠️ Lưu ý: Chưa đọc nội dung file.\\n"
+                f"Việc đọc, kiểm tra và xử lý sẽ thực hiện khi bấm 'Xử lý File Excel'.\\n\\n"
                 f"💪 Ready for anti-crash processing!"
             )
             
@@ -827,14 +827,15 @@ class GeometryView:
                 messagebox.showerror("Lỗi", f"File không tồn tại: {self.imported_file_path}")
                 return
             
-            # Hỏi lưu output trước khi xử lý
+            # Hỏi lưu output trước khi xử lý - FIX: use -initialfile instead of -initialvalue
             original_name = os.path.splitext(self.imported_file_name)[0]
             default_output = f"{original_name}_encoded_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            
             output_path = filedialog.asksaveasfilename(
                 title="Chọn nơi lưu kết quả",
                 defaultextension=".xlsx",
                 filetypes=[("Excel files", "*.xlsx")],
-                initialvalue=default_output
+                initialfile=default_output  # FIXED: -initialfile instead of -initialvalue
             )
             if not output_path:
                 return
@@ -854,7 +855,7 @@ class GeometryView:
                     try:
                         self.progress_var.set(progress)
                         memory_usage = self._get_memory_usage()
-                        progress_text = f"Đang xử lý: {processed:,}/{total:,} dòng\nLỗi: {errors:,}\nMemory: {memory_usage:.1f}MB"
+                        progress_text = f"Đang xử lý: {processed:,}/{total:,} dòng\\nLỗi: {errors:,}\\nMemory: {memory_usage:.1f}MB"
                         self.progress_label.config(text=progress_text)
                         
                         # Cập nhật memory status
@@ -882,25 +883,25 @@ class GeometryView:
                         
                         # Hiển thị kết quả thành công
                         result_message = (
-                            f"🎉 Hoàn thành xử lý Excel!\n\n"
-                            f"📁 File gốc: {self.imported_file_name}\n"
-                            f"📁 Output: {os.path.basename(output_file)}\n"
-                            f"✅ Success: {success_count:,} rows\n"
-                            f"❌ Errors: {error_count:,} rows\n"
-                            f"💾 Peak memory: {self._get_memory_usage():.1f}MB\n\n"
+                            f"🎉 Hoàn thành xử lý Excel!\\n\\n"
+                            f"📁 File gốc: {self.imported_file_name}\\n"
+                            f"📁 Output: {os.path.basename(output_file)}\\n"
+                            f"✅ Success: {success_count:,} rows\\n"
+                            f"❌ Errors: {error_count:,} rows\\n"
+                            f"💾 Peak memory: {self._get_memory_usage():.1f}MB\\n\\n"
                         )
                         
                         if isinstance(results, list) and len(results) > 0:
-                            result_message += f"📝 Sample result:\n{results[0][:80]}..."
+                            result_message += f"📝 Sample result:\\n{results[0][:80]}..."
                         else:
                             result_message += "📝 Results written directly to file for memory efficiency"
                         
                         self._update_result_display(result_message)
                         messagebox.showinfo("Hoàn thành", 
-                            f"🎉 Xử lý Excel thành công!\n\n"
-                            f"✅ Processed: {success_count:,} rows\n"
-                            f"❌ Errors: {error_count:,} rows\n\n"
-                            f"File đã lưu:\n{output_file}")
+                            f"🎉 Xử lý Excel thành công!\\n\\n"
+                            f"✅ Processed: {success_count:,} rows\\n"
+                            f"❌ Errors: {error_count:,} rows\\n\\n"
+                            f"File đã lưu:\\n{output_file}")
                 
                 except Exception as e:
                     if not self.processing_cancelled:
@@ -967,22 +968,24 @@ class GeometryView:
             
             final_result = self.geometry_service.generate_final_result()
             if not final_result:
-                messagebox.showwarning("Cảnh báo", "Chưa có kết quả nào để xuất!\n\nVui lòng thực thi tính toán trước.")
+                messagebox.showwarning("Cảnh báo", "Chưa có kết quả nào để xuất!\\n\\nVui lòng thực thi tính toán trước.")
                 return
             
             default_name = f"geometry_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            
+            # FIXED: Use -initialfile instead of -initialvalue
             output_path = filedialog.asksaveasfilename(
                 title="Xuất kết quả ra Excel",
                 defaultextension=".xlsx",
                 filetypes=[("Excel files", "*.xlsx")],
-                initialvalue=default_name
+                initialfile=default_name  # FIXED: -initialfile instead of -initialvalue
             )
             
             if not output_path:
                 return
             
             exported_file = self.geometry_service.export_single_result(output_path)
-            messagebox.showinfo("Xuất thành công", f"Kết quả đã lưu tại:\n{exported_file}")
+            messagebox.showinfo("Xuất thành công", f"Kết quả đã lưu tại:\\n{exported_file}")
             
         except Exception as e:
             messagebox.showerror("Lỗi Xuất", f"Lỗi xuất Excel: {str(e)}")
@@ -999,11 +1002,12 @@ class GeometryView:
             
             template_name = f"template_{shape_a}" + (f"_{shape_b}" if shape_b else "") + f"_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
             
+            # FIXED: Use -initialfile instead of -initialvalue
             output_path = filedialog.asksaveasfilename(
                 title="Lưu template Excel",
                 defaultextension=".xlsx",
                 filetypes=[("Excel files", "*.xlsx")],
-                initialvalue=template_name
+                initialfile=template_name  # FIXED: -initialfile instead of -initialvalue
             )
             
             if not output_path:
@@ -1012,8 +1016,8 @@ class GeometryView:
             template_file = self.geometry_service.create_excel_template_for_geometry(shape_a, shape_b, output_path)
             
             messagebox.showinfo("Tạo template thành công", 
-                f"Template Excel đã tạo tại:\n{template_file}\n\n"
-                f"Bạn có thể điền dữ liệu vào template này rồi import lại.\n\n"
+                f"Template Excel đã tạo tại:\\n{template_file}\\n\\n"
+                f"Bạn có thể điền dữ liệu vào template này rồi import lại.\\n\\n"
                 f"💡 Tip: Template hỗ trợ đến 250,000 dòng với anti-crash system!")
             
         except Exception as e:
@@ -1035,7 +1039,7 @@ class GeometryView:
                 self._unlock_and_clear_inputs()
                 self._hide_action_buttons()
                 
-                self._update_result_display("✨ Đã quay lại chế độ nhập thủ công.\nNhập dữ liệu vào các ô trên để bắt đầu.")
+                self._update_result_display("✨ Đã quay lại chế độ nhập thủ công.\\nNhập dữ liệu vào các ô trên để bắt đầu.")
                 self.excel_status_label.config(text="📊 Excel: ✅ Ready")
         
         except Exception as e:
@@ -1079,17 +1083,17 @@ class GeometryView:
     def _show_ready_message(self):
         """Hiển thông báo sẵn sàng"""
         if self.geometry_service:
-            message = "✨ Geometry Mode v2.1 - Anti-Crash Excel! 💪\n\n"
-            message += "📝 Chế độ thủ công: Nhập dữ liệu vào các ô, bấm 'Thực thi tất cả'\n"
-            message += "📁 Chế độ Excel: Bấm 'Import Excel' chọn file, rồi 'Xử lý File Excel'\n\n"
-            message += "🔥 NEW: Enhanced Import Logic\n"
-            message += "✅ Import chỉ lưu tên file (nhanh)\n"
-            message += "✅ Đọc file chỉ khi xử lý (tiết kiệm memory)\n"
-            message += "✅ Auto-detect large files (250k rows limit)\n"
-            message += "✅ Crash protection với memory monitoring\n\n"
+            message = "✨ Geometry Mode v2.1 - Anti-Crash Excel! 💪\\n\\n"
+            message += "📝 Chế độ thủ công: Nhập dữ liệu vào các ô, bấm 'Thực thi tất cả'\\n"
+            message += "📁 Chế độ Excel: Bấm 'Import Excel' chọn file, rồi 'Xử lý File Excel'\\n\\n"
+            message += "🔥 NEW: Enhanced Import Logic\\n"
+            message += "✅ Import chỉ lưu tên file (nhanh)\\n"
+            message += "✅ Đọc file chỉ khi xử lý (tiết kiệm memory)\\n"
+            message += "✅ Auto-detect large files (250k rows limit)\\n"
+            message += "✅ Crash protection với memory monitoring\\n\\n"
             message += "💡 Tính năng: Import-defer-read, Batch, Chunked, Anti-Crash"
         else:
-            message = "⚠️ GeometryService không khởi tạo được.\nVui lòng kiểm tra cài đặt!"
+            message = "⚠️ GeometryService không khởi tạo được.\\nVui lòng kiểm tra cài đặt!"
         
         self.entry_tong.insert(tk.END, message)
 
