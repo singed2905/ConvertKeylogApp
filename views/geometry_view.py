@@ -5,7 +5,7 @@ class GeometryView:
     def __init__(self, window, config=None):
         self.window = window
         self.window.title("Geometry Mode - Now with Logic!")
-        self.window.geometry("800x800")
+        self.window.geometry("900x900")
         self.window.configure(bg="#F8F9FA")
 
         # Lưu config được truyền vào
@@ -132,14 +132,15 @@ class GeometryView:
     def _update_input_frames(self):
         """Cập nhật hiển thị các frame nhập liệu"""
         # Ẩn các frame cũ trước
-        for attr_name in dir(self):
-            if attr_name.startswith('frame_A_') or attr_name.startswith('frame_B_'):
-                frame = getattr(self, attr_name, None)
-                if frame and hasattr(frame, 'grid_remove'):
-                    try:
-                        frame.grid_remove()
-                    except:
-                        pass
+        all_frames = ['frame_A_diem', 'frame_A_duong', 'frame_A_plane', 'frame_A_circle', 'frame_A_sphere',
+                     'frame_B_diem', 'frame_B_duong', 'frame_B_plane', 'frame_B_circle', 'frame_B_sphere']
+        for frame_name in all_frames:
+            frame = getattr(self, frame_name, None)
+            if frame and hasattr(frame, 'grid_remove'):
+                try:
+                    frame.grid_remove()
+                except:
+                    pass
         
         # Hiển thị frame cho nhóm A
         shape_A = self.dropdown1_var.get()
@@ -159,7 +160,12 @@ class GeometryView:
                 self.frame_A_diem.grid()
             elif shape == "Đường thẳng" and hasattr(self, 'frame_A_duong'):
                 self.frame_A_duong.grid()
-            # TODO: add plane/circle/sphere frames when completed
+            elif shape == "Mặt phẳng" and hasattr(self, 'frame_A_plane'):
+                self.frame_A_plane.grid()
+            elif shape == "Đường tròn" and hasattr(self, 'frame_A_circle'):
+                self.frame_A_circle.grid()
+            elif shape == "Mặt cầu" and hasattr(self, 'frame_A_sphere'):
+                self.frame_A_sphere.grid()
         except Exception as e:
             print(f"Warning: Could not show frame A for {shape}: {e}")
     
@@ -170,7 +176,12 @@ class GeometryView:
                 self.frame_B_diem.grid()
             elif shape == "Đường thẳng" and hasattr(self, 'frame_B_duong'):
                 self.frame_B_duong.grid()
-            # TODO: add plane/circle/sphere frames when completed
+            elif shape == "Mặt phẳng" and hasattr(self, 'frame_B_plane'):
+                self.frame_B_plane.grid()
+            elif shape == "Đường tròn" and hasattr(self, 'frame_B_circle'):
+                self.frame_B_circle.grid()
+            elif shape == "Mặt cầu" and hasattr(self, 'frame_B_sphere'):
+                self.frame_B_sphere.grid()
         except Exception as e:
             print(f"Warning: Could not show frame B for {shape}: {e}")
 
@@ -187,8 +198,7 @@ class GeometryView:
         top_frame.grid(row=0, column=0, columnspan=4, padx=10, pady=5, sticky="we")
 
         self._setup_dropdowns(top_frame)
-        self._setup_group_a_frames()
-        self._setup_group_b_frames()
+        self._setup_all_input_frames()  # Tạo tất cả frame
         self._setup_control_frame()
         
         # Hiển thông báo ban đầu
@@ -282,9 +292,25 @@ class GeometryView:
         self.dropdown2_menu.config(width=15, font=("Arial", 9))
         self.dropdown2_menu.grid(row=0, column=3, padx=5, pady=5)
 
-    def _setup_group_a_frames(self):
-        """Setup frames cho nhóm A (Điểm + Đường thẳng)"""
-        # Frame Điểm A
+    def _setup_all_input_frames(self):
+        """Tạo tất cả các frame nhập liệu cho đầy đủ 5 hình"""
+        # NHÓM A - Tất cả 5 hình
+        self._create_point_frame_A()
+        self._create_line_frame_A()
+        self._create_plane_frame_A()
+        self._create_circle_frame_A()
+        self._create_sphere_frame_A()
+        
+        # NHÓM B - Tất cả 5 hình
+        self._create_point_frame_B()
+        self._create_line_frame_B()
+        self._create_plane_frame_B()
+        self._create_circle_frame_B()
+        self._create_sphere_frame_B()
+    
+    # ========== NHÓM A FRAMES ==========
+    def _create_point_frame_A(self):
+        """Tạo frame điểm A"""
         self.frame_A_diem = tk.LabelFrame(
             self.main_container, text="🎯 NHÓM A - Điểm",
             bg="#FFFFFF", fg="#1B5299", font=("Arial", 10, "bold")
@@ -298,12 +324,15 @@ class GeometryView:
         self.entry_diem_A = tk.Entry(self.frame_A_diem, width=40)
         self.entry_diem_A.grid(row=1, column=1, columnspan=2, sticky="we")
         
-        # Frame Đường thẳng A
+        self.frame_A_diem.grid_remove()
+    
+    def _create_line_frame_A(self):
+        """Tạo frame đường thẳng A"""
         self.frame_A_duong = tk.LabelFrame(
             self.main_container, text="📏 NHÓM A - Đường thẳng",
             bg="#FFFFFF", fg="#1B5299", font=("Arial", 10, "bold")
         )
-        self.frame_A_duong.grid(row=2, column=0, columnspan=4, padx=10, pady=5, sticky="we")
+        self.frame_A_duong.grid(row=1, column=0, columnspan=4, padx=10, pady=5, sticky="we")
 
         tk.Label(self.frame_A_duong, text="Điểm (A,B,C):", bg="#FFFFFF").grid(row=0, column=0)
         self.entry_point_A = tk.Entry(self.frame_A_duong, width=30)
@@ -313,18 +342,82 @@ class GeometryView:
         self.entry_vector_A = tk.Entry(self.frame_A_duong, width=30)
         self.entry_vector_A.grid(row=1, column=1)
         
-        # Ẩn tất cả frame ban đầu
-        self.frame_A_diem.grid_remove()
         self.frame_A_duong.grid_remove()
+    
+    def _create_plane_frame_A(self):
+        """Tạo frame mặt phẳng A"""
+        self.frame_A_plane = tk.LabelFrame(
+            self.main_container, text="📎 NHÓM A - Mặt phẳng",
+            bg="#FFFFFF", fg="#1B5299", font=("Arial", 10, "bold")
+        )
+        self.frame_A_plane.grid(row=1, column=0, columnspan=4, padx=10, pady=5, sticky="we")
 
-    def _setup_group_b_frames(self):
-        """Setup frames cho nhóm B (Điểm + Đường thẳng)"""
-        # Frame Điểm B
+        tk.Label(self.frame_A_plane, text="Phương trình ax+by+cz+d=0:", bg="#FFFFFF").grid(row=0, column=0, columnspan=4)
+        
+        # Dòng 1: a, b
+        tk.Label(self.frame_A_plane, text="a:", bg="#FFFFFF", width=3).grid(row=1, column=0, sticky="e")
+        self.entry_a_A = tk.Entry(self.frame_A_plane, width=15)
+        self.entry_a_A.grid(row=1, column=1, padx=5)
+        
+        tk.Label(self.frame_A_plane, text="b:", bg="#FFFFFF", width=3).grid(row=1, column=2, sticky="e")
+        self.entry_b_A = tk.Entry(self.frame_A_plane, width=15)
+        self.entry_b_A.grid(row=1, column=3, padx=5)
+        
+        # Dòng 2: c, d
+        tk.Label(self.frame_A_plane, text="c:", bg="#FFFFFF", width=3).grid(row=2, column=0, sticky="e")
+        self.entry_c_A = tk.Entry(self.frame_A_plane, width=15)
+        self.entry_c_A.grid(row=2, column=1, padx=5)
+        
+        tk.Label(self.frame_A_plane, text="d:", bg="#FFFFFF", width=3).grid(row=2, column=2, sticky="e")
+        self.entry_d_A = tk.Entry(self.frame_A_plane, width=15)
+        self.entry_d_A.grid(row=2, column=3, padx=5)
+        
+        self.frame_A_plane.grid_remove()
+    
+    def _create_circle_frame_A(self):
+        """Tạo frame đường tròn A"""
+        self.frame_A_circle = tk.LabelFrame(
+            self.main_container, text="⭕ NHÓM A - Đường tròn",
+            bg="#FFFFFF", fg="#1B5299", font=("Arial", 10, "bold")
+        )
+        self.frame_A_circle.grid(row=1, column=0, columnspan=4, padx=10, pady=5, sticky="we")
+
+        tk.Label(self.frame_A_circle, text="Tâm đường tròn (x,y):", bg="#FFFFFF").grid(row=0, column=0)
+        self.entry_center_A = tk.Entry(self.frame_A_circle, width=25)
+        self.entry_center_A.grid(row=0, column=1, padx=5)
+        
+        tk.Label(self.frame_A_circle, text="Bán kính:", bg="#FFFFFF").grid(row=0, column=2)
+        self.entry_radius_A = tk.Entry(self.frame_A_circle, width=20)
+        self.entry_radius_A.grid(row=0, column=3, padx=5)
+        
+        self.frame_A_circle.grid_remove()
+    
+    def _create_sphere_frame_A(self):
+        """Tạo frame mặt cầu A"""
+        self.frame_A_sphere = tk.LabelFrame(
+            self.main_container, text="🌍 NHÓM A - Mặt cầu",
+            bg="#FFFFFF", fg="#1B5299", font=("Arial", 10, "bold")
+        )
+        self.frame_A_sphere.grid(row=1, column=0, columnspan=4, padx=10, pady=5, sticky="we")
+
+        tk.Label(self.frame_A_sphere, text="Tâm mặt cầu (x,y,z):", bg="#FFFFFF").grid(row=0, column=0)
+        self.entry_sphere_center_A = tk.Entry(self.frame_A_sphere, width=25)
+        self.entry_sphere_center_A.grid(row=0, column=1, padx=5)
+        
+        tk.Label(self.frame_A_sphere, text="Bán kính:", bg="#FFFFFF").grid(row=0, column=2)
+        self.entry_sphere_radius_A = tk.Entry(self.frame_A_sphere, width=20)
+        self.entry_sphere_radius_A.grid(row=0, column=3, padx=5)
+        
+        self.frame_A_sphere.grid_remove()
+    
+    # ========== NHÓM B FRAMES ==========
+    def _create_point_frame_B(self):
+        """Tạo frame điểm B"""
         self.frame_B_diem = tk.LabelFrame(
             self.main_container, text="🎯 NHÓM B - Điểm",
             bg="#FFFFFF", fg="#A23B72", font=("Arial", 10, "bold")
         )
-        self.frame_B_diem.grid(row=3, column=0, columnspan=4, padx=10, pady=5, sticky="we")
+        self.frame_B_diem.grid(row=2, column=0, columnspan=4, padx=10, pady=5, sticky="we")
 
         tk.Label(self.frame_B_diem, text="Kích thước:", bg="#FFFFFF").grid(row=0, column=0)
         tk.OptionMenu(self.frame_B_diem, self.kich_thuoc_B_var, "2", "3").grid(row=0, column=1)
@@ -333,26 +426,95 @@ class GeometryView:
         self.entry_diem_B = tk.Entry(self.frame_B_diem, width=40)
         self.entry_diem_B.grid(row=1, column=1, columnspan=2, sticky="we")
         
-        # Frame Đường thẳng B
+        self.frame_B_diem.grid_remove()
+    
+    def _create_line_frame_B(self):
+        """Tạo frame đường thẳng B"""
         self.frame_B_duong = tk.LabelFrame(
             self.main_container, text="📏 NHÓM B - Đường thẳng",
             bg="#FFFFFF", fg="#A23B72", font=("Arial", 10, "bold")
         )
-        self.frame_B_duong.grid(row=4, column=0, columnspan=4, padx=10, pady=5, sticky="we")
+        self.frame_B_duong.grid(row=2, column=0, columnspan=4, padx=10, pady=5, sticky="we")
         
         tk.Label(self.frame_B_duong, text="Điểm (A,B,C):", bg="#FFFFFF").grid(row=0, column=0)
         self.entry_point_B = tk.Entry(self.frame_B_duong, width=30)
         self.entry_point_B.grid(row=0, column=1)
+        
         tk.Label(self.frame_B_duong, text="Vector (X,Y,Z):", bg="#FFFFFF").grid(row=1, column=0)
         self.entry_vector_B = tk.Entry(self.frame_B_duong, width=30)
         self.entry_vector_B.grid(row=1, column=1)
-
-        # Ẩn frame ban đầu
-        self.frame_B_diem.grid_remove()
+        
         self.frame_B_duong.grid_remove()
     
+    def _create_plane_frame_B(self):
+        """Tạo frame mặt phẳng B"""
+        self.frame_B_plane = tk.LabelFrame(
+            self.main_container, text="📎 NHÓM B - Mặt phẳng",
+            bg="#FFFFFF", fg="#A23B72", font=("Arial", 10, "bold")
+        )
+        self.frame_B_plane.grid(row=2, column=0, columnspan=4, padx=10, pady=5, sticky="we")
+
+        tk.Label(self.frame_B_plane, text="Phương trình ax+by+cz+d=0:", bg="#FFFFFF").grid(row=0, column=0, columnspan=4)
+        
+        # Dòng 1: a, b
+        tk.Label(self.frame_B_plane, text="a:", bg="#FFFFFF", width=3).grid(row=1, column=0, sticky="e")
+        self.entry_a_B = tk.Entry(self.frame_B_plane, width=15)
+        self.entry_a_B.grid(row=1, column=1, padx=5)
+        
+        tk.Label(self.frame_B_plane, text="b:", bg="#FFFFFF", width=3).grid(row=1, column=2, sticky="e")
+        self.entry_b_B = tk.Entry(self.frame_B_plane, width=15)
+        self.entry_b_B.grid(row=1, column=3, padx=5)
+        
+        # Dòng 2: c, d
+        tk.Label(self.frame_B_plane, text="c:", bg="#FFFFFF", width=3).grid(row=2, column=0, sticky="e")
+        self.entry_c_B = tk.Entry(self.frame_B_plane, width=15)
+        self.entry_c_B.grid(row=2, column=1, padx=5)
+        
+        tk.Label(self.frame_B_plane, text="d:", bg="#FFFFFF", width=3).grid(row=2, column=2, sticky="e")
+        self.entry_d_B = tk.Entry(self.frame_B_plane, width=15)
+        self.entry_d_B.grid(row=2, column=3, padx=5)
+        
+        self.frame_B_plane.grid_remove()
+    
+    def _create_circle_frame_B(self):
+        """Tạo frame đường tròn B"""
+        self.frame_B_circle = tk.LabelFrame(
+            self.main_container, text="⭕ NHÓM B - Đường tròn",
+            bg="#FFFFFF", fg="#A23B72", font=("Arial", 10, "bold")
+        )
+        self.frame_B_circle.grid(row=2, column=0, columnspan=4, padx=10, pady=5, sticky="we")
+        
+        tk.Label(self.frame_B_circle, text="Tâm đường tròn (x,y):", bg="#FFFFFF").grid(row=0, column=0)
+        self.entry_center_B = tk.Entry(self.frame_B_circle, width=25)
+        self.entry_center_B.grid(row=0, column=1, padx=5)
+        
+        tk.Label(self.frame_B_circle, text="Bán kính:", bg="#FFFFFF").grid(row=0, column=2)
+        self.entry_radius_B = tk.Entry(self.frame_B_circle, width=20)
+        self.entry_radius_B.grid(row=0, column=3, padx=5)
+        
+        self.frame_B_circle.grid_remove()
+    
+    def _create_sphere_frame_B(self):
+        """Tạo frame mặt cầu B"""
+        self.frame_B_sphere = tk.LabelFrame(
+            self.main_container, text="🌍 NHÓM B - Mặt cầu",
+            bg="#FFFFFF", fg="#A23B72", font=("Arial", 10, "bold")
+        )
+        self.frame_B_sphere.grid(row=2, column=0, columnspan=4, padx=10, pady=5, sticky="we")
+        
+        tk.Label(self.frame_B_sphere, text="Tâm mặt cầu (x,y,z):", bg="#FFFFFF").grid(row=0, column=0)
+        self.entry_sphere_center_B = tk.Entry(self.frame_B_sphere, width=25)
+        self.entry_sphere_center_B.grid(row=0, column=1, padx=5)
+        
+        tk.Label(self.frame_B_sphere, text="Bán kính:", bg="#FFFFFF").grid(row=0, column=2)
+        self.entry_sphere_radius_B = tk.Entry(self.frame_B_sphere, width=20)
+        self.entry_sphere_radius_B.grid(row=0, column=3, padx=5)
+        
+        self.frame_B_sphere.grid_remove()
+    
+    # ========== DATA EXTRACTION ==========
     def _get_input_data_A(self):
-        """Lấy dữ liệu nhập cho nhóm A"""
+        """Lấy dữ liệu nhập cho nhóm A - Đầy đủ 5 hình"""
         shape = self.dropdown1_var.get()
         data = {}
         
@@ -361,11 +523,22 @@ class GeometryView:
         elif shape == "Đường thẳng":
             data['line_A1'] = self.entry_point_A.get() if hasattr(self, 'entry_point_A') else ''
             data['line_X1'] = self.entry_vector_A.get() if hasattr(self, 'entry_vector_A') else ''
+        elif shape == "Mặt phẳng":
+            data['plane_a'] = self.entry_a_A.get() if hasattr(self, 'entry_a_A') else ''
+            data['plane_b'] = self.entry_b_A.get() if hasattr(self, 'entry_b_A') else ''
+            data['plane_c'] = self.entry_c_A.get() if hasattr(self, 'entry_c_A') else ''
+            data['plane_d'] = self.entry_d_A.get() if hasattr(self, 'entry_d_A') else ''
+        elif shape == "Đường tròn":
+            data['circle_center'] = self.entry_center_A.get() if hasattr(self, 'entry_center_A') else ''
+            data['circle_radius'] = self.entry_radius_A.get() if hasattr(self, 'entry_radius_A') else ''
+        elif shape == "Mặt cầu":
+            data['sphere_center'] = self.entry_sphere_center_A.get() if hasattr(self, 'entry_sphere_center_A') else ''
+            data['sphere_radius'] = self.entry_sphere_radius_A.get() if hasattr(self, 'entry_sphere_radius_A') else ''
         
         return data
     
     def _get_input_data_B(self):
-        """Lấy dữ liệu nhập cho nhóm B"""
+        """Lấy dữ liệu nhập cho nhóm B - Đầy đủ 5 hình"""
         shape = self.dropdown2_var.get()
         data = {}
         
@@ -374,9 +547,21 @@ class GeometryView:
         elif shape == "Đường thẳng":
             data['line_A2'] = self.entry_point_B.get() if hasattr(self, 'entry_point_B') else ''
             data['line_X2'] = self.entry_vector_B.get() if hasattr(self, 'entry_vector_B') else ''
+        elif shape == "Mặt phẳng":
+            data['plane_a'] = self.entry_a_B.get() if hasattr(self, 'entry_a_B') else ''
+            data['plane_b'] = self.entry_b_B.get() if hasattr(self, 'entry_b_B') else ''
+            data['plane_c'] = self.entry_c_B.get() if hasattr(self, 'entry_c_B') else ''
+            data['plane_d'] = self.entry_d_B.get() if hasattr(self, 'entry_d_B') else ''
+        elif shape == "Đường tròn":
+            data['circle_center'] = self.entry_center_B.get() if hasattr(self, 'entry_center_B') else ''
+            data['circle_radius'] = self.entry_radius_B.get() if hasattr(self, 'entry_radius_B') else ''
+        elif shape == "Mặt cầu":
+            data['sphere_center'] = self.entry_sphere_center_B.get() if hasattr(self, 'entry_sphere_center_B') else ''
+            data['sphere_radius'] = self.entry_sphere_radius_B.get() if hasattr(self, 'entry_sphere_radius_B') else ''
         
         return data
     
+    # ========== PROCESSING METHODS ==========
     def _process_group_A(self):
         """Xử lý nhóm A"""
         try:
@@ -451,14 +636,22 @@ class GeometryView:
             )
             
             if file_path:
-                self._update_result_display(f"Chức năng import Excel sẽ được hoàn thiện sau.\nFile đã chọn: {file_path}")
+                self._update_result_display(f"📁 File Excel đã chọn: {file_path}\n\nChức năng import Excel sẽ được hoàn thiện trong commit tiếp theo.")
         except Exception as e:
             messagebox.showerror("Lỗi", f"Lỗi import Excel: {str(e)}")
     
     def _export_excel(self):
         """Xuất kết quả ra Excel"""
         try:
-            self._update_result_display("Chức năng export Excel sẽ được hoàn thiện sau.")
+            summary = self.geometry_service.get_result_summary() if self.geometry_service else {}
+            message = f"💾 Export thông tin hiện tại:\n"
+            if summary:
+                message += f"Phép toán: {summary.get('operation', 'Chưa chọn')}\n"
+                message += f"Nhóm A: {summary.get('shape_A', 'Chưa chọn')}\n"
+                message += f"Nhóm B: {summary.get('shape_B', 'Chưa chọn')}\n"
+                message += f"Kết quả: {summary.get('encoded_result', 'Chưa có')}\n\n"
+            message += "Chức năng export Excel sẽ được hoàn thiện trong commit tiếp theo."
+            self._update_result_display(message)
         except Exception as e:
             messagebox.showerror("Lỗi", f"Lỗi export Excel: {str(e)}")
     
@@ -471,7 +664,8 @@ class GeometryView:
         """Hiện thông báo sẵn sàng"""
         if self.geometry_service:
             message = "✨ Geometry Mode v2.0 - Đã tích hợp logic từ TL!\n"
-            message += "Chọn phép toán và hình dạng, sau đó nhập dữ liệu để thực thi."
+            message += "Chọn phép toán và hình dạng, sau đó nhập dữ liệu để thực thi.\n\n"
+            message += "Các hình được hỗ trợ: Điểm, Đường thẳng, Mặt phẳng, Đường tròn, Mặt cầu"
         else:
             message = "⚠️ GeometryService không khởi tạo được.\nVui lòng kiểm tra cài đặt!"
         
@@ -483,13 +677,13 @@ class GeometryView:
             self.main_container, text="🎉 KẾT QUẢ & ĐIỀU KHIỂN",
             bg="#FFFFFF", font=("Arial", 10, "bold")
         )
-        self.frame_tong.grid(row=5, column=0, columnspan=4, padx=10, pady=10, sticky="we")
+        self.frame_tong.grid(row=8, column=0, columnspan=4, padx=10, pady=10, sticky="we")
 
         # Text widget hiển thị kết quả
         self.entry_tong = tk.Text(
             self.main_container,
             width=80,
-            height=4,
+            height=5,
             font=("Courier New", 9),
             wrap=tk.WORD,
             bg="#F8F9FA",
@@ -499,7 +693,7 @@ class GeometryView:
             padx=5,
             pady=5
         )
-        self.entry_tong.grid(row=6, column=0, columnspan=4, padx=5, pady=5, sticky="we")
+        self.entry_tong.grid(row=9, column=0, columnspan=4, padx=5, pady=5, sticky="we")
 
         # Nút Import Excel
         self.btn_import_excel = tk.Button(
