@@ -53,12 +53,11 @@ class LargeFileProcessor:
         try:
             file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
             
-            # OPTIMIZED chunk sizes for single-workbook streaming
-            if file_size_mb > 100:    # Files > 100MB
+            if file_size_mb > 100:
                 return 3000
-            elif file_size_mb > 50:   # 50-100MB  
+            elif file_size_mb > 50:
                 return 5000
-            elif file_size_mb > 20:   # 20-50MB
+            elif file_size_mb > 20:
                 return 7000
             else:
                 return 10000
@@ -88,66 +87,45 @@ class LargeFileProcessor:
             import openpyxl
             wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
             ws = wb.active
-            
-            # Read header row
             header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True))
             header_list = [str(cell).lower() if cell is not None else "" for cell in header_row]
-            
             wb.close()
-            
-            # Check for keylog column variations
             keylog_variations = ['keylog', 'key log', 'kết quả', 'ket qua', 'result', 'mã hóa', 'ma hoa', 'encoded']
-            
             for i, col_name in enumerate(header_list):
                 for variation in keylog_variations:
                     if variation in col_name.lower().strip():
                         actual_col_name = str(header_row[i]) if header_row[i] is not None else f"Col_{i}"
                         print(f"🔍 Found existing keylog column: '{actual_col_name}' at position {i+1}")
                         return True, actual_col_name, i
-            
             print(f"📝 No existing keylog column found. Will create new: 'Kết quả mã hóa'")
             return False, "Kết quả mã hóa", len(header_list)
-            
         except Exception as e:
             print(f"⚠️ Could not detect keylog column: {e}")
             return False, "Kết quả mã hóa", -1
     
     def read_excel_streaming_single_workbook(self, file_path: str, chunksize: int = None) -> Iterator[pd.DataFrame]:
-        """
-        PHƯƠNG ÁN A: Single-workbook streaming for maximum I/O efficiency
-        Mở workbook 1 lần duy nhất, stream theo chunk, đóng 1 lần cuối
-        """
         if chunksize is None:
             chunksize = self.estimate_optimal_chunksize(file_path)
-        
         try:
             import openpyxl
             print(f"🚀 PHƯƠNG ÁN A: Single-workbook streaming")
             print(f"📁 File: {os.path.basename(file_path)}")
-            
             wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
             ws = wb.active
-            
             max_row = ws.max_row if hasattr(ws, 'max_row') and ws.max_row else 0
             max_col = ws.max_column if hasattr(ws, 'max_column') else 0
             total_rows = max(0, max_row - 1)
-            
             self._enforce_row_limit(total_rows)
-            
             print(f"📊 Dimensions: {total_rows:,} rows × {max_col} columns")
             print(f"⚡ Chunk size: {chunksize:,} rows")
             print(f"📦 Estimated chunks: {(total_rows + chunksize - 1) // chunksize}")
-            
             try:
                 header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True))
-                columns = [str(cell) if cell is not None else f"Col_{i}" 
-                          for i, cell in enumerate(header_row)]
+                columns = [str(cell) if cell is not None else f"Col_{i}" for i, cell in enumerate(header_row)]
             except Exception:
                 columns = [f"Col_{i}" for i in range(max_col)]
-            
             current_row = 2
             chunk_count = 0
-            
             while current_row <= max_row and not self.processing_cancelled:
                 try:
                     end_row = min(current_row + chunksize - 1, max_row)
@@ -156,7 +134,6 @@ class LargeFileProcessor:
                     for row in ws.iter_rows(min_row=current_row, max_row=end_row, values_only=True):
                         row_data = [str(cell) if cell is not None else "" for cell in row]
                         chunk_data.append(row_data)
-                    
                     if chunk_data:
                         chunk_df = pd.DataFrame(chunk_data, columns=columns).fillna('')
                         yield chunk_df
@@ -164,14 +141,12 @@ class LargeFileProcessor:
                         if chunk_count % 10 == 0 and chunk_count > 0:
                             gc.collect()
                             print(f"🧹 Cleanup checkpoint: Memory {self.get_memory_usage():.1f}MB")
-                    
                     current_row = end_row + 1
                     chunk_count += 1
                 except Exception as e:
                     print(f"❌ Error reading chunk {chunk_count + 1}: {e}")
                     current_row += chunksize
                     continue
-            
             wb.close()
             print(f"✅ Single-workbook streaming completed: {chunk_count} chunks")
         except Exception as e:
@@ -180,50 +155,34 @@ class LargeFileProcessor:
     def process_large_excel_fast(self, file_path: str, shape_a: str, shape_b: str,
                                 operation: str, dimension_a: str, dimension_b: str,
                                 output_path: str, progress_callback: Callable = None) -> Tuple[int, int, str]:
-        """
-        PHƯƠNG ÁN A: High-speed processing với single-workbook streaming
-        Target: 400+ rows/sec matching TL performance
-        """
-        
         self.processing_cancelled = False
         success_count = 0
         error_count = 0
         processed_count = 0
         start_time = time.time()
         temp_results_file = f"{output_path}.temp_results"
-        
         from services.geometry.geometry_service import GeometryService
-        
         try:
             print(f"🚀 PHƯƠNG ÁN A - HIGH-SPEED processing: {os.path.basename(file_path)}")
-            
-            # Detect keylog column BEFORE processing
             has_keylog, keylog_col_name, keylog_col_index = self._detect_keylog_column(file_path)
-            
             total_rows = self._get_actual_total_rows(file_path)
             self._enforce_row_limit(total_rows)
-            
             service = GeometryService(self.config)
             service.set_current_shapes(shape_a, shape_b)
             service.set_kich_thuoc(dimension_a, dimension_b)
             service.set_current_operation(operation)
-            
             chunk_size = self.estimate_optimal_chunksize(file_path)
             print(f"⚡ Optimized chunk size: {chunk_size:,} rows")
             print(f"🎯 Target: {total_rows:,} rows at 400+ rows/sec")
-            
             results_buffer = []
             buffer_size = 5000
             chunk_count = 0
             last_speed_check = time.time()
-            
             for chunk_df in self.read_excel_streaming_single_workbook(file_path, chunk_size):
                 if self.processing_cancelled:
                     break
-                
                 chunk_count += 1
                 chunk_start = time.time()
-                
                 chunk_results = []
                 for index, row in chunk_df.iterrows():
                     try:
@@ -244,23 +203,19 @@ class LargeFileProcessor:
                         chunk_results.append(f"LỖI: {str(e)}")
                         error_count += 1
                     processed_count += 1
-                
                 results_buffer.extend(chunk_results)
                 if len(results_buffer) >= buffer_size:
                     self._write_results_buffer_fast(temp_results_file, results_buffer)
                     results_buffer = []
-                
                 chunk_time = time.time() - chunk_start
                 chunk_speed = len(chunk_df) / chunk_time if chunk_time >= 0.5 else None
                 current_time = time.time()
                 elapsed = current_time - start_time
                 avg_speed = processed_count / elapsed if elapsed > 0 else 0
-                
                 if progress_callback and processed_count % 100 == 0:
                     processed_display = min(processed_count, total_rows)
                     progress_percent = (processed_display / total_rows) * 100 if total_rows > 0 else 0
                     progress_callback(progress_percent, processed_display, total_rows, error_count)
-                
                 if current_time - last_speed_check >= 5:
                     processed_display = min(processed_count, total_rows)
                     progress_percent = (processed_display / total_rows) * 100 if total_rows > 0 else 0
@@ -275,39 +230,31 @@ class LargeFileProcessor:
                         speed_display = f"🔥 Speed: {avg_speed:.0f} rows/sec (avg)"
                     print(f"{speed_display} | Progress: {processed_display:,}/{total_rows:,} ({progress_percent:.1f}%) | ETA: {eta_str}")
                     last_speed_check = current_time
-                
                 if chunk_count % 5 == 0 and self.check_memory_limit():
                     print(f"⚠️ Memory: {self.get_memory_usage():.1f}MB - Quick cleanup")
                     gc.collect()
-                
                 del chunk_df
-            
             if results_buffer:
                 self._write_results_buffer_fast(temp_results_file, results_buffer)
-            
             print("🔧 Creating final Excel file with keylog column detection...")
             final_output = self._create_excel_with_smart_keylog(file_path, temp_results_file, output_path, 
                                                                has_keylog, keylog_col_name, keylog_col_index)
-            
             total_time = time.time() - start_time
             final_speed = processed_count / total_time if total_time > 0 else 0
             print(f"🏁 PHƯƠNG ÁN A COMPLETED!")
             print(f"⚡ Final speed: {final_speed:.0f} rows/sec (Target: 400+ rows/sec)")
             print(f"📊 Total: {processed_count:,} rows in {total_time:.1f}s")
             print(f"✅ Success: {success_count:,} | ❌ Errors: {error_count:,}")
-            
             if final_speed >= 400:
                 print(f"🎉 PERFORMANCE TARGET ACHIEVED! ({final_speed:.0f} ≥ 400 rows/sec)")
             elif final_speed >= 300:
                 print(f"✅ GOOD PERFORMANCE! ({final_speed:.0f} rows/sec, close to target)")
             else:
                 print(f"⚠️ Below target speed. Consider SSD, more RAM, or smaller chunks.")
-            
             return success_count, error_count, final_output
         except Exception as e:
             raise Exception(f"Lỗi xử lý PHƯƠNG ÁN A: {str(e)}")
         finally:
-            # ALWAYS CLEANUP TEMP FILE EVEN ON ERROR OR CANCEL
             try:
                 if os.path.exists(temp_results_file):
                     os.remove(temp_results_file)
@@ -318,149 +265,127 @@ class LargeFileProcessor:
     def _create_excel_with_smart_keylog(self, original_file: str, temp_results_file: str, 
                                        output_path: str, has_keylog: bool, keylog_col_name: str, 
                                        keylog_col_index: int) -> str:
-        """Create Excel with smart keylog column handling"""
         try:
+            from openpyxl.styles import Font
             print(f"⚡ SMART KEYLOG Excel creation...")
             all_results = self._read_temp_results_fast(temp_results_file)
-            
             if has_keylog:
                 print(f"📝 Using existing keylog column: '{keylog_col_name}' (position {keylog_col_index + 1})")
             else:
                 print(f"📝 Creating new keylog column: '{keylog_col_name}'")
-            
             try:
-                # Use pandas for fastest Excel creation
                 original_df = pd.read_excel(original_file, dtype=str, keep_default_na=False, engine='openpyxl')
-                
-                # Ensure results match data rows
                 results_to_add = all_results[:len(original_df)]
                 if len(results_to_add) < len(original_df):
                     results_to_add.extend([''] * (len(original_df) - len(results_to_add)))
-                
                 if has_keylog:
-                    # Update existing keylog column
                     if keylog_col_name in original_df.columns:
                         original_df[keylog_col_name] = results_to_add
                         print(f"✅ Updated existing column: '{keylog_col_name}'")
                     else:
-                        # Fallback: column name might have changed, use index
                         try:
                             col_by_index = original_df.columns[keylog_col_index]
                             original_df[col_by_index] = results_to_add
                             print(f"✅ Updated column by index: '{col_by_index}' (position {keylog_col_index + 1})")
                         except IndexError:
-                            # Fallback: add as new column
                             original_df[keylog_col_name] = results_to_add
                             print(f"⚠️ Index failed, added as new: '{keylog_col_name}'")
                 else:
-                    # Create new keylog column
                     original_df[keylog_col_name] = results_to_add
                     print(f"✅ Created new column: '{keylog_col_name}'")
-                
-                # High-speed save with smart formatting
                 with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
                     original_df.to_excel(writer, sheet_name='Results', index=False)
-                    
-                    # Minimal auto-width for readability
                     worksheet = writer.sheets['Results']
+                    # Apply Calibri 11 bold black to keylog column
+                    header_cells = next(worksheet.iter_rows(min_row=1, max_row=1))
+                    keylog_col_idx = None
+                    for idx, cell in enumerate(header_cells, start=1):
+                        if str(cell.value).strip().lower() == keylog_col_name.strip().lower():
+                            keylog_col_idx = idx
+                            break
+                    if keylog_col_idx:
+                        keylog_font = Font(name="Calibri", size=11, bold=True, color="000000")
+                        max_row = worksheet.max_row
+                        for row in range(1, max_row + 1):
+                            worksheet.cell(row=row, column=keylog_col_idx).font = keylog_font
+                    # Minimal auto-width for readability
                     for column in worksheet.columns:
                         max_length = 0
                         column_letter = column[0].column_letter
                         for cell in column:
                             try:
                                 if cell.value and len(str(cell.value)) > max_length:
-                                    max_length = min(len(str(cell.value)), 40)  # Cap for speed
+                                    max_length = min(len(str(cell.value)), 40)
                             except:
                                 pass
                         worksheet.column_dimensions[column_letter].width = max(max_length + 2, 10)
-                
                 print(f"✅ SMART KEYLOG Excel creation completed!")
                 return output_path
-                
             except Exception as pandas_error:
                 print(f"⚠️ Pandas method failed: {pandas_error}")
                 return self._create_excel_openpyxl_smart_keylog(original_file, all_results, output_path, 
                                                                has_keylog, keylog_col_name, keylog_col_index)
-                
         except Exception as e:
             raise Exception(f"Lỗi tạo Excel SMART KEYLOG: {str(e)}")
     
     def _create_excel_openpyxl_smart_keylog(self, original_file: str, results: List[str], output_path: str,
                                            has_keylog: bool, keylog_col_name: str, keylog_col_index: int) -> str:
-        """Smart keylog openpyxl fallback method"""
         try:
             import openpyxl
-            
+            from openpyxl.styles import Font
             print("🔄 Using openpyxl smart keylog method...")
             source_wb = openpyxl.load_workbook(original_file, read_only=True, data_only=True)
             source_ws = source_wb.active
             output_wb = openpyxl.Workbook()
             output_ws = output_wb.active
             output_ws.title = "Results"
-            
-            # Copy header with smart keylog handling
             header_row = next(source_ws.iter_rows(min_row=1, max_row=1, values_only=True))
             header_list = list(header_row)
-            
             if has_keylog:
-                # Keep existing header structure, update keylog column
                 final_header = header_list
                 target_col_index = keylog_col_index
                 print(f"📝 Will update existing column '{keylog_col_name}' at position {target_col_index + 1}")
             else:
-                # Add new keylog column
                 final_header = header_list + [keylog_col_name]
                 target_col_index = len(header_list)
                 print(f"📝 Will create new column '{keylog_col_name}' at position {target_col_index + 1}")
-            
-            # Write header
             for col_idx, header_cell in enumerate(final_header):
                 cell_value = str(header_cell) if header_cell is not None else ""
                 output_ws.cell(row=1, column=col_idx + 1, value=cell_value)
-            
-            # Copy data with smart keylog column handling
             row_count = 2
             result_idx = 0
             for data_row in source_ws.iter_rows(min_row=2, values_only=True):
                 if result_idx >= len(results):
                     break
-                    
-                # Copy original data
                 data_list = list(data_row)
-                
                 if has_keylog:
-                    # Update existing data structure
                     while len(data_list) <= target_col_index:
-                        data_list.append("")  # Pad if necessary
-                    data_list[target_col_index] = results[result_idx]  # Update keylog column
+                        data_list.append("")
+                    data_list[target_col_index] = results[result_idx]
                 else:
-                    # Append new keylog column
                     data_list.append(results[result_idx])
-                
-                # Write row to Excel
                 for col_idx, cell_value in enumerate(data_list):
                     value = str(cell_value) if cell_value is not None else ""
                     output_ws.cell(row=row_count, column=col_idx + 1, value=value)
-                
                 row_count += 1
                 result_idx += 1
-                
-                # Periodic memory cleanup
                 if row_count % 5000 == 0:
                     gc.collect()
-            
+            # Apply Calibri 11 bold black to keylog column
+            keylog_font = Font(name="Calibri", size=11, bold=True, color="000000")
+            col = target_col_index + 1
+            max_row = output_ws.max_row
+            for row in range(1, max_row + 1):
+                output_ws.cell(row=row, column=col).font = keylog_font
             source_wb.close()
             output_wb.save(output_path)
             output_wb.close()
-            
             print(f"✅ Openpyxl smart keylog method completed!")
             return output_path
-            
         except Exception as e:
             raise Exception(f"Lỗi openpyxl smart keylog fallback: {str(e)}")
     
     def _extract_shape_data_fast(self, row: pd.Series, shape_type: str, group: str) -> Dict:
-        """OPTIMIZED data extraction - minimal string operations"""
         data_dict = {}
         if not shape_type:
             return data_dict
@@ -495,13 +420,12 @@ class LargeFileProcessor:
             elif shape_type == "Đường tròn":
                 data_dict['circle_center'] = str(row.get('C_data_I2', '')).strip()
                 data_dict['circle_radius'] = str(row.get('C_data_R2', '')).strip()
-            elif shape_type == "Mặt cầu":
+            elif shape type == "Mặt cầu":
                 data_dict['sphere_center'] = str(row.get('S_data_I2', '')).strip()
                 data_dict['sphere_radius'] = str(row.get('S_data_R2', '')).strip()
         return data_dict
     
     def _write_results_buffer_fast(self, temp_file: str, results: List[str]):
-        """HIGH-SPEED buffer writing with large I/O buffer"""
         try:
             mode = 'a' if os.path.exists(temp_file) else 'w'
             with open(temp_file, mode, encoding='utf-8', buffering=16384) as f:
@@ -510,7 +434,6 @@ class LargeFileProcessor:
             print(f"⚠️ Warning: Fast buffer write failed: {e}")
     
     def _read_temp_results_fast(self, temp_file: str) -> List[str]:
-        """HIGH-SPEED results reading"""
         try:
             with open(temp_file, 'r', encoding='utf-8', buffering=16384) as f:
                 return f.read().strip().split('\n')
@@ -518,15 +441,11 @@ class LargeFileProcessor:
             return []
     
     def _create_excel_direct_fast(self, original_file: str, temp_results_file: str, output_path: str) -> str:
-        """Legacy method - kept for backward compatibility"""
-        # This method is now replaced by _create_excel_with_smart_keylog
-        # but kept for any legacy calls
         has_keylog, keylog_col_name, keylog_col_index = self._detect_keylog_column(original_file)
         return self._create_excel_with_smart_keylog(original_file, temp_results_file, output_path,
                                                    has_keylog, keylog_col_name, keylog_col_index)
     
     def _create_excel_openpyxl_fast(self, original_file: str, results: List[str], output_path: str) -> str:
-        """Legacy method - redirects to smart keylog version"""
         has_keylog, keylog_col_name, keylog_col_index = self._detect_keylog_column(original_file)
         return self._create_excel_openpyxl_smart_keylog(original_file, results, output_path,
                                                        has_keylog, keylog_col_name, keylog_col_index)
@@ -534,26 +453,20 @@ class LargeFileProcessor:
     def process_large_excel_safe(self, file_path: str, shape_a: str, shape_b: str,
                                 operation: str, dimension_a: str, dimension_b: str,
                                 output_path: str, progress_callback: Callable = None) -> Tuple[int, int, str]:
-        """Main processing method - uses PHƯƠNG ÁN A with smart keylog"""
         return self.process_large_excel_fast(file_path, shape_a, shape_b, operation, 
                                            dimension_a, dimension_b, output_path, progress_callback)
     
     def validate_large_file_structure(self, file_path: str, shape_a: str, shape_b: str = None) -> Dict[str, Any]:
-        """Fast validation with actual row counting and keylog detection"""
         try:
             actual_rows = self._get_actual_total_rows(file_path)
             file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
             header_df = pd.read_excel(file_path, nrows=0, engine='openpyxl')
             columns = header_df.columns.tolist()
-            
-            # Detect keylog column
             has_keylog, keylog_col_name, keylog_col_index = self._detect_keylog_column(file_path)
-            
             over_limit = actual_rows > self.max_rows_allowed
             required_columns_A = self._get_required_columns(shape_a, 'A')
             required_columns_B = self._get_required_columns(shape_b, 'B') if shape_b else []
             missing_columns = [col for col in (required_columns_A + required_columns_B) if col not in columns]
-            
             return {
                 'valid': len(missing_columns) == 0 and not over_limit,
                 'file_size_mb': file_size_mb,
