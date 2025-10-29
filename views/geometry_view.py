@@ -108,6 +108,8 @@ class GeometryView:
         elif not has_data and self.manual_data_entered:
             self.manual_data_entered = False
             self._hide_action_buttons()
+            # Ẩn copy button khi clear dữ liệu
+            self._hide_copy_button()
     
     def _check_manual_data(self):
         """Check if manual data has been entered"""
@@ -1132,6 +1134,16 @@ class GeometryView:
             relief="solid", bd=1, padx=5, pady=5
         )
         self.entry_tong.grid(row=9, column=0, columnspan=4, padx=5, pady=5, sticky="we")
+
+        # Nút copy kết quả (ẩn ban đầu) - TẠO THỰC TẾ NÚT!
+        self.btn_copy_result = tk.Button(
+            self.main_container, text="📋 Copy Kết Quả",
+            command=self._copy_result,
+            bg="#9C27B0", fg="white", font=("Arial", 9, "bold"),
+            width=20
+        )
+        self.btn_copy_result.grid(row=10, column=0, columnspan=4, pady=5)
+        self.btn_copy_result.grid_remove()  # Ẩn ban đầu
 
         # Nút Import Excel
         self.btn_import_excel = tk.Button(
