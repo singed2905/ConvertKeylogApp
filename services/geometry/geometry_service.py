@@ -10,13 +10,13 @@ from services.excel.excel_processor import ExcelProcessor
 from utils.config_loader import config_loader
 
 class GeometryService:
-    """Main service for geometry operations - matches TL GeometryController behavior"""
+    """Main service for geometry operations - Enhanced with large file support"""
     
     def __init__(self, config: Dict = None):
         self.config = config or {}
         self.mapping_adapter = GeometryMappingAdapter(config)
         self.excel_loader = GeometryExcelLoader(config)
-        self.excel_processor = ExcelProcessor(config)  # NEW: Excel processor integration
+        self.excel_processor = ExcelProcessor(config)  # Enhanced with large file support
         
         # Data storage - matching TL structure
         self.ket_qua_A1 = []  # Line A point coordinates 
@@ -282,11 +282,46 @@ class GeometryService:
         result_B = self.thuc_thi_B(data_dict_B)
         return result_A, result_B
     
-    # ========== EXCEL INTEGRATION - NEW METHODS ==========
+    # ========== EXCEL INTEGRATION - ENHANCED FOR LARGE FILES ==========
     def process_excel_batch(self, file_path: str, shape_a: str, shape_b: str, 
                            operation: str, dimension_a: str, dimension_b: str,
                            output_path: str = None, progress_callback: callable = None) -> Tuple[List[str], str, int, int]:
-        """Process entire Excel file in batch - matching TL functionality"""
+        """Process Excel file - Auto-detect large files and use appropriate method"""
+        try:
+            # Detect if this is a large file
+            is_large, file_info = self.excel_processor.is_large_file(file_path)
+            
+            if is_large:
+                print(f"🔥 LARGE FILE DETECTED: {file_info['file_size_mb']:.1f}MB, {file_info['estimated_rows']:,} rows")
+                print(f"🚀 Switching to Large File Processor...")
+                
+                # Generate output path if not provided
+                if not output_path:
+                    original_name = os.path.splitext(os.path.basename(file_path))[0]
+                    output_path = f"{original_name}_large_encoded_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+                    output_path = os.path.join(os.path.dirname(file_path), output_path)
+                
+                # Use large file processor
+                success_count, error_count, output_file = self.excel_processor.process_large_excel_file(
+                    file_path, shape_a, shape_b, operation, dimension_a, dimension_b,
+                    output_path, progress_callback
+                )
+                
+                # Return format matching original method
+                return [], output_file, success_count, error_count
+            
+            else:
+                # Use normal processing for smaller files
+                return self._process_excel_normal(file_path, shape_a, shape_b, operation, 
+                                                dimension_a, dimension_b, output_path, progress_callback)
+            
+        except Exception as e:
+            raise Exception(f"Lỗi xử lý Excel: {str(e)}")
+    
+    def _process_excel_normal(self, file_path: str, shape_a: str, shape_b: str,
+                            operation: str, dimension_a: str, dimension_b: str,
+                            output_path: str = None, progress_callback: callable = None) -> Tuple[List[str], str, int, int]:
+        """Normal Excel processing for smaller files"""
         try:
             # Read and validate Excel file
             df = self.excel_processor.read_excel_data(file_path)
@@ -342,12 +377,44 @@ class GeometryService:
             return encoded_results, output_file, processed_count, error_count
 
         except Exception as e:
-            raise Exception(f"Lỗi xử lý file Excel: {str(e)}")
+            raise Exception(f"Lỗi xử lý file Excel thông thường: {str(e)}")
     
     def process_excel_batch_chunked(self, file_path: str, shape_a: str, shape_b: str,
                                   operation: str, dimension_a: str, dimension_b: str,
                                   chunksize: int = 1000, progress_callback: callable = None) -> Tuple[List[str], str, int, int]:
-        """Process large Excel file in chunks - matching TL functionality"""
+        """Process Excel file in chunks - Enhanced for large files"""
+        try:
+            # Check if this is a very large file
+            is_large, file_info = self.excel_processor.is_large_file(file_path)
+            
+            if is_large:
+                print(f"🔥 VERY LARGE FILE - Using specialized chunked processor")
+                
+                # Generate output path
+                original_name = os.path.splitext(os.path.basename(file_path))[0]
+                output_path = f"{original_name}_chunked_large_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+                output_path = os.path.join(os.path.dirname(file_path), output_path)
+                
+                # Use large file processor with chunking
+                success_count, error_count, output_file = self.excel_processor.process_large_excel_file(
+                    file_path, shape_a, shape_b, operation, dimension_a, dimension_b,
+                    output_path, progress_callback
+                )
+                
+                return [], output_file, success_count, error_count
+            
+            else:
+                # Normal chunked processing for medium files
+                return self._process_excel_chunked_normal(file_path, shape_a, shape_b, operation,
+                                                        dimension_a, dimension_b, chunksize, progress_callback)
+                
+        except Exception as e:
+            raise Exception(f"Lỗi xử lý Excel chunked: {str(e)}")
+    
+    def _process_excel_chunked_normal(self, file_path: str, shape_a: str, shape_b: str,
+                                    operation: str, dimension_a: str, dimension_b: str,
+                                    chunksize: int, progress_callback: callable = None) -> Tuple[List[str], str, int, int]:
+        """Normal chunked processing for medium files"""
         try:
             # Get total rows for progress calculation
             total_rows = self.excel_processor.get_total_rows(file_path)
@@ -403,7 +470,7 @@ class GeometryService:
 
             # Export final results
             original_name = os.path.splitext(os.path.basename(file_path))[0]
-            output_path = f"{original_name}_batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            output_path = f"{original_name}_chunked_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
             output_path = os.path.join(os.path.dirname(file_path), output_path)
 
             final_df = self.excel_processor.read_excel_data(file_path)
@@ -412,32 +479,54 @@ class GeometryService:
             return all_results, output_file, processed_count, error_count
 
         except Exception as e:
-            raise Exception(f"Lỗi xử lý file Excel theo chunk: {str(e)}")
+            raise Exception(f"Lỗi xử lý chunked thông thường: {str(e)}")
     
     def validate_excel_file(self, file_path: str, shape_a: str, shape_b: str = None) -> Dict[str, Any]:
-        """Comprehensive Excel file validation"""
+        """Comprehensive Excel file validation - Enhanced for large files"""
         try:
             # Basic file validation
             if not os.path.exists(file_path):
                 return {'valid': False, 'error': 'File không tồn tại'}
             
-            # Read file info
-            file_info = self.excel_processor.get_file_info(file_path)
+            # Check if large file
+            is_large, large_file_info = self.excel_processor.is_large_file(file_path)
             
-            # Structure validation
-            df = self.excel_processor.read_excel_data(file_path)
-            structure_valid, missing_cols = self.excel_processor.validate_excel_structure(df, shape_a, shape_b)
+            if is_large:
+                print(f"📄 Large file validation: {large_file_info['file_size_mb']:.1f}MB")
+                
+                # Use large file validation
+                validation_result = self.excel_processor.validate_large_file_structure(file_path, shape_a, shape_b)
+                
+                return {
+                    'valid': validation_result['valid'],
+                    'is_large_file': True,
+                    'file_info': {
+                        'file_name': os.path.basename(file_path),
+                        'file_size_mb': large_file_info['file_size_mb'],
+                        'estimated_rows': large_file_info['estimated_rows'],
+                        'recommended_chunk_size': large_file_info['recommended_chunk_size']
+                    },
+                    'structure_issues': validation_result.get('missing_columns', []),
+                    'quality_issues': {'note': 'Large file - quality check limited to structure only'},
+                    'ready_for_processing': validation_result['valid'],
+                    'processing_recommendation': 'Use large file processor with chunking'
+                }
             
-            # Data quality validation
-            quality_info = self.excel_processor.validate_data_quality(df, shape_a, shape_b)
-            
-            return {
-                'valid': structure_valid and quality_info['valid'],
-                'file_info': file_info,
-                'structure_issues': missing_cols,
-                'quality_issues': quality_info,
-                'ready_for_processing': structure_valid and quality_info['rows_with_data'] > 0
-            }
+            else:
+                # Normal file validation
+                file_info = self.excel_processor.get_file_info(file_path)
+                df = self.excel_processor.read_excel_data(file_path)
+                structure_valid, missing_cols = self.excel_processor.validate_excel_structure(df, shape_a, shape_b)
+                quality_info = self.excel_processor.validate_data_quality(df, shape_a, shape_b)
+                
+                return {
+                    'valid': structure_valid and quality_info['valid'],
+                    'is_large_file': False,
+                    'file_info': file_info,
+                    'structure_issues': missing_cols,
+                    'quality_issues': quality_info,
+                    'ready_for_processing': structure_valid and quality_info['rows_with_data'] > 0
+                }
             
         except Exception as e:
             return {'valid': False, 'error': f'Lỗi kiểm tra file: {str(e)}'}
@@ -562,6 +651,7 @@ class GeometryService:
             
             # Format summary sheet
             summary_ws = writer.sheets['Summary']
+            from openpyxl.styles import Font, PatternFill
             header_font = Font(name='Arial', size=12, bold=True, color='FFFFFF')
             header_fill = PatternFill(start_color='4CAF50', end_color='4CAF50', fill_type='solid')
             
@@ -797,15 +887,31 @@ class GeometryService:
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
     
-    # ========== NEW EXCEL METHODS ==========
+    # ========== ENHANCED EXCEL METHODS ==========
     def get_excel_file_info(self, file_path: str) -> Dict[str, Any]:
-        """Get comprehensive Excel file information"""
+        """Get comprehensive Excel file information - Enhanced with large file detection"""
         return self.excel_processor.get_file_info(file_path)
     
     def validate_excel_file_for_geometry(self, file_path: str, shape_a: str, shape_b: str = None) -> Dict[str, Any]:
-        """Validate Excel file for geometry processing"""
+        """Validate Excel file for geometry processing - Enhanced for large files"""
         return self.validate_excel_file(file_path, shape_a, shape_b)
     
     def create_excel_template_for_geometry(self, shape_a: str, shape_b: str = None, output_path: str = None) -> str:
         """Create Excel template for specific geometry shapes"""
         return self.create_template_for_shapes(shape_a, shape_b, output_path)
+    
+    def get_large_file_processing_info(self, file_path: str) -> Dict[str, Any]:
+        """Get information about large file processing capabilities"""
+        try:
+            is_large, file_info = self.excel_processor.is_large_file(file_path)
+            
+            return {
+                'is_large_file': is_large,
+                'file_info': file_info,
+                'processing_mode': 'large_file_processor' if is_large else 'normal_processor',
+                'memory_optimization': is_large,
+                'streaming_mode': is_large,
+                'recommended_chunk_size': file_info.get('recommended_chunk_size', 1000)
+            }
+        except Exception as e:
+            return {'error': f'Không thể phân tích file: {str(e)}'}
