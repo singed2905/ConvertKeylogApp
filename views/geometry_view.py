@@ -27,6 +27,7 @@ class GeometryView:
         self.manual_data_entered = False
         self.processing_cancelled = False
         self.is_large_file = False  # Track if current file is large
+        self.has_result = False  # Track if manual result is available
         
         # Biến và trạng thái
         self._initialize_variables()
@@ -749,6 +750,9 @@ class GeometryView:
             # Hiển thị "chỉ 1 dòng" mã hóa với font Flexio Fx799VN (nếu có)
             self._show_single_line_result(final_result)
             
+            # Hiện nút copy để sao chép kết quả
+            self._show_copy_button()
+            
         except Exception as e:
             messagebox.showerror("Lỗi", f"Lỗi thực thi: {str(e)}")
     
@@ -761,10 +765,33 @@ class GeometryView:
         
         # Thiết lập font Flexio Fx799VN nếu có, size 11, bold
         try:
-            self.entry_tong.config(font=("Flexio Fx799VN", 11), fg="#000000", bg="#F8F9FA")
+            self.entry_tong.config(font=("Flexio Fx799VN", 11, "bold"), fg="#000000", bg="#F8F9FA")
         except Exception:
             # Fallback giữ nguyên nếu font không có
             self.entry_tong.config(font=("Courier New", 11, "bold"), fg="#000000", bg="#F8F9FA")
+    
+    def _copy_result(self):
+        """Copy kết quả mã hóa vào clipboard"""
+        try:
+            result_text = self.entry_tong.get(1.0, tk.END).strip()
+            if result_text:
+                self.window.clipboard_clear()
+                self.window.clipboard_append(result_text)
+                messagebox.showinfo("Đã copy", f"Đã copy kết quả vào clipboard:\n\n{result_text}")
+            else:
+                messagebox.showwarning("Cảnh báo", "Không có kết quả để copy!")
+        except Exception as e:
+            messagebox.showerror("Lỗi Copy", f"Lỗi copy kết quả: {str(e)}")
+    
+    def _show_copy_button(self):
+        """Hiển thị nút copy khi có kết quả"""
+        if hasattr(self, 'btn_copy_result'):
+            self.btn_copy_result.grid()
+    
+    def _hide_copy_button(self):
+        """Ẩn nút copy khi không có kết quả"""
+        if hasattr(self, 'btn_copy_result'):
+            self.btn_copy_result.grid_remove()
     
     # ========== SIMPLIFIED EXCEL METHODS - FILENAME ONLY ON IMPORT ==========
     def _import_excel(self):
@@ -801,6 +828,9 @@ class GeometryView:
             
             # Hiển thị import buttons
             self._show_import_buttons()
+            
+            # Ẩn nút copy vì đang ở import mode
+            self._hide_copy_button()
             
             # Cập nhật status đơn giản (chỉ tên file)
             file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
@@ -1079,7 +1109,7 @@ class GeometryView:
     def _show_ready_message(self):
         """Hiển thông báo sẵn sàng"""
         if self.geometry_service:
-            message = ""
+            message = " "
         else:
             message = "⚠️ GeometryService không khởi tạo được.\nVui lòng kiểm tra cài đặt!"
         
