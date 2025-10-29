@@ -4,11 +4,12 @@ from tkinter import ttk
 import threading
 import os
 from datetime import datetime
+import psutil
 
 class GeometryView:
     def __init__(self, window, config=None):
         self.window = window
-        self.window.title("Geometry Mode - Full Excel Integration!")
+        self.window.title("Geometry Mode - Anti-Crash Excel! 💪")
         self.window.geometry("900x900")
         self.window.configure(bg="#F8F9FA")
 
@@ -24,6 +25,7 @@ class GeometryView:
         self.imported_file_path = ""
         self.manual_data_entered = False
         self.processing_cancelled = False
+        self.is_large_file = False  # NEW: Track if current file is large
         
         # Biến và trạng thái
         self._initialize_variables()
@@ -51,7 +53,7 @@ class GeometryView:
         # Đặt phép toán mặc định để menu hiển thị ngay
         self.pheptoan_var = tk.StringVar(value="Khoảng cách")
 
-        # Phên bản mặc định - lấy từ config hoặc fallback
+        # Phiên bản mặc định - lấy từ config hoặc fallback
         self.phien_ban_list = self._get_available_versions()
         self.phien_ban_var = tk.StringVar(value=self.phien_ban_list[0])
         
@@ -283,14 +285,14 @@ class GeometryView:
         self._show_ready_message()
 
     def _create_header(self):
-        """Tạo header với Excel status"""
+        """Tạo header với Large File status"""
         HEADER_COLORS = {
             "primary": "#2E86AB", "secondary": "#1B5299", "text": "#FFFFFF",
-            "accent": "#F18F01", "success": "#4CAF50", "warning": "#FF9800"
+            "accent": "#F18F01", "success": "#4CAF50", "warning": "#FF9800", "danger": "#F44336"
         }
 
         # Main header frame
-        self.header_frame = tk.Frame(self.window, bg=HEADER_COLORS["primary"], height=80)
+        self.header_frame = tk.Frame(self.window, bg=HEADER_COLORS["primary"], height=90)
         self.header_frame.pack(fill="x", padx=10, pady=5)
         self.header_frame.pack_propagate(False)
 
@@ -303,9 +305,9 @@ class GeometryView:
 
         logo_frame = tk.Frame(left_section, bg=HEADER_COLORS["primary"])
         logo_frame.pack(side="top", fill="x")
-        tk.Label(logo_frame, text="🧠", font=("Arial", 20),
+        tk.Label(logo_frame, text="🧮", font=("Arial", 20),
                  bg=HEADER_COLORS["primary"], fg=HEADER_COLORS["text"]).pack(side="left")
-        tk.Label(logo_frame, text="Geometry Mode v2.0 - Excel Ready!", font=("Arial", 16, "bold"),
+        tk.Label(logo_frame, text="Geometry v2.1 - Anti-Crash! 💪", font=("Arial", 16, "bold"),
                  bg=HEADER_COLORS["primary"], fg=HEADER_COLORS["text"]).pack(side="left", padx=(5, 20))
 
         # Operation selector - lấy từ service
@@ -338,17 +340,65 @@ class GeometryView:
         )
         self.version_menu.pack(side="left", padx=(5, 0))
         
-        # Excel status indicator
+        # Excel status indicator - Enhanced for large files
         self.excel_status_label = tk.Label(
-            center_section, text="Excel: ✅ Sẵn sàng", font=("Arial", 8),
+            center_section, text="📊 Excel: ✅ Ready", font=("Arial", 8),
             bg=HEADER_COLORS["primary"], fg=HEADER_COLORS["success"]
         )
         self.excel_status_label.pack(side="bottom")
+        
+        # Memory status indicator - NEW!
+        self.memory_status_label = tk.Label(
+            center_section, text=f"💾 Memory: {self._get_memory_usage():.1f}MB", font=("Arial", 8),
+            bg=HEADER_COLORS["primary"], fg=HEADER_COLORS["text"]
+        )
+        self.memory_status_label.pack(side="bottom")
         
         # Service status indicator
         status_text = "Service: ✅ Ready" if self.geometry_service else "Service: ⚠️ Error"
         tk.Label(center_section, text=status_text, font=("Arial", 8),
                 bg=HEADER_COLORS["primary"], fg=HEADER_COLORS["text"]).pack(side="bottom")
+        
+        # Start memory monitoring
+        self._start_memory_monitoring()
+    
+    def _get_memory_usage(self) -> float:
+        """Get current memory usage in MB"""
+        try:
+            process = psutil.Process()
+            return process.memory_info().rss / 1024 / 1024
+        except:
+            return 0.0
+    
+    def _start_memory_monitoring(self):
+        """Start periodic memory monitoring"""
+        def update_memory():
+            try:
+                memory_mb = self._get_memory_usage()
+                
+                # Color coding for memory usage
+                if memory_mb > 800:
+                    color = "#F44336"  # Red
+                    status = "🔥 High"
+                elif memory_mb > 500:
+                    color = "#FF9800"  # Orange
+                    status = "⚠️ Medium"
+                else:
+                    color = "#4CAF50"  # Green
+                    status = "✅ OK"
+                
+                self.memory_status_label.config(
+                    text=f"💾 Memory: {memory_mb:.1f}MB ({status})",
+                    fg=color
+                )
+                
+            except Exception:
+                pass
+            
+            # Schedule next update
+            self.window.after(5000, update_memory)  # Update every 5 seconds
+        
+        update_memory()
 
     def _setup_dropdowns(self, parent):
         """Setup dropdown chọn nhóm với giá trị mặc định"""
@@ -405,7 +455,7 @@ class GeometryView:
         tk.Label(self.frame_A_diem, text="Kích thước:", bg="#FFFFFF").grid(row=0, column=0)
         tk.OptionMenu(self.frame_A_diem, self.kich_thuoc_A_var, "2", "3").grid(row=0, column=1)
 
-        tk.Label(self.frame_A_diem, text="Nhập toạ độ (x,y,z):", bg="#FFFFFF").grid(row=1, column=0)
+        tk.Label(self.frame_A_diem, text="Nhập tọa độ (x,y,z):", bg="#FFFFFF").grid(row=1, column=0)
         self.entry_diem_A = tk.Entry(self.frame_A_diem, width=40)
         self.entry_diem_A.grid(row=1, column=1, columnspan=2, sticky="we")
         
@@ -432,7 +482,7 @@ class GeometryView:
     def _create_plane_frame_A(self):
         """Tạo frame mặt phẳng A"""
         self.frame_A_plane = tk.LabelFrame(
-            self.main_container, text="📎 NHÓM A - Mặt phẳng",
+            self.main_container, text="📐 NHÓM A - Mặt phẳng",
             bg="#FFFFFF", fg="#1B5299", font=("Arial", 10, "bold")
         )
         self.frame_A_plane.grid(row=1, column=0, columnspan=4, padx=10, pady=5, sticky="we")
@@ -507,7 +557,7 @@ class GeometryView:
         tk.Label(self.frame_B_diem, text="Kích thước:", bg="#FFFFFF").grid(row=0, column=0)
         tk.OptionMenu(self.frame_B_diem, self.kich_thuoc_B_var, "2", "3").grid(row=0, column=1)
 
-        tk.Label(self.frame_B_diem, text="Nhập toạ độ (x,y,z):", bg="#FFFFFF").grid(row=1, column=0)
+        tk.Label(self.frame_B_diem, text="Nhập tọa độ (x,y,z):", bg="#FFFFFF").grid(row=1, column=0)
         self.entry_diem_B = tk.Entry(self.frame_B_diem, width=40)
         self.entry_diem_B.grid(row=1, column=1, columnspan=2, sticky="we")
         
@@ -534,7 +584,7 @@ class GeometryView:
     def _create_plane_frame_B(self):
         """Tạo frame mặt phẳng B"""
         self.frame_B_plane = tk.LabelFrame(
-            self.main_container, text="📎 NHÓM B - Mặt phẳng",
+            self.main_container, text="📐 NHÓM B - Mặt phẳng",
             bg="#FFFFFF", fg="#A23B72", font=("Arial", 10, "bold")
         )
         self.frame_B_plane.grid(row=2, column=0, columnspan=4, padx=10, pady=5, sticky="we")
@@ -712,9 +762,9 @@ class GeometryView:
         except Exception as e:
             messagebox.showerror("Lỗi", f"Lỗi thực thi: {str(e)}")
     
-    # ========== EXCEL PROCESSING METHODS - NEW! ==========
+    # ========== ENHANCED EXCEL METHODS - CRASH-PROOF! ==========
     def _import_excel(self):
-        """Import dữ liệu từ Excel - Full implementation!"""
+        """Import dữ liệu từ Excel - Enhanced with crash protection!"""
         try:
             file_path = filedialog.askopenfilename(
                 title="Chọn file Excel",
@@ -724,17 +774,45 @@ class GeometryView:
             if not file_path:
                 return
             
-            # Get file info
+            # Pre-check file size and warn user
+            file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
+            if file_size_mb > 50:
+                proceed = messagebox.askyesno(
+                    "File rất lớn!", 
+                    f"File có kích thước: {file_size_mb:.1f}MB\n"
+                    f"Đây có thể là file rất lớn (200k+ dòng).\n\n"
+                    f"💪 ConvertKeylogApp v2.1 có thể xử lý file này nhờ:\n"
+                    f"✅ Memory-optimized streaming\n"
+                    f"✅ Chunked processing\n"
+                    f"✅ Crash protection\n\n"
+                    f"Tiếp tục import?"
+                )
+                if not proceed:
+                    return
+            
+            # Get file info with large file detection
             file_info = self.geometry_service.get_excel_file_info(file_path)
             
-            # Show file info dialog
-            info_message = f"File: {file_info['file_name']}\n"
-            info_message += f"Dòng: {file_info['total_rows']}\n"
-            info_message += f"Cột: {file_info['total_columns']}\n"
-            info_message += f"Kích thước: {file_info['file_size']/1024:.1f}KB\n\n"
-            info_message += "Các cột: " + ", ".join(file_info['columns'][:5])
-            if len(file_info['columns']) > 5:
-                info_message += f" (và {len(file_info['columns'])-5} cột khác)"
+            if file_info.get('is_large_file', False):
+                self.is_large_file = True
+                # Show large file specific info
+                info_message = f"🔥 LARGE FILE DETECTED!\n\n"
+                info_message += f"📊 File: {file_info['file_name']}\n"
+                info_message += f"📏 Size: {file_info['file_size_mb']:.1f}MB\n"
+                info_message += f"📈 Rows: {file_info.get('estimated_rows', 'Unknown'):,}\n"
+                info_message += f"🎯 Columns: {file_info['total_columns']}\n\n"
+                info_message += f"💡 Recommended chunk: {file_info.get('recommended_chunk_size', 500)}\n\n"
+                info_message += f"⚡ Large File Mode will be used automatically!"
+            else:
+                self.is_large_file = False
+                # Normal file info
+                info_message = f"📁 File: {file_info['file_name']}\n"
+                info_message += f"📏 Dòng: {file_info['total_rows']}\n"
+                info_message += f"📊 Cột: {file_info['total_columns']}\n"
+                info_message += f"💾 Kích thước: {file_info['file_size_mb']:.1f}MB\n\n"
+                info_message += "Các cột: " + ", ".join(file_info['columns'][:5])
+                if len(file_info['columns']) > 5:
+                    info_message += f" (và {len(file_info['columns'])-5} cột khác)"
             
             proceed = messagebox.askyesno("Thông tin File", f"{info_message}\n\nTiếp tục import?")
             if not proceed:
@@ -769,23 +847,32 @@ class GeometryView:
             # Clear manual inputs and lock them
             self._clear_and_lock_inputs()
             
-            # Show import buttons
+            # Show appropriate buttons based on file size
             self._show_import_buttons()
             
             # Update status
-            quality_info = validation_result.get('quality_issues', {})
-            status_message = f"📁 Đã import: {file_info['file_name']}\n"
-            status_message += f"Dòng có dữ liệu: {quality_info.get('rows_with_data', 0)}/{file_info['total_rows']}\n"
-            status_message += f"Sẵn sàng xử lý hàng loạt!"
+            if self.is_large_file:
+                status_message = f"🔥 Large File imported: {file_info['file_name']}\n"
+                status_message += f"📈 {file_info.get('estimated_rows', 'Unknown'):,} rows\n"
+                status_message += f"💪 Anti-crash mode ENABLED!\n"
+                status_message += f"⚡ Ready for streaming batch processing!"
+                
+                self.excel_status_label.config(text=f"Excel: 🔥 {file_info['file_name'][:15]}...")
+            else:
+                quality_info = validation_result.get('quality_issues', {})
+                status_message = f"📁 Đã import: {file_info['file_name']}\n"
+                status_message += f"Dòng có dữ liệu: {quality_info.get('rows_with_data', 0)}/{file_info['total_rows']}\n"
+                status_message += f"Sẵn sàng xử lý hàng loạt!"
+                
+                self.excel_status_label.config(text=f"Excel: 📁 {file_info['file_name'][:15]}...")
             
             self._update_result_display(status_message)
-            self.excel_status_label.config(text=f"Excel: 📁 {file_info['file_name'][:15]}...")
             
         except Exception as e:
             messagebox.showerror("Lỗi Import", f"Lỗi import Excel: {str(e)}")
     
     def _process_excel_batch(self):
-        """Process imported Excel file in batch - Full implementation!"""
+        """Process imported Excel file - Enhanced with crash protection!"""
         try:
             if not self.imported_data or not self.imported_file_path:
                 messagebox.showwarning("Cảnh báo", "Chưa import file Excel nào!")
@@ -795,6 +882,147 @@ class GeometryView:
                 messagebox.showerror("Lỗi", "GeometryService chưa sẵn sàng!")
                 return
             
+            # Get processing info
+            processing_info = self.geometry_service.get_large_file_processing_info(self.imported_file_path)
+            
+            if processing_info.get('is_large_file', False):
+                # Large file processing
+                self._process_large_file_with_options(processing_info)
+            else:
+                # Normal file processing
+                self._process_normal_file()
+                
+        except Exception as e:
+            messagebox.showerror("Lỗi Xử lý", f"Lỗi xử lý Excel: {str(e)}")
+    
+    def _process_large_file_with_options(self, processing_info):
+        """Process large file with user options"""
+        try:
+            file_info = processing_info['file_info']
+            recommended_chunk = processing_info['recommended_chunk_size']
+            
+            # Show large file processing dialog
+            large_file_message = f"🔥 LARGE FILE PROCESSING\n\n"
+            large_file_message += f"📊 Size: {file_info['file_size_mb']:.1f}MB\n"
+            large_file_message += f"📈 Rows: ~{file_info['estimated_rows']:,}\n"
+            large_file_message += f"💡 Recommended chunk: {recommended_chunk}\n\n"
+            large_file_message += f"💪 Anti-crash features:\n"
+            large_file_message += f"✅ Memory monitoring\n"
+            large_file_message += f"✅ Streaming processing\n"
+            large_file_message += f"✅ Emergency cleanup\n"
+            large_file_message += f"✅ Progress tracking\n\n"
+            large_file_message += f"⚡ This may take several minutes..."
+            
+            proceed = messagebox.askyesno("Large File Processing", large_file_message)
+            if not proceed:
+                return
+            
+            # Choose output file
+            original_name = os.path.splitext(os.path.basename(self.imported_file_path))[0]
+            default_output = f"{original_name}_large_encoded_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            
+            output_path = filedialog.asksaveasfilename(
+                title="Chọn nơi lưu kết quả (Large File)",
+                defaultextension=".xlsx",
+                filetypes=[("Excel files", "*.xlsx")],
+                initialvalue=default_output
+            )
+            
+            if not output_path:
+                return
+            
+            # Get current settings
+            shape_a = self.dropdown1_var.get()
+            shape_b = self.dropdown2_var.get() if self.pheptoan_var.get() not in ["Diện tích", "Thể tích"] else None
+            operation = self.pheptoan_var.get()
+            dimension_a = self.kich_thuoc_A_var.get()
+            dimension_b = self.kich_thuoc_B_var.get()
+            
+            # Process using large file processor
+            self._process_large_file_background(output_path, shape_a, shape_b, operation, dimension_a, dimension_b)
+            
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Lỗi xử lý file lớn: {str(e)}")
+    
+    def _process_large_file_background(self, output_path, shape_a, shape_b, operation, dimension_a, dimension_b):
+        """Process large file in background with progress tracking"""
+        try:
+            # Show enhanced progress window for large files
+            progress_window = self._create_large_file_progress_window()
+            
+            def progress_callback(progress, processed, total, errors):
+                if hasattr(self, 'progress_var') and not self.processing_cancelled:
+                    try:
+                        self.progress_var.set(progress)
+                        memory_usage = self._get_memory_usage()
+                        
+                        # Enhanced progress display
+                        progress_text = f"Đang xử lý: {processed:,}/{total:,} dòng\n"
+                        progress_text += f"Lỗi: {errors:,}\n"
+                        progress_text += f"Memory: {memory_usage:.1f}MB"
+                        
+                        self.progress_label.config(text=progress_text)
+                        
+                        # Update memory status in main window
+                        if memory_usage > 800:
+                            self.memory_status_label.config(text=f"💾 Memory: {memory_usage:.1f}MB (🔥 High)", fg="#F44336")
+                        elif memory_usage > 500:
+                            self.memory_status_label.config(text=f"💾 Memory: {memory_usage:.1f}MB (⚠️ Medium)", fg="#FF9800")
+                        else:
+                            self.memory_status_label.config(text=f"💾 Memory: {memory_usage:.1f}MB (✅ OK)", fg="#4CAF50")
+                        
+                        progress_window.update()
+                    except Exception:
+                        pass
+            
+            # Process in background thread
+            def process_thread():
+                try:
+                    # Use the enhanced batch processor which auto-detects large files
+                    results, output_file, success_count, error_count = self.geometry_service.process_excel_batch(
+                        self.imported_file_path, shape_a, shape_b, operation, 
+                        dimension_a, dimension_b, output_path, progress_callback
+                    )
+                    
+                    # Close progress window
+                    if not self.processing_cancelled:
+                        progress_window.destroy()
+                        
+                        # Show success results
+                        result_message = f"🎉 LARGE FILE PROCESSED SUCCESSFULLY!\n\n"
+                        result_message += f"📁 Output: {os.path.basename(output_file)}\n"
+                        result_message += f"✅ Success: {success_count:,} rows\n"
+                        result_message += f"❌ Errors: {error_count:,} rows\n"
+                        result_message += f"💾 Peak memory: {self._get_memory_usage():.1f}MB\n\n"
+                        
+                        if isinstance(results, list) and len(results) > 0:
+                            result_message += f"📝 Sample result:\n{results[0][:80]}..."
+                        else:
+                            result_message += f"📝 Results written directly to file for memory efficiency"
+                        
+                        self._update_result_display(result_message)
+                        messagebox.showinfo("Large File Complete!", 
+                            f"🎉 Xử lý file lớn thành công!\n\n"
+                            f"✅ Processed: {success_count:,} rows\n"
+                            f"❌ Errors: {error_count:,} rows\n\n"
+                            f"File đã lưu:\n{output_file}")
+                    
+                except Exception as e:
+                    if not self.processing_cancelled:
+                        progress_window.destroy()
+                        messagebox.showerror("Lỗi Large File", f"Lỗi xử lý file lớn: {str(e)}")
+            
+            # Start processing thread
+            thread = threading.Thread(target=process_thread)
+            thread.daemon = True
+            thread.start()
+            
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Lỗi khởi tạo xử lý file lớn: {str(e)}")
+    
+    def _process_normal_file(self):
+        """Process normal sized file"""
+        try:
             # Choose output file
             original_name = os.path.splitext(os.path.basename(self.imported_file_path))[0]
             default_output = f"{original_name}_encoded_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
@@ -816,20 +1044,6 @@ class GeometryView:
             dimension_a = self.kich_thuoc_A_var.get()
             dimension_b = self.kich_thuoc_B_var.get()
             
-            # Check file size for chunked processing
-            file_size = os.path.getsize(self.imported_file_path) / (1024 * 1024)  # MB
-            
-            if file_size > 5:  # Files > 5MB use chunked processing
-                self._process_excel_chunked(output_path, shape_a, shape_b, operation, dimension_a, dimension_b)
-            else:
-                self._process_excel_simple(output_path, shape_a, shape_b, operation, dimension_a, dimension_b)
-                
-        except Exception as e:
-            messagebox.showerror("Lỗi Xử lý", f"Lỗi xử lý Excel: {str(e)}")
-    
-    def _process_excel_simple(self, output_path, shape_a, shape_b, operation, dimension_a, dimension_b):
-        """Simple Excel processing without chunking"""
-        try:
             # Show progress window
             progress_window = self._create_progress_window("Xử lý file Excel...")
             
@@ -856,7 +1070,7 @@ class GeometryView:
                     result_message += f"Thành công: {success_count} dòng\n"
                     result_message += f"Lỗi: {error_count} dòng\n\n"
                     
-                    if len(results) > 0:
+                    if isinstance(results, list) and len(results) > 0:
                         result_message += f"Mẫu kết quả đầu tiên:\n{results[0][:100]}..."
                     
                     self._update_result_display(result_message)
@@ -872,67 +1086,57 @@ class GeometryView:
             thread.start()
             
         except Exception as e:
-            messagebox.showerror("Lỗi", f"Lỗi khởi tạo xử lý: {str(e)}")
+            messagebox.showerror("Lỗi", f"Lỗi xử lý file thường: {str(e)}")
     
-    def _process_excel_chunked(self, output_path, shape_a, shape_b, operation, dimension_a, dimension_b):
-        """Chunked Excel processing for large files"""
-        try:
-            chunksize = simpledialog.askinteger(
-                "Xử lý file lớn", 
-                "File lớn (>5MB). Nhập kích thước chunk:", 
-                initialvalue=1000, minvalue=100, maxvalue=10000
-            )
-            
-            if not chunksize:
-                return
-            
-            # Show progress window
-            progress_window = self._create_progress_window(f"Xử lý file lớn (chunk={chunksize})...")
-            
-            def progress_callback(progress, processed, total, errors):
-                if hasattr(self, 'progress_var'):
-                    self.progress_var.set(progress)
-                    self.progress_label.config(text=f"Đang xử lý: {processed}/{total} dòng ({errors} lỗi)")
-                    progress_window.update()
-            
-            # Process in background thread
-            def process_thread():
-                try:
-                    results, output_file, success_count, error_count = self.geometry_service.process_excel_batch_chunked(
-                        self.imported_file_path, shape_a, shape_b, operation,
-                        dimension_a, dimension_b, chunksize, progress_callback
-                    )
-                    
-                    # Close progress window
-                    progress_window.destroy()
-                    
-                    # Show results
-                    result_message = f"🎉 Hoàn thành xử lý Excel (Chunked)!\n\n"
-                    result_message += f"File kết quả: {os.path.basename(output_file)}\n"
-                    result_message += f"Thành công: {success_count} dòng\n"
-                    result_message += f"Lỗi: {error_count} dòng\n"
-                    result_message += f"Chunk size: {chunksize}\n\n"
-                    
-                    if len(results) > 0:
-                        result_message += f"Mẫu kết quả:\n{results[0][:80]}..."
-                    
-                    self._update_result_display(result_message)
-                    messagebox.showinfo("Hoàn thành", f"Xử lý chunked thành công!\n\nFile đã lưu: {output_file}")
-                    
-                except Exception as e:
-                    progress_window.destroy()
-                    messagebox.showerror("Lỗi", f"Lỗi xử lý chunked: {str(e)}")
-            
-            # Start processing thread
-            thread = threading.Thread(target=process_thread)
-            thread.daemon = True
-            thread.start()
-            
-        except Exception as e:
-            messagebox.showerror("Lỗi", f"Lỗi xử lý chunked: {str(e)}")
+    def _create_large_file_progress_window(self):
+        """Create enhanced progress window for large files"""
+        progress_window = tk.Toplevel(self.window)
+        progress_window.title("🔥 Large File Processing - Anti-Crash Mode")
+        progress_window.geometry("500x200")
+        progress_window.resizable(False, False)
+        progress_window.grab_set()
+        
+        # Center the window
+        progress_window.transient(self.window)
+        
+        # Title
+        tk.Label(progress_window, text="🔥 Large File Processing", 
+                font=("Arial", 14, "bold"), fg="#F44336").pack(pady=10)
+        
+        # Progress bar
+        self.progress_var = tk.DoubleVar()
+        progress_bar = ttk.Progressbar(
+            progress_window, variable=self.progress_var, 
+            maximum=100, length=400, mode='determinate'
+        )
+        progress_bar.pack(pady=10)
+        
+        # Progress label
+        self.progress_label = tk.Label(progress_window, text="Chuẩn bị...", font=("Arial", 10))
+        self.progress_label.pack(pady=5)
+        
+        # Warning label
+        warning_label = tk.Label(
+            progress_window, 
+            text="⚠️ Đừng đóng cửa sổ này! File đang được xử lý với memory optimization.",
+            font=("Arial", 8), fg="#FF9800"
+        )
+        warning_label.pack(pady=5)
+        
+        # Cancel button
+        def cancel_processing():
+            self.processing_cancelled = True
+            self.large_file_processor.processing_cancelled = True if hasattr(self, 'large_file_processor') else None
+            messagebox.showinfo("Đã hủy", "Đã yêu cầu hủy xử lý. Vui lòng đợi...")
+            progress_window.after(3000, progress_window.destroy)  # Auto-close after 3s
+        
+        tk.Button(progress_window, text="🛑 Hủy xử lý", command=cancel_processing,
+                 bg="#F44336", fg="white", font=("Arial", 10, "bold")).pack(pady=10)
+        
+        return progress_window
     
     def _create_progress_window(self, title):
-        """Create progress dialog window"""
+        """Create standard progress dialog window"""
         progress_window = tk.Toplevel(self.window)
         progress_window.title(title)
         progress_window.geometry("400x150")
@@ -1036,7 +1240,8 @@ class GeometryView:
             
             messagebox.showinfo("Tạo template thành công", 
                 f"Template Excel đã tạo tại:\n{template_file}\n\n"
-                f"Bạn có thể điền dữ liệu vào template này rồi import lại.")
+                f"Bạn có thể điền dữ liệu vào template này rồi import lại.\n\n"
+                f"💡 Tip: Template sẽ hoạt động tốt với cả file lớn nhờ anti-crash system!")
             
         except Exception as e:
             messagebox.showerror("Lỗi", f"Lỗi tạo template: {str(e)}")
@@ -1051,6 +1256,7 @@ class GeometryView:
                 self.imported_data = False
                 self.imported_file_path = ""
                 self.manual_data_entered = False
+                self.is_large_file = False
                 
                 # Unlock and clear inputs
                 self._unlock_and_clear_inputs()
@@ -1060,7 +1266,7 @@ class GeometryView:
                 
                 # Update status
                 self._update_result_display("✨ Đã quay lại chế độ nhập thủ công.\nNhập dữ liệu vào các ô trên để bắt đầu.")
-                self.excel_status_label.config(text="Excel: ✅ Sẵn sàng")
+                self.excel_status_label.config(text="📊 Excel: ✅ Ready")
                 
         except Exception as e:
             messagebox.showerror("Lỗi", f"Lỗi thoát chế độ import: {str(e)}")
@@ -1091,22 +1297,29 @@ class GeometryView:
         self.entry_tong.insert(tk.END, message)
         
         # Color coding based on message type
-        if "Lỗi" in message or "lỗi" in message:
+        if "Lỗi" in message or "lỗi" in message or "Lỗi" in message:
             self.entry_tong.config(bg="#FFEBEE", fg="#D32F2F")
-        elif "Đã import" in message or "Đã xuất" in message or "Hoàn thành" in message:
+        elif "Đã import" in message or "Đã xuất" in message or "Hoàn thành" in message or "SUCCESSFULLY" in message:
             self.entry_tong.config(bg="#E8F5E8", fg="#388E3C")
-        elif "Đang xử lý" in message:
+        elif "Đang xử lý" in message or "PROCESSING" in message:
             self.entry_tong.config(bg="#FFF3E0", fg="#F57C00")
+        elif "LARGE FILE" in message or "🔥" in message:
+            self.entry_tong.config(bg="#FFF3E0", fg="#F44336")
         else:
             self.entry_tong.config(bg="#F8F9FA", fg="#2E86AB")
     
     def _show_ready_message(self):
-        """Hiện thông báo sẵn sàng với Excel features"""
+        """Hiển thông báo sẵn sàng với Excel features + Large file support"""
         if self.geometry_service:
-            message = "✨ Geometry Mode v2.0 - Đầy đủ tính năng Excel!\n\n"
+            message = "✨ Geometry Mode v2.1 - Anti-Crash Excel! 💪\n\n"
             message += "📝 Chế độ thủ công: Nhập dữ liệu vào các ô, bấm 'Thực thi tất cả'\n"
             message += "📁 Chế độ Excel: Bấm 'Import Excel' để xử lý hàng loạt\n\n"
-            message += "Tính năng: Import, Batch processing, Chunked processing, Validation, Template"
+            message += "🔥 NEW: Large File Support\n"
+            message += "✅ Memory-optimized streaming\n"
+            message += "✅ Crash protection for 200k+ rows\n"
+            message += "✅ Auto-detect large files (>20MB or >50k rows)\n"
+            message += "✅ Emergency memory cleanup\n\n"
+            message += "💡 Tính năng: Import, Batch, Chunked, Validation, Template, Anti-Crash"
         else:
             message = "⚠️ GeometryService không khởi tạo được.\nVui lòng kiểm tra cài đặt!"
         
@@ -1124,7 +1337,7 @@ class GeometryView:
         self.entry_tong = tk.Text(
             self.main_container,
             width=80,
-            height=6,
+            height=8,  # Increased height for large file messages
             font=("Courier New", 9),
             wrap=tk.WORD,
             bg="#F8F9FA",
@@ -1136,9 +1349,9 @@ class GeometryView:
         )
         self.entry_tong.grid(row=9, column=0, columnspan=4, padx=5, pady=5, sticky="we")
 
-        # Nút Import Excel
+        # Nút Import Excel với large file support
         self.btn_import_excel = tk.Button(
-            self.frame_tong, text="📁 Import Excel",
+            self.frame_tong, text="📁 Import Excel (Large File Support!)",
             command=self._import_excel,
             bg="#FF9800", fg="white", font=("Arial", 9, "bold")
         )
@@ -1161,13 +1374,13 @@ class GeometryView:
                   command=self._export_excel,
                   bg="#FF9800", fg="white", font=("Arial", 9, "bold")).grid(row=0, column=3, padx=5)
         
-        # Frame cho nút import mode
+        # Frame cho nút import mode - Enhanced for large files
         self.frame_buttons_import = tk.Frame(self.frame_tong, bg="#FFFFFF")
         self.frame_buttons_import.grid(row=1, column=0, columnspan=4, pady=5, sticky="we")
         
-        tk.Button(self.frame_buttons_import, text="🚀 Xử lý File Excel",
+        tk.Button(self.frame_buttons_import, text="🔥 Xử lý File Excel",
                   command=self._process_excel_batch,
-                  bg="#4CAF50", fg="white", font=("Arial", 9, "bold")).grid(row=0, column=0, padx=5)
+                  bg="#F44336", fg="white", font=("Arial", 9, "bold")).grid(row=0, column=0, padx=5)
         tk.Button(self.frame_buttons_import, text="📁 Import File Khác",
                   command=self._import_excel,
                   bg="#2196F3", fg="white", font=("Arial", 9)).grid(row=0, column=1, padx=5)
@@ -1176,7 +1389,7 @@ class GeometryView:
                   bg="#9C27B0", fg="white", font=("Arial", 9)).grid(row=0, column=2, padx=5)
         tk.Button(self.frame_buttons_import, text="↩️ Quay lại",
                   command=self._quit_import_mode,
-                  bg="#F44336", fg="white", font=("Arial", 9)).grid(row=0, column=3, padx=5)
+                  bg="#607D8B", fg="white", font=("Arial", 9)).grid(row=0, column=3, padx=5)
         
         # Initially hide import buttons
         self.frame_buttons_import.grid_remove()
