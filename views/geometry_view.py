@@ -761,7 +761,7 @@ class GeometryView:
         
         # Thiết lập font Flexio Fx799VN nếu có, size 11, bold
         try:
-            self.entry_tong.config(font=("Flexio Fx799VN", 11, "bold"), fg="#000000", bg="#F8F9FA")
+            self.entry_tong.config(font=("Flexio Fx799VN", 11), fg="#000000", bg="#F8F9FA")
         except Exception:
             # Fallback giữ nguyên nếu font không có
             self.entry_tong.config(font=("Courier New", 11, "bold"), fg="#000000", bg="#F8F9FA")
