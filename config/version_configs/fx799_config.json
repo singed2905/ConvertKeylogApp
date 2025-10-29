@@ -1,0 +1,45 @@
+{
+  "version_info": {
+    "model": "fx799",
+    "name": "CASIO fx-799VN PLUS",
+    "description": "Máy tính Casio fx-799VN PLUS - Phiên bản cơ bản",
+    "manufacturer": "CASIO"
+  },
+  "equation_settings": {
+    "base_prefix": "w",
+    "supported_equations": {
+      "2_an": {
+        "prefix": "w912",
+        "max_coefficients": 6
+      },
+      "3_an": {
+        "prefix": "w913",
+        "max_coefficients": 12
+      },
+      "4_an": {
+        "prefix": "w914",
+        "max_coefficients": 20
+      }
+    }
+  },
+  "geometry_settings": {
+    "coordinate_precision": 6,
+    "angle_unit": "degree",
+    "supported_dimensions": ["2D", "3D"]
+  },
+  "polynomial_settings": {
+    "max_degree": 4,
+    "precision": 10,
+    "complex_roots": true
+  },
+  "display_settings": {
+    "decimal_places": 6,
+    "scientific_notation": true,
+    "fraction_display": false
+  },
+  "metadata": {
+    "version": "1.0",
+    "created_for": "ConvertKeylogApp",
+    "last_updated": "2025-10-29"
+  }
+}

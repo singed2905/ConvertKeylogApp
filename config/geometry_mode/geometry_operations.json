@@ -1,0 +1,142 @@
+{
+  "operations": {
+    "Tương giao": {
+      "description": "Tìm giao điểm/giao tuyến giữa các đối tượng hình học",
+      "supported_combinations": [
+        {
+          "type1": "Điểm",
+          "type2": "Đường thẳng",
+          "result": "boolean"
+        },
+        {
+          "type1": "Điểm",
+          "type2": "Mặt phẳng",
+          "result": "boolean"
+        },
+        {
+          "type1": "Đường thẳng",
+          "type2": "Đường thẳng",
+          "result": "point"
+        },
+        {
+          "type1": "Đường thẳng",
+          "type2": "Mặt phẳng",
+          "result": "point"
+        },
+        {
+          "type1": "Mặt phẳng",
+          "type2": "Mặt phẳng",
+          "result": "line"
+        },
+        {
+          "type1": "Đường tròn",
+          "type2": "Đường thẳng",
+          "result": "points"
+        },
+        {
+          "type1": "Mặt cầu",
+          "type2": "Đường thẳng",
+          "result": "points"
+        },
+        {
+          "type1": "Mặt cầu",
+          "type2": "Mặt phẳng",
+          "result": "circle"
+        }
+      ]
+    },
+    "Khoảng cách": {
+      "description": "Tính khoảng cách giữa các đối tượng hình học",
+      "supported_combinations": [
+        {
+          "type1": "Điểm",
+          "type2": "Điểm",
+          "result": "distance"
+        },
+        {
+          "type1": "Điểm",
+          "type2": "Đường thẳng",
+          "result": "distance"
+        },
+        {
+          "type1": "Điểm",
+          "type2": "Mặt phẳng",
+          "result": "distance"
+        },
+        {
+          "type1": "Đường thẳng",
+          "type2": "Đường thẳng",
+          "result": "distance"
+        },
+        {
+          "type1": "Đường thẳng",
+          "type2": "Mặt phẳng",
+          "result": "distance"
+        },
+        {
+          "type1": "Mặt phẳng",
+          "type2": "Mặt phẳng",
+          "result": "distance"
+        }
+      ]
+    },
+    "Diện tích": {
+      "description": "Tính diện tích của các đối tượng hình học",
+      "supported_objects": [
+        {
+          "type": "Đường tròn",
+          "formula": "π × r²"
+        },
+        {
+          "type": "Tam giác",
+          "formula": "Heron hoặc vector"
+        },
+        {
+          "type": "Hình chữ nhật",
+          "formula": "a × b"
+        },
+        {
+          "type": "Elip",
+          "formula": "π × a × b"
+        }
+      ]
+    },
+    "Thể tích": {
+      "description": "Tính thể tích của các đối tượng hình học 3D",
+      "supported_objects": [
+        {
+          "type": "Mặt cầu",
+          "formula": "(4/3) × π × r³"
+        },
+        {
+          "type": "Hình hộp",
+          "formula": "a × b × c"
+        },
+        {
+          "type": "Hình nón",
+          "formula": "(1/3) × π × r² × h"
+        },
+        {
+          "type": "Hình trụ",
+          "formula": "π × r² × h"
+        }
+      ]
+    }
+  },
+  "coordinate_systems": {
+    "2D": {
+      "description": "Hệ tọa độ 2 chiều (x, y)",
+      "supported_objects": ["Điểm", "Đường thẳng", "Đường tròn"]
+    },
+    "3D": {
+      "description": "Hệ tọa độ 3 chiều (x, y, z)",
+      "supported_objects": ["Điểm", "Đường thẳng", "Mặt phẳng", "Mặt cầu"]
+    }
+  },
+  "metadata": {
+    "version": "1.0",
+    "description": "Định nghĩa các phép toán hình học cho Geometry Mode",
+    "created_for": "ConvertKeylogApp",
+    "last_updated": "2025-10-29"
+  }
+}

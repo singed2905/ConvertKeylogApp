@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox, filedialog
-from utils.file_utils import FileUtils
+from utils.config_loader import config_loader
 
 class MainView:
     def __init__(self):
@@ -9,20 +9,19 @@ class MainView:
         self.root.geometry("480x320")
         self.root.configure(bg="#e8f0f7")  # Màu nền nhẹ xanh pastel
 
-        # Đường dẫn file
-        self.modes_file_path = "config/modes.json"
-
-        # Load danh sách mode
+        # Load danh sách mode từ cấu trúc mới
         self.modes = self._load_modes()
         self.mode_var = tk.StringVar(value=self.modes[0] if self.modes else "Không có mode")
 
         self._setup_ui()
 
     def _load_modes(self):
+        """Load modes từ config structure mới"""
         try:
-            return FileUtils.load_modes_from_json(self.modes_file_path)
+            modes_data = config_loader.get_available_modes()
+            return modes_data if modes_data else ["Geometry Mode", "Equation Mode", "Polynomial Equation Mode"]
         except Exception as e:
-            messagebox.showwarning("Cảnh báo", f"Không thể load file modes.json mặc định:\n{str(e)}")
+            messagebox.showwarning("Cảnh báo", f"Không thể load modes từ config mới:\n{str(e)}\n\nSử dụng modes mặc định.")
             return ["Geometry Mode", "Equation Mode", "Polynomial Equation Mode"]
 
     def _setup_ui(self):
@@ -34,7 +33,7 @@ class MainView:
 
         title_label = tk.Label(
             title_frame,
-            text="🧮 ConvertKeylogApp",
+            text="🧮 ConvertKeylogApp v2.0",
             font=("Segoe UI", 18, "bold"),
             bg="#4A90E2",
             fg="white",
@@ -104,7 +103,7 @@ class MainView:
         # === Thanh thông tin dưới cùng ===
         footer = tk.Label(
             self.root,
-            text=f"📁 File cấu hình: {self.modes_file_path}",
+            text="📁 Config: Cấu trúc mới theo mode | 🎯 Version: 2.0 with restructured config",
             font=("Segoe UI", 9),
             bg="#dfe7ef",
             fg="#444",
@@ -128,25 +127,34 @@ class MainView:
 
     def _open_geometry_mode(self):
         try:
+            # Load config cho Geometry Mode
+            geometry_config = config_loader.get_mode_config("Geometry Mode")
+            
             from views.geometry_view import GeometryView
             geometry_window = tk.Toplevel(self.root)
-            GeometryView(geometry_window)
+            GeometryView(geometry_window, config=geometry_config)
         except Exception as e:
             messagebox.showerror("Lỗi", f"Không thể mở Geometry Mode:\n{str(e)}")
 
     def _open_equation_mode(self):
         try:
+            # Load config cho Equation Mode
+            equation_config = config_loader.get_mode_config("Equation Mode")
+            
             from views.equation_view import EquationView
             equation_window = tk.Toplevel(self.root)
-            EquationView(equation_window)
+            EquationView(equation_window, config=equation_config)
         except Exception as e:
             messagebox.showerror("Lỗi", f"Không thể mở Equation Mode:\n{str(e)}")
 
     def _open_polynomial_mode(self):
         try:
+            # Load config cho Polynomial Mode
+            polynomial_config = config_loader.get_mode_config("Polynomial Equation Mode")
+            
             from views.polynomial_equation_view import PolynomialEquationView
             polynomial_window = tk.Toplevel(self.root)
-            PolynomialEquationView(polynomial_window)
+            PolynomialEquationView(polynomial_window, config=polynomial_config)
         except Exception as e:
             messagebox.showerror("Lỗi", f"Không thể mở Polynomial Mode:\n{str(e)}")
 
