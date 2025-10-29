@@ -23,7 +23,7 @@ class MainView:
             return FileUtils.load_modes_from_json(self.modes_file_path)
         except Exception as e:
             messagebox.showwarning("Cảnh báo", f"Không thể load file modes.json mặc định:\n{str(e)}")
-            return ["Keylog Converter Mode"]
+            return ["Geometry Mode", "Equation Mode", "Polynomial Equation Mode"]
 
     def _setup_ui(self):
         """Tạo giao diện người dùng chính"""
@@ -34,7 +34,7 @@ class MainView:
 
         title_label = tk.Label(
             title_frame,
-            text="⌨️ ConvertKeylogApp",
+            text="🧮 ConvertKeylogApp",
             font=("Segoe UI", 18, "bold"),
             bg="#4A90E2",
             fg="white",
@@ -115,20 +115,40 @@ class MainView:
     def _open_selected_mode(self):
         selected = self.mode_var.get()
 
-        if selected == "Keylog Converter Mode":
-            self._open_keylog_converter_mode()
+        if selected == "Geometry Mode":
+            self._open_geometry_mode()
+        elif selected == "Equation Mode":
+            self._open_equation_mode()
+        elif selected == "Polynomial Equation Mode":
+            self._open_polynomial_mode()
         elif selected == "Không có mode":
             messagebox.showwarning("Cảnh báo", "Vui lòng chọn một chế độ hợp lệ.")
         else:
-            messagebox.showinfo("Thông báo", f"Mode '{selected}' chưa được hỗ trợ.\nHiện chỉ có 'Keylog Converter Mode' khả dụng.")
+            messagebox.showinfo("Thông báo", f"Mode '{selected}' chưa được hỗ trợ.\nHiện chỉ có giao diện UI (không logic).")
 
-    def _open_keylog_converter_mode(self):
+    def _open_geometry_mode(self):
         try:
-            from views.keylog_converter_view import KeylogConverterView
-            converter_window = tk.Toplevel(self.root)
-            KeylogConverterView(converter_window)
+            from views.geometry_view import GeometryView
+            geometry_window = tk.Toplevel(self.root)
+            GeometryView(geometry_window)
         except Exception as e:
-            messagebox.showerror("Lỗi", f"Không thể mở Keylog Converter Mode:\n{str(e)}")
+            messagebox.showerror("Lỗi", f"Không thể mở Geometry Mode:\n{str(e)}")
+
+    def _open_equation_mode(self):
+        try:
+            from views.equation_view import EquationView
+            equation_window = tk.Toplevel(self.root)
+            EquationView(equation_window)
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Không thể mở Equation Mode:\n{str(e)}")
+
+    def _open_polynomial_mode(self):
+        try:
+            from views.polynomial_equation_view import PolynomialEquationView
+            polynomial_window = tk.Toplevel(self.root)
+            PolynomialEquationView(polynomial_window)
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Không thể mở Polynomial Mode:\n{str(e)}")
 
     def run(self):
         # Căn giữa cửa sổ
