@@ -1,10 +1,14 @@
 import tkinter as tk
-from tkinter import messagebox, filedialog
+from tkinter import messagebox, filedialog, simpledialog
+from tkinter import ttk
+import threading
+import os
+from datetime import datetime
 
 class GeometryView:
     def __init__(self, window, config=None):
         self.window = window
-        self.window.title("Geometry Mode - Now with Logic!")
+        self.window.title("Geometry Mode - Full Excel Integration!")
         self.window.geometry("900x900")
         self.window.configure(bg="#F8F9FA")
 
@@ -14,6 +18,12 @@ class GeometryView:
         # Import và khởi tạo GeometryService (lazy loading)
         self.geometry_service = None
         self._initialize_service()
+        
+        # Excel processing state
+        self.imported_data = False
+        self.imported_file_path = ""
+        self.manual_data_entered = False
+        self.processing_cancelled = False
         
         # Biến và trạng thái
         self._initialize_variables()
@@ -52,9 +62,77 @@ class GeometryView:
         self.kich_thuoc_A_var.trace('w', self._on_dimension_changed)
         self.kich_thuoc_B_var.trace('w', self._on_dimension_changed)
         
+        # Bind input events to detect manual data entry
+        self.window.after(1000, self._setup_input_bindings)
+        
         # Cập nhật state ban đầu cho service
         if self.geometry_service:
             self.geometry_service.set_kich_thuoc(self.kich_thuoc_A_var.get(), self.kich_thuoc_B_var.get())
+    
+    def _setup_input_bindings(self):
+        """Setup bindings for input change detection"""
+        entries = self._get_all_input_entries()
+        for entry in entries:
+            if hasattr(entry, 'bind'):
+                entry.bind('<KeyRelease>', self._on_input_data_changed)
+    
+    def _get_all_input_entries(self):
+        """Get all input entry widgets"""
+        entries = []
+        
+        # Collect all entry widgets
+        for attr_name in dir(self):
+            if attr_name.startswith('entry_') and hasattr(self, attr_name):
+                entry = getattr(self, attr_name)
+                if hasattr(entry, 'get'):  # It's an Entry widget
+                    entries.append(entry)
+        
+        return entries
+    
+    def _on_input_data_changed(self, event):
+        """Handle manual data input changes"""
+        if self.imported_data:
+            messagebox.showerror("Lỗi", "Đã import Excel, không thể nhập dữ liệu thủ công!")
+            event.widget.delete(0, tk.END)
+            return
+
+        has_data = self._check_manual_data()
+        
+        if has_data and not self.manual_data_entered:
+            self.manual_data_entered = True
+            self._show_manual_buttons()
+        elif not has_data and self.manual_data_entered:
+            self.manual_data_entered = False
+            self._hide_action_buttons()
+    
+    def _check_manual_data(self):
+        """Check if manual data has been entered"""
+        entries = self._get_all_input_entries()
+        for entry in entries:
+            try:
+                if entry.get().strip():
+                    return True
+            except:
+                pass
+        return False
+    
+    def _show_manual_buttons(self):
+        """Show buttons for manual mode"""
+        self.frame_buttons_manual.grid()
+        if hasattr(self, 'frame_buttons_import'):
+            self.frame_buttons_import.grid_remove()
+    
+    def _show_import_buttons(self):
+        """Show buttons for import mode"""
+        if hasattr(self, 'frame_buttons_import'):
+            self.frame_buttons_import.grid()
+        self.frame_buttons_manual.grid_remove()
+    
+    def _hide_action_buttons(self):
+        """Hide all action buttons"""
+        self.frame_buttons_manual.grid_remove()
+        if hasattr(self, 'frame_buttons_import'):
+            self.frame_buttons_import.grid_remove()
 
     def _get_available_versions(self):
         """Lấy danh sách phiên bản từ config hoặc sử dụng mặc định"""
@@ -205,7 +283,7 @@ class GeometryView:
         self._show_ready_message()
 
     def _create_header(self):
-        """Tạo header"""
+        """Tạo header với Excel status"""
         HEADER_COLORS = {
             "primary": "#2E86AB", "secondary": "#1B5299", "text": "#FFFFFF",
             "accent": "#F18F01", "success": "#4CAF50", "warning": "#FF9800"
@@ -227,7 +305,7 @@ class GeometryView:
         logo_frame.pack(side="top", fill="x")
         tk.Label(logo_frame, text="🧠", font=("Arial", 20),
                  bg=HEADER_COLORS["primary"], fg=HEADER_COLORS["text"]).pack(side="left")
-        tk.Label(logo_frame, text="Geometry Mode v2.0 - With Logic!", font=("Arial", 16, "bold"),
+        tk.Label(logo_frame, text="Geometry Mode v2.0 - Excel Ready!", font=("Arial", 16, "bold"),
                  bg=HEADER_COLORS["primary"], fg=HEADER_COLORS["text"]).pack(side="left", padx=(5, 20))
 
         # Operation selector - lấy từ service
@@ -244,7 +322,7 @@ class GeometryView:
         )
         self.operation_menu.pack(side="left", padx=(5, 0))
 
-        # Phiên bản
+        # Phiên bản và status
         center_section = tk.Frame(header_content, bg=HEADER_COLORS["primary"])
         center_section.pack(side="left", fill="both", expand=True, padx=20)
 
@@ -259,6 +337,13 @@ class GeometryView:
             width=15, relief="flat", borderwidth=0
         )
         self.version_menu.pack(side="left", padx=(5, 0))
+        
+        # Excel status indicator
+        self.excel_status_label = tk.Label(
+            center_section, text="Excel: ✅ Sẵn sàng", font=("Arial", 8),
+            bg=HEADER_COLORS["primary"], fg=HEADER_COLORS["success"]
+        )
+        self.excel_status_label.pack(side="bottom")
         
         # Service status indicator
         status_text = "Service: ✅ Ready" if self.geometry_service else "Service: ⚠️ Error"
@@ -627,45 +712,401 @@ class GeometryView:
         except Exception as e:
             messagebox.showerror("Lỗi", f"Lỗi thực thi: {str(e)}")
     
+    # ========== EXCEL PROCESSING METHODS - NEW! ==========
     def _import_excel(self):
-        """Import dữ liệu từ Excel"""
+        """Import dữ liệu từ Excel - Full implementation!"""
         try:
             file_path = filedialog.askopenfilename(
                 title="Chọn file Excel",
                 filetypes=[("Excel files", "*.xlsx *.xls")]
             )
             
-            if file_path:
-                self._update_result_display(f"📁 File Excel đã chọn: {file_path}\n\nChức năng import Excel sẽ được hoàn thiện trong commit tiếp theo.")
+            if not file_path:
+                return
+            
+            # Get file info
+            file_info = self.geometry_service.get_excel_file_info(file_path)
+            
+            # Show file info dialog
+            info_message = f"File: {file_info['file_name']}\n"
+            info_message += f"Dòng: {file_info['total_rows']}\n"
+            info_message += f"Cột: {file_info['total_columns']}\n"
+            info_message += f"Kích thước: {file_info['file_size']/1024:.1f}KB\n\n"
+            info_message += "Các cột: " + ", ".join(file_info['columns'][:5])
+            if len(file_info['columns']) > 5:
+                info_message += f" (và {len(file_info['columns'])-5} cột khác)"
+            
+            proceed = messagebox.askyesno("Thông tin File", f"{info_message}\n\nTiếp tục import?")
+            if not proceed:
+                return
+            
+            # Validate file structure
+            shape_a = self.dropdown1_var.get()
+            shape_b = self.dropdown2_var.get() if self.pheptoan_var.get() not in ["Diện tích", "Thể tích"] else None
+            
+            validation_result = self.geometry_service.validate_excel_file_for_geometry(file_path, shape_a, shape_b)
+            
+            if not validation_result['valid']:
+                error_message = "File Excel không hợp lệ!\n\n"
+                if 'structure_issues' in validation_result:
+                    error_message += "Thiếu các cột: " + ", ".join(validation_result['structure_issues'])
+                if 'error' in validation_result:
+                    error_message += f"Lỗi: {validation_result['error']}"
+                
+                # Offer to create template
+                result = messagebox.askyesnocancel("File không hợp lệ", 
+                    f"{error_message}\n\nBạn có muốn tạo template mẫu không?")
+                
+                if result:  # Yes - create template
+                    self._create_template()
+                return
+            
+            # File is valid - proceed with import
+            self.imported_file_path = file_path
+            self.imported_data = True
+            self.manual_data_entered = False
+            
+            # Clear manual inputs and lock them
+            self._clear_and_lock_inputs()
+            
+            # Show import buttons
+            self._show_import_buttons()
+            
+            # Update status
+            quality_info = validation_result.get('quality_issues', {})
+            status_message = f"📁 Đã import: {file_info['file_name']}\n"
+            status_message += f"Dòng có dữ liệu: {quality_info.get('rows_with_data', 0)}/{file_info['total_rows']}\n"
+            status_message += f"Sẵn sàng xử lý hàng loạt!"
+            
+            self._update_result_display(status_message)
+            self.excel_status_label.config(text=f"Excel: 📁 {file_info['file_name'][:15]}...")
+            
         except Exception as e:
-            messagebox.showerror("Lỗi", f"Lỗi import Excel: {str(e)}")
+            messagebox.showerror("Lỗi Import", f"Lỗi import Excel: {str(e)}")
+    
+    def _process_excel_batch(self):
+        """Process imported Excel file in batch - Full implementation!"""
+        try:
+            if not self.imported_data or not self.imported_file_path:
+                messagebox.showwarning("Cảnh báo", "Chưa import file Excel nào!")
+                return
+            
+            if not self.geometry_service:
+                messagebox.showerror("Lỗi", "GeometryService chưa sẵn sàng!")
+                return
+            
+            # Choose output file
+            original_name = os.path.splitext(os.path.basename(self.imported_file_path))[0]
+            default_output = f"{original_name}_encoded_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            
+            output_path = filedialog.asksaveasfilename(
+                title="Chọn nơi lưu kết quả",
+                defaultextension=".xlsx",
+                filetypes=[("Excel files", "*.xlsx")],
+                initialvalue=default_output
+            )
+            
+            if not output_path:
+                return
+            
+            # Get current settings
+            shape_a = self.dropdown1_var.get()
+            shape_b = self.dropdown2_var.get() if self.pheptoan_var.get() not in ["Diện tích", "Thể tích"] else None
+            operation = self.pheptoan_var.get()
+            dimension_a = self.kich_thuoc_A_var.get()
+            dimension_b = self.kich_thuoc_B_var.get()
+            
+            # Check file size for chunked processing
+            file_size = os.path.getsize(self.imported_file_path) / (1024 * 1024)  # MB
+            
+            if file_size > 5:  # Files > 5MB use chunked processing
+                self._process_excel_chunked(output_path, shape_a, shape_b, operation, dimension_a, dimension_b)
+            else:
+                self._process_excel_simple(output_path, shape_a, shape_b, operation, dimension_a, dimension_b)
+                
+        except Exception as e:
+            messagebox.showerror("Lỗi Xử lý", f"Lỗi xử lý Excel: {str(e)}")
+    
+    def _process_excel_simple(self, output_path, shape_a, shape_b, operation, dimension_a, dimension_b):
+        """Simple Excel processing without chunking"""
+        try:
+            # Show progress window
+            progress_window = self._create_progress_window("Xử lý file Excel...")
+            
+            def progress_callback(progress, processed, total, errors):
+                if hasattr(self, 'progress_var'):
+                    self.progress_var.set(progress)
+                    self.progress_label.config(text=f"Đang xử lý: {processed}/{total} dòng ({errors} lỗi)")
+                    progress_window.update()
+            
+            # Process in background thread
+            def process_thread():
+                try:
+                    results, output_file, success_count, error_count = self.geometry_service.process_excel_batch(
+                        self.imported_file_path, shape_a, shape_b, operation, 
+                        dimension_a, dimension_b, output_path, progress_callback
+                    )
+                    
+                    # Close progress window
+                    progress_window.destroy()
+                    
+                    # Show results
+                    result_message = f"🎉 Hoàn thành xử lý Excel!\n\n"
+                    result_message += f"File kết quả: {os.path.basename(output_file)}\n"
+                    result_message += f"Thành công: {success_count} dòng\n"
+                    result_message += f"Lỗi: {error_count} dòng\n\n"
+                    
+                    if len(results) > 0:
+                        result_message += f"Mẫu kết quả đầu tiên:\n{results[0][:100]}..."
+                    
+                    self._update_result_display(result_message)
+                    messagebox.showinfo("Hoàn thành", f"Xử lý thành công!\n\nFile đã lưu: {output_file}")
+                    
+                except Exception as e:
+                    progress_window.destroy()
+                    messagebox.showerror("Lỗi", f"Lỗi xử lý: {str(e)}")
+            
+            # Start processing thread
+            thread = threading.Thread(target=process_thread)
+            thread.daemon = True
+            thread.start()
+            
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Lỗi khởi tạo xử lý: {str(e)}")
+    
+    def _process_excel_chunked(self, output_path, shape_a, shape_b, operation, dimension_a, dimension_b):
+        """Chunked Excel processing for large files"""
+        try:
+            chunksize = simpledialog.askinteger(
+                "Xử lý file lớn", 
+                "File lớn (>5MB). Nhập kích thước chunk:", 
+                initialvalue=1000, minvalue=100, maxvalue=10000
+            )
+            
+            if not chunksize:
+                return
+            
+            # Show progress window
+            progress_window = self._create_progress_window(f"Xử lý file lớn (chunk={chunksize})...")
+            
+            def progress_callback(progress, processed, total, errors):
+                if hasattr(self, 'progress_var'):
+                    self.progress_var.set(progress)
+                    self.progress_label.config(text=f"Đang xử lý: {processed}/{total} dòng ({errors} lỗi)")
+                    progress_window.update()
+            
+            # Process in background thread
+            def process_thread():
+                try:
+                    results, output_file, success_count, error_count = self.geometry_service.process_excel_batch_chunked(
+                        self.imported_file_path, shape_a, shape_b, operation,
+                        dimension_a, dimension_b, chunksize, progress_callback
+                    )
+                    
+                    # Close progress window
+                    progress_window.destroy()
+                    
+                    # Show results
+                    result_message = f"🎉 Hoàn thành xử lý Excel (Chunked)!\n\n"
+                    result_message += f"File kết quả: {os.path.basename(output_file)}\n"
+                    result_message += f"Thành công: {success_count} dòng\n"
+                    result_message += f"Lỗi: {error_count} dòng\n"
+                    result_message += f"Chunk size: {chunksize}\n\n"
+                    
+                    if len(results) > 0:
+                        result_message += f"Mẫu kết quả:\n{results[0][:80]}..."
+                    
+                    self._update_result_display(result_message)
+                    messagebox.showinfo("Hoàn thành", f"Xử lý chunked thành công!\n\nFile đã lưu: {output_file}")
+                    
+                except Exception as e:
+                    progress_window.destroy()
+                    messagebox.showerror("Lỗi", f"Lỗi xử lý chunked: {str(e)}")
+            
+            # Start processing thread
+            thread = threading.Thread(target=process_thread)
+            thread.daemon = True
+            thread.start()
+            
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Lỗi xử lý chunked: {str(e)}")
+    
+    def _create_progress_window(self, title):
+        """Create progress dialog window"""
+        progress_window = tk.Toplevel(self.window)
+        progress_window.title(title)
+        progress_window.geometry("400x150")
+        progress_window.resizable(False, False)
+        progress_window.grab_set()
+        
+        # Center the window
+        progress_window.transient(self.window)
+        
+        # Progress bar
+        tk.Label(progress_window, text=title, font=("Arial", 12, "bold")).pack(pady=10)
+        
+        self.progress_var = tk.DoubleVar()
+        progress_bar = ttk.Progressbar(
+            progress_window, variable=self.progress_var, 
+            maximum=100, length=300, mode='determinate'
+        )
+        progress_bar.pack(pady=10)
+        
+        self.progress_label = tk.Label(progress_window, text="Chuẩn bị...", font=("Arial", 10))
+        self.progress_label.pack(pady=5)
+        
+        # Cancel button
+        def cancel_processing():
+            self.processing_cancelled = True
+            progress_window.destroy()
+        
+        tk.Button(progress_window, text="Hủy", command=cancel_processing,
+                 bg="#F44336", fg="white").pack(pady=5)
+        
+        return progress_window
     
     def _export_excel(self):
-        """Xuất kết quả ra Excel"""
+        """Xuất kết quả ra Excel - Full implementation!"""
         try:
-            summary = self.geometry_service.get_result_summary() if self.geometry_service else {}
-            message = f"💾 Export thông tin hiện tại:\n"
-            if summary:
-                message += f"Phép toán: {summary.get('operation', 'Chưa chọn')}\n"
-                message += f"Nhóm A: {summary.get('shape_A', 'Chưa chọn')}\n"
-                message += f"Nhóm B: {summary.get('shape_B', 'Chưa chọn')}\n"
-                message += f"Kết quả: {summary.get('encoded_result', 'Chưa có')}\n\n"
-            message += "Chức năng export Excel sẽ được hoàn thiện trong commit tiếp theo."
-            self._update_result_display(message)
+            if not self.geometry_service:
+                messagebox.showerror("Lỗi", "GeometryService chưa sẵn sàng!")
+                return
+            
+            # Check if we have results to export
+            final_result = self.geometry_service.generate_final_result()
+            if not final_result:
+                messagebox.showwarning("Cảnh báo", "Chưa có kết quả nào để xuất!\n\nVui lòng thực thi tính toán trước.")
+                return
+            
+            # Choose output file
+            default_name = f"geometry_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            output_path = filedialog.asksaveasfilename(
+                title="Xuất kết quả ra Excel",
+                defaultextension=".xlsx",
+                filetypes=[("Excel files", "*.xlsx")],
+                initialvalue=default_name
+            )
+            
+            if not output_path:
+                return
+            
+            # Export current result
+            exported_file = self.geometry_service.export_single_result(output_path)
+            
+            # Show success
+            result_summary = self.geometry_service.get_result_summary()
+            success_message = f"💾 Xuất Excel thành công!\n\n"
+            success_message += f"File: {os.path.basename(exported_file)}\n"
+            success_message += f"Phép toán: {result_summary['operation']}\n"
+            success_message += f"Nhóm A: {result_summary['shape_A']}\n"
+            success_message += f"Nhóm B: {result_summary['shape_B']}\n"
+            success_message += f"Kết quả mã hóa: {final_result[:50]}..."
+            
+            self._update_result_display(success_message)
+            messagebox.showinfo("Xuất thành công", f"Kết quả đã lưu tại:\n{exported_file}")
+            
         except Exception as e:
-            messagebox.showerror("Lỗi", f"Lỗi export Excel: {str(e)}")
+            messagebox.showerror("Lỗi Xuất", f"Lỗi xuất Excel: {str(e)}")
+    
+    def _create_template(self):
+        """Create Excel template for current shape selection"""
+        try:
+            shape_a = self.dropdown1_var.get()
+            shape_b = self.dropdown2_var.get() if self.pheptoan_var.get() not in ["Diện tích", "Thể tích"] else None
+            
+            if not shape_a:
+                messagebox.showwarning("Cảnh báo", "Vui lòng chọn hình dạng trước!")
+                return
+            
+            # Choose output location
+            template_name = f"template_{shape_a}" + (f"_{shape_b}" if shape_b else "") + f"_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            
+            output_path = filedialog.asksaveasfilename(
+                title="Lưu template Excel",
+                defaultextension=".xlsx",
+                filetypes=[("Excel files", "*.xlsx")],
+                initialvalue=template_name
+            )
+            
+            if not output_path:
+                return
+            
+            # Create template
+            template_file = self.geometry_service.create_excel_template_for_geometry(shape_a, shape_b, output_path)
+            
+            messagebox.showinfo("Tạo template thành công", 
+                f"Template Excel đã tạo tại:\n{template_file}\n\n"
+                f"Bạn có thể điền dữ liệu vào template này rồi import lại.")
+            
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Lỗi tạo template: {str(e)}")
+    
+    def _quit_import_mode(self):
+        """Exit import mode and return to manual input"""
+        try:
+            result = messagebox.askyesno("Thoát chế độ import", 
+                "Bạn có chắc muốn thoát chế độ import Excel và quay lại nhập thủ công?")
+            
+            if result:
+                self.imported_data = False
+                self.imported_file_path = ""
+                self.manual_data_entered = False
+                
+                # Unlock and clear inputs
+                self._unlock_and_clear_inputs()
+                
+                # Hide import buttons
+                self._hide_action_buttons()
+                
+                # Update status
+                self._update_result_display("✨ Đã quay lại chế độ nhập thủ công.\nNhập dữ liệu vào các ô trên để bắt đầu.")
+                self.excel_status_label.config(text="Excel: ✅ Sẵn sàng")
+                
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Lỗi thoát chế độ import: {str(e)}")
+    
+    def _clear_and_lock_inputs(self):
+        """Clear and lock all input fields when Excel is imported"""
+        entries = self._get_all_input_entries()
+        for entry in entries:
+            try:
+                entry.delete(0, tk.END)
+                entry.config(state='disabled', bg='#E0E0E0')
+            except:
+                pass
+    
+    def _unlock_and_clear_inputs(self):
+        """Unlock and clear all input fields for manual input"""
+        entries = self._get_all_input_entries()
+        for entry in entries:
+            try:
+                entry.config(state='normal', bg='white')
+                entry.delete(0, tk.END)
+            except:
+                pass
     
     def _update_result_display(self, message):
-        """Cập nhật hiển thị kết quả"""
+        """Cập nhật hiển thị kết quả với màu sắc"""
         self.entry_tong.delete(1.0, tk.END)
         self.entry_tong.insert(tk.END, message)
+        
+        # Color coding based on message type
+        if "Lỗi" in message or "lỗi" in message:
+            self.entry_tong.config(bg="#FFEBEE", fg="#D32F2F")
+        elif "Đã import" in message or "Đã xuất" in message or "Hoàn thành" in message:
+            self.entry_tong.config(bg="#E8F5E8", fg="#388E3C")
+        elif "Đang xử lý" in message:
+            self.entry_tong.config(bg="#FFF3E0", fg="#F57C00")
+        else:
+            self.entry_tong.config(bg="#F8F9FA", fg="#2E86AB")
     
     def _show_ready_message(self):
-        """Hiện thông báo sẵn sàng"""
+        """Hiện thông báo sẵn sàng với Excel features"""
         if self.geometry_service:
-            message = "✨ Geometry Mode v2.0 - Đã tích hợp logic từ TL!\n"
-            message += "Chọn phép toán và hình dạng, sau đó nhập dữ liệu để thực thi.\n\n"
-            message += "Các hình được hỗ trợ: Điểm, Đường thẳng, Mặt phẳng, Đường tròn, Mặt cầu"
+            message = "✨ Geometry Mode v2.0 - Đầy đủ tính năng Excel!\n\n"
+            message += "📝 Chế độ thủ công: Nhập dữ liệu vào các ô, bấm 'Thực thi tất cả'\n"
+            message += "📁 Chế độ Excel: Bấm 'Import Excel' để xử lý hàng loạt\n\n"
+            message += "Tính năng: Import, Batch processing, Chunked processing, Validation, Template"
         else:
             message = "⚠️ GeometryService không khởi tạo được.\nVui lòng kiểm tra cài đặt!"
         
@@ -683,7 +1124,7 @@ class GeometryView:
         self.entry_tong = tk.Text(
             self.main_container,
             width=80,
-            height=5,
+            height=6,
             font=("Courier New", 9),
             wrap=tk.WORD,
             bg="#F8F9FA",
@@ -704,21 +1145,42 @@ class GeometryView:
         self.btn_import_excel.grid(row=0, column=0, columnspan=4, pady=5, sticky="we")
 
         # Frame cho nút thủ công
-        self.frame_buttons = tk.Frame(self.frame_tong, bg="#FFFFFF")
-        self.frame_buttons.grid(row=1, column=0, columnspan=4, pady=5, sticky="we")
+        self.frame_buttons_manual = tk.Frame(self.frame_tong, bg="#FFFFFF")
+        self.frame_buttons_manual.grid(row=1, column=0, columnspan=4, pady=5, sticky="we")
 
-        tk.Button(self.frame_buttons, text="🔄 Xử lý Nhóm A",
+        tk.Button(self.frame_buttons_manual, text="🔄 Xử lý Nhóm A",
                   command=self._process_group_A,
                   bg="#2196F3", fg="white", font=("Arial", 9)).grid(row=0, column=0, padx=5)
-        tk.Button(self.frame_buttons, text="🔄 Xử lý Nhóm B",
+        tk.Button(self.frame_buttons_manual, text="🔄 Xử lý Nhóm B",
                   command=self._process_group_B,
                   bg="#2196F3", fg="white", font=("Arial", 9)).grid(row=0, column=1, padx=5)
-        tk.Button(self.frame_buttons, text="🚀 Thực thi tất cả",
+        tk.Button(self.frame_buttons_manual, text="🚀 Thực thi tất cả",
                   command=self._process_all,
                   bg="#4CAF50", fg="white", font=("Arial", 9, "bold")).grid(row=0, column=2, padx=5)
-        tk.Button(self.frame_buttons, text="💾 Xuất Excel",
+        tk.Button(self.frame_buttons_manual, text="💾 Xuất Excel",
                   command=self._export_excel,
                   bg="#FF9800", fg="white", font=("Arial", 9, "bold")).grid(row=0, column=3, padx=5)
+        
+        # Frame cho nút import mode
+        self.frame_buttons_import = tk.Frame(self.frame_tong, bg="#FFFFFF")
+        self.frame_buttons_import.grid(row=1, column=0, columnspan=4, pady=5, sticky="we")
+        
+        tk.Button(self.frame_buttons_import, text="🚀 Xử lý File Excel",
+                  command=self._process_excel_batch,
+                  bg="#4CAF50", fg="white", font=("Arial", 9, "bold")).grid(row=0, column=0, padx=5)
+        tk.Button(self.frame_buttons_import, text="📁 Import File Khác",
+                  command=self._import_excel,
+                  bg="#2196F3", fg="white", font=("Arial", 9)).grid(row=0, column=1, padx=5)
+        tk.Button(self.frame_buttons_import, text="📝 Tạo Template",
+                  command=self._create_template,
+                  bg="#9C27B0", fg="white", font=("Arial", 9)).grid(row=0, column=2, padx=5)
+        tk.Button(self.frame_buttons_import, text="↩️ Quay lại",
+                  command=self._quit_import_mode,
+                  bg="#F44336", fg="white", font=("Arial", 9)).grid(row=0, column=3, padx=5)
+        
+        # Initially hide import buttons
+        self.frame_buttons_import.grid_remove()
+        self.frame_buttons_manual.grid_remove()
 
 
 if __name__ == "__main__":
