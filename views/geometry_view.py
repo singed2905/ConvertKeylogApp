@@ -746,13 +746,11 @@ class GeometryView:
             # Sinh kết quả cuối cùng
             final_result = self.geometry_service.generate_final_result()
             
-            # Hiển thị kết quả
-            message = f"✨ Kết quả mã hóa (cho máy tính):\\n{final_result}\\n\\n"
-            message += f"📈 Chi tiết xử lý:\\n"
-            message += f"Phép toán: {self.pheptoan_var.get()}\\n"
-            message += f"Nhóm A ({self.dropdown1_var.get()}): {result_A}\\n"
+            # Hiển thị kết quả'
+            message = f"{final_result}"
+
             if self.pheptoan_var.get() not in ["Diện tích", "Thể tích"]:
-                message += f"Nhóm B ({self.dropdown2_var.get()}): {result_B}"
+                message += ""
             
             self._update_result_display(message)
             
@@ -799,10 +797,7 @@ class GeometryView:
             file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
             status_message = (
                 f"📁 Đã import file: {self.imported_file_name}\\n"
-                f"📏 Kích thước: {file_size_mb:.1f}MB\\n\\n"
-                f"⚠️ Lưu ý: Chưa đọc nội dung file.\\n"
-                f"Việc đọc, kiểm tra và xử lý sẽ thực hiện khi bấm 'Xử lý File Excel'.\\n\\n"
-                f"💪 Ready for anti-crash processing!"
+
             )
             
             self.excel_status_label.config(text=f"Excel: 📁 {self.imported_file_name[:15]}...")
@@ -855,7 +850,7 @@ class GeometryView:
                     try:
                         self.progress_var.set(progress)
                         memory_usage = self._get_memory_usage()
-                        progress_text = f"Đang xử lý: {processed:,}/{total:,} dòng\\nLỗi: {errors:,}\\nMemory: {memory_usage:.1f}MB"
+                        progress_text = f"Đang xử lý: {processed:,}/{total:,} dòng"
                         self.progress_label.config(text=progress_text)
                         
                         # Cập nhật memory status
@@ -890,7 +885,7 @@ class GeometryView:
                             f"❌ Errors: {error_count:,} rows\\n"
                             f"💾 Peak memory: {self._get_memory_usage():.1f}MB\\n\\n"
                         )
-                        
+
                         if isinstance(results, list) and len(results) > 0:
                             result_message += f"📝 Sample result:\\n{results[0][:80]}..."
                         else:
@@ -943,7 +938,7 @@ class GeometryView:
         # Warning
         warning_label = tk.Label(
             progress_window, 
-            text="⚠️ Đừng đóng cửa sổ! Đang xử lý với anti-crash protection.",
+            text="⚠️ Đừng đóng cửa sổ! Đang xử lý .",
             font=("Arial", 8), fg="#FF9800"
         )
         warning_label.pack(pady=5)
@@ -1083,15 +1078,8 @@ class GeometryView:
     def _show_ready_message(self):
         """Hiển thông báo sẵn sàng"""
         if self.geometry_service:
-            message = "✨ Geometry Mode v2.1 - Anti-Crash Excel! 💪\\n\\n"
-            message += "📝 Chế độ thủ công: Nhập dữ liệu vào các ô, bấm 'Thực thi tất cả'\\n"
-            message += "📁 Chế độ Excel: Bấm 'Import Excel' chọn file, rồi 'Xử lý File Excel'\\n\\n"
-            message += "🔥 NEW: Enhanced Import Logic\\n"
-            message += "✅ Import chỉ lưu tên file (nhanh)\\n"
-            message += "✅ Đọc file chỉ khi xử lý (tiết kiệm memory)\\n"
-            message += "✅ Auto-detect large files (250k rows limit)\\n"
-            message += "✅ Crash protection với memory monitoring\\n\\n"
-            message += "💡 Tính năng: Import-defer-read, Batch, Chunked, Anti-Crash"
+            message = " "
+
         else:
             message = "⚠️ GeometryService không khởi tạo được.\\nVui lòng kiểm tra cài đặt!"
         
