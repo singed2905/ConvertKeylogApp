@@ -2,15 +2,18 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 class EquationView:
-    def __init__(self, window):
+    def __init__(self, window, config=None):
         self.window = window
         self.window.title("Equation Mode - Giải Hệ Phương Trình Thực")
         self.window.geometry("850x1050")
         self.window.configure(bg="#F5F5F5")
 
+        # Lưu config được truyền vào
+        self.config = config or {}
+
         # Khởi tạo biến
         self.so_an_var = tk.StringVar(value="2")
-        self.phien_ban_var = tk.StringVar(value="fx799")
+        self.phien_ban_var = tk.StringVar()
 
         # Biến lưu các ô nhập liệu và kết quả
         self.input_entries = []
@@ -20,12 +23,38 @@ class EquationView:
         self.is_imported_mode = False
         self.has_manual_data = False
 
-        # Load danh sách phiên bản
-        self.phien_ban_list = ["fx799", "fx800", "fx801", "fx802", "fx803"]
+        # Load danh sách phiên bản từ config
+        self.phien_ban_list = self._get_available_versions()
+        self.phien_ban_var.set(self.phien_ban_list[0] if self.phien_ban_list else "fx799")
 
         self._setup_ui()
         self._update_input_fields()
         self._update_button_visibility()
+    
+    def _get_available_versions(self):
+        """Lấy danh sách phiên bản từ config hoặc sử dụng mặc định"""
+        try:
+            if self.config and 'common' in self.config and 'versions' in self.config['common']:
+                versions_data = self.config['common']['versions']
+                if 'versions' in versions_data:
+                    return versions_data['versions']
+        except Exception as e:
+            print(f"Warning: Không thể load versions từ config: {e}")
+        
+        # Fallback nếu không có config
+        return ["fx799", "fx800", "fx801", "fx802", "fx803"]
+    
+    def _get_equation_prefixes(self):
+        """Lấy prefixes cho equation từ config"""
+        try:
+            if self.config and 'equation' in self.config and 'prefixes' in self.config['equation']:
+                prefixes_data = self.config['equation']['prefixes']
+                if 'versions' in prefixes_data:
+                    return prefixes_data['versions']
+        except Exception as e:
+            print(f"Warning: Không thể load equation prefixes từ config: {e}")
+        
+        return None
 
     def _setup_ui(self):
         # Frame chính với scrollbar
@@ -35,7 +64,7 @@ class EquationView:
         # Tiêu đề
         title_label = tk.Label(
             main_frame,
-            text="🧠 EQUATION MODE - GIẢI HỆ PHƯNG TRÌNH",
+            text="🧠 EQUATION MODE v2.0 - GIẢI HỆ PHƯNG TRÌNH",
             font=("Arial", 18, "bold"),
             bg="#F5F5F5",
             fg="#2E7D32"
@@ -45,7 +74,7 @@ class EquationView:
         # === KHUNG LỰA CHỌ4N THAM SỐ ===
         control_frame = tk.LabelFrame(
             main_frame,
-            text="⚙️ THIỂT LẬP PHƯNG TRÌNH",
+            text="⚙️ THIẾ4T LẬP PHƯNG TRÌNH",
             font=("Arial", 11, "bold"),
             bg="#FFFFFF",
             fg="#1B5299",
@@ -101,6 +130,16 @@ class EquationView:
         )
         phien_ban_menu.pack(side="left", padx=5)
         phien_ban_menu.bind("<<ComboboxSelected>>", self._on_phien_ban_changed)
+        
+        # Config status
+        config_status = "Config: ✅ Loaded" if self.config else "Config: ⚠️ Fallback"
+        tk.Label(
+            row2,
+            text=config_status,
+            font=("Arial", 8),
+            bg="#FFFFFF",
+            fg="#666666"
+        ).pack(side="right", padx=20)
 
         # === KHUNG HƯỚNG DẪN ===
         guide_frame = tk.LabelFrame(
@@ -142,10 +181,10 @@ class EquationView:
         )
         self.input_frame.pack(fill="x", pady=10, padx=10)
 
-        # === KHUNG KẾ4T QUẢ MÃ HÓA ===
+        # === KHUNG KẾT QUẢ MÃ HÓA ===
         self.result_frame = tk.LabelFrame(
             main_frame,
-            text="🔐 KẾ4T QUẢ MÃ HÓA",
+            text="🔐 KẾT QUẢ MÃ HÓA",
             font=("Arial", 11, "bold"),
             bg="#FFFFFF",
             fg="#7B1FA2",
@@ -154,10 +193,10 @@ class EquationView:
         )
         self.result_frame.pack(fill="x", pady=10, padx=10)
 
-        # === KHUNG KẾ4T QUẢ NGHIỆM ===
+        # === KHUNG KẾT QUẢ NGHIỆM ===
         self.frame_nghiem = tk.LabelFrame(
             main_frame,
-            text="🎯 KẾ4T QUẢ NGHIỆM",
+            text="🎯 KẾT QUẢ NGHIỆM",
             font=("Arial", 11, "bold"),
             bg="#FFFFFF",
             fg="#D35400",
@@ -176,10 +215,10 @@ class EquationView:
         self.entry_nghiem.insert(0, "Chưa có kết quả nghiệm")
         self.entry_nghiem.config(bg="#FFF9E6", fg="#FF6F00")
 
-        # === KHUNG KẾ4T QUẢ TỔNG ===
+        # === KHUNG KẾT QUẢ TỔNG ===
         self.frame_tong = tk.LabelFrame(
             main_frame,
-            text="📦 KẾ4T QUẢ TỔNG (CHO MÁY TÍNH)",
+            text="📦 KẾT QUẢ TỔNG (CHO MÁY TÍNH)",
             font=("Arial", 11, "bold"),
             bg="#FFFFFF",
             fg="#2E7D32",
@@ -195,7 +234,10 @@ class EquationView:
             justify="center"
         )
         self.entry_tong.pack(padx=15, pady=12, fill="x")
-        self.entry_tong.insert(0, "Chưa có kết quả tổng")
+        
+        # Hiển thị config info trong kết quả tổng
+        config_info = "Config loaded successfully" if self.config else "Using fallback config"
+        self.entry_tong.insert(0, f"Equation Mode v2.0 - {config_info}")
         self.entry_tong.config(bg="#F1F8E9")
 
         # === KHUNG NÚT CHỨC NĂNG ===
@@ -278,7 +320,7 @@ class EquationView:
         # Footer
         footer_label = tk.Label(
             main_frame,
-            text="Phiên bản: Giải nghiệm thực • Hỗ trợ biểu thức phức tạp",
+            text="Phiên bản: v2.0 Giải nghiệm thực • Hỗ trợ biểu thức phức tạp • Config-driven",
             font=("Arial", 8),
             bg="#F5F5F5",
             fg="#666666"
@@ -292,7 +334,14 @@ class EquationView:
 
     def _on_phien_ban_changed(self, event=None):
         """Cập nhật khi phiên bản thay đổi"""
-        self.status_label.config(text=f"Đã chọn phiên bản: {self.phien_ban_var.get()}")
+        selected_version = self.phien_ban_var.get()
+        # Lấy prefix từ config nếu có
+        prefixes = self._get_equation_prefixes()
+        prefix_info = ""
+        if prefixes and selected_version in prefixes:
+            prefix_info = f" - Prefix: {prefixes[selected_version]['base_prefix']}"
+        
+        self.status_label.config(text=f"Đã chọn phiên bản: {selected_version}{prefix_info}")
 
     def _update_input_fields(self):
         """Cập nhật các ô nhập liệu và kết quả dựa trên số ẩn"""
@@ -434,7 +483,7 @@ class EquationView:
         self._update_button_visibility()
 
     def _update_button_visibility(self):
-        """Cập nhật hiển thị nút dựa trên trạng thái hiện tại"""
+        """Ẩn ứng hiển thị nút dựa trên trạng thái hiện tại"""
         # Ẩn tất cả các nút trước
         self.btn_import.pack_forget()
         self.btn_import_other.pack_forget()
@@ -455,7 +504,7 @@ class EquationView:
 
     def _placeholder_action(self):
         """Hành động placeholder"""
-        messagebox.showinfo("Thông báo", "Chức năng đang phát triển. Chỉ là giao diện!")
+        messagebox.showinfo("Thông báo", "Chức năng đang phát triển. Chỉ là giao diện v2.0!")
 
 
 if __name__ == "__main__":
