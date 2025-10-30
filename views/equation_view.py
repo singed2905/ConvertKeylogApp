@@ -23,6 +23,7 @@ class EquationView:
         self.imported_data = False
         self.imported_file_path = ""
         self.imported_file_name = ""
+        self.imported_file_size_mb = 0.0
         self.processing_cancelled = False
 
         # Variables
@@ -208,10 +209,10 @@ class EquationView:
         excel_frame.grid(row=0, column=0, columnspan=4, pady=5, sticky="we")
         
         tk.Button(excel_frame, text="📝 Tạo Template", 
-                 command=self._create_template,
+                 command=self._on_create_template,
                  bg="#1565C0", fg="white", font=("Arial", 9, "bold")).pack(side="left", padx=2)
         tk.Button(excel_frame, text="📁 Import Excel", 
-                 command=self._import_excel,
+                 command=self._on_import_excel,  # vẫn dùng API chuẩn, logic size check bên trong
                  bg="#FF9800", fg="white", font=("Arial", 9, "bold")).pack(side="left", padx=2)
 
     def _setup_guide_frame(self):
@@ -301,10 +302,10 @@ class EquationView:
         self.frame_buttons_import.grid(row=7, column=0, columnspan=4, pady=10, sticky="we")
 
         tk.Button(self.frame_buttons_import, text="🔥 Xử lý File Excel",
-                 command=self._process_excel_batch,
+                 command=self._on_process_excel,
                  bg="#F44336", fg="white", font=("Arial", 10, "bold")).pack(side="left", padx=5)
         tk.Button(self.frame_buttons_import, text="📁 Import File Khác",
-                 command=self._import_excel,
+                 command=self._on_import_excel,
                  bg="#2196F3", fg="white", font=("Arial", 10, "bold")).pack(side="left", padx=5)
         tk.Button(self.frame_buttons_import, text="↩️ Quay lại",
                  command=self._quit_import_mode,
@@ -497,221 +498,113 @@ class EquationView:
         self.status_label.config(text=f"Đã chọn phiên bản: {selected_version}")
 
     # ========== PROCESSING METHODS ==========
-    def _process_equations(self):
-        """Process equations - main calculation method"""
-        try:
-            if not self.equation_service:
-                messagebox.showerror("Lỗi", "EquationService chưa được khởi tạo!")
-                return
-
-            equation_inputs = [entry.get().strip() for entry in self.input_entries]
-            
-            # Validate input
-            is_valid, validation_msg = self.equation_service.validate_input(equation_inputs)
-            if not is_valid:
-                messagebox.showwarning("Dữ liệu không hợp lệ", validation_msg)
-                return
-
-            # Update status (left align)
-            self.status_label.config(text="🔄 Đang xử lý hệ phương trình...", fg="#FF9800", anchor="w", justify="left")
-            self.window.update()
-
-            # Process
-            success, status_msg, solutions_text, final_result = self.equation_service.process_complete_workflow(equation_inputs)
-
-            if success:
-                # Display encoded coefficients
-                encoded_coeffs = self.equation_service.get_encoded_coefficients_display()
-                self._display_encoded_coefficients(encoded_coeffs)
-
-                # Display solutions (left aligned)
-                self.entry_nghiem.config(state='normal', justify='left')
-                self.entry_nghiem.delete(0, tk.END)
-                self.entry_nghiem.insert(0, solutions_text)
-                self.entry_nghiem.config(bg="#E8F5E8", fg="#2E7D32", state='readonly', justify='left')
-
-                # Display final result with special font
-                self._show_single_line_result(final_result)
-
-                # Update state
-                self.has_result = True
-                self._show_copy_button()
-                self.status_label.config(text="✅ Giải hệ phương trình thành công!", fg="#2E7D32", anchor="w", justify="left")
-                self._update_button_visibility()
-
-            else:
-                messagebox.showerror("Lỗi Xử lý", status_msg)
-                self.status_label.config(text=f"❌ {status_msg}", fg="#F44336", anchor="w", justify="left")
-
-        except Exception as e:
-            messagebox.showerror("Lỗi", f"Lỗi xử lý phương trình: {str(e)}")
-            self.status_label.config(text="❌ Lỗi xử lý", fg="#F44336", anchor="w", justify="left")
-
-    def _show_single_line_result(self, result_text: str):
-        """Display single line result with Flexio font"""
-        self.entry_tong.config(state='normal')
-        self.entry_tong.delete(1.0, tk.END)
-        
-        one_line = (result_text or "").strip().splitlines()[0] if result_text else ""
-        self.entry_tong.insert(tk.END, one_line)
-        
-        # Try to use Flexio font
-        try:
-            self.entry_tong.config(font=("Flexio Fx799VN", 11, "bold"), fg="#000000", bg="#E8F5E8")
-        except:
-            self.entry_tong.config(font=("Courier New", 11, "bold"), fg="#000000", bg="#E8F5E8")
-        
-        self.entry_tong.config(state='disabled')
-
-    def _display_encoded_coefficients(self, encoded_coeffs):
-        """Display encoded coefficients in result grid"""
-        for i, entry in enumerate(self.result_entries):
-            if i < len(encoded_coeffs):
-                entry.config(state='normal')
-                entry.delete(0, tk.END)
-                entry.insert(0, encoded_coeffs[i])
-                entry.config(state='readonly', bg="#E8F5E8")
-
-    # ========== EXCEL METHODS ==========
-    def _create_template(self):
-        """Create Excel template"""
+    def _on_create_template(self):
         try:
             n = int(self.so_an_var.get())
-            default_name = f"equation_template_{n}x{n}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-            
-            path = filedialog.asksaveasfilename(
-                title="Tạo Template Excel",
-                defaultextension=".xlsx", 
-                filetypes=[("Excel", "*.xlsx")], 
-                initialfile=default_name
-            )
-            
+            path = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel","*.xlsx")], initialfile=f"equation_template_{n}x{n}.xlsx")
             if not path:
                 return
-                
             EquationTemplateGenerator.create_template(n, path)
             messagebox.showinfo("Thành công", f"Đã tạo template:\n{path}")
-            
         except Exception as e:
             messagebox.showerror("Lỗi", f"Không thể tạo template: {e}")
 
-    def _import_excel(self):
-        """Import Excel file"""
+    def _on_import_excel(self):
+        path = filedialog.askopenfilename(filetypes=[("Excel","*.xlsx *.xls")])
+        if not path:
+            return
+        # File size detection
         try:
-            file_path = filedialog.askopenfilename(
-                title="Chọn file Excel",
-                filetypes=[("Excel files", "*.xlsx *.xls")]
+            size_mb = os.path.getsize(path) / (1024 * 1024)
+        except Exception:
+            size_mb = 0.0
+        # Warn for large files
+        if size_mb > 100:
+            proceed = messagebox.askyesno(
+                "⚠️ File Excel lớn",
+                f"File này {size_mb:.1f}MB.\n\n"
+                f"• RAM có thể tăng >1GB\n"
+                f"• Xử lý có thể mất vài phút\n"
+                f"• Ứng dụng có thể đơ tạm thời\n\n"
+                f"Bạn có muốn tiếp tục?"
             )
-            
-            if not file_path:
+            if not proceed:
                 return
-            
-            # Validate file
-            if not os.path.exists(file_path):
-                messagebox.showerror("Lỗi", "File không tồn tại!")
-                return
-            
-            # Store file info
-            self.imported_file_path = file_path
-            self.imported_file_name = os.path.basename(file_path)
-            self.imported_data = True
-            self.manual_data_entered = False
-            
-            # Lock input fields
-            self._clear_and_lock_inputs()
-            
-            # Update UI
-            self._show_import_buttons()
-            self._hide_copy_button()
-            
-            # Update status (left align)
+        self.imported_file_path = path
+        self.imported_file_name = os.path.basename(path)
+        self.imported_file_size_mb = size_mb
+        self.is_imported_mode = True
+        self.imported_data = True
+        self.has_manual_data = False
+        self._update_button_visibility()
+        size_info = f" ({size_mb:.1f}MB)" if size_mb else ""
+        messagebox.showinfo("Import", f"Đã chọn file:\n{self.imported_file_name}{size_info}\nSẵn sàng xử lý.")
+        if hasattr(self, 'excel_status_label'):
             self.excel_status_label.config(text=f"Excel: 📁 {self.imported_file_name[:15]}...")
-            self.status_label.config(text=f"📁 Đã import: {self.imported_file_name}", fg="#2E7D32", anchor="w", justify="left")
-            
-        except Exception as e:
-            messagebox.showerror("Lỗi Import", f"Lỗi import Excel: {str(e)}")
 
-    def _process_excel_batch(self):
-        """Process Excel batch file"""
+    def _on_process_excel(self):
+        if not self.imported_file_path:
+            messagebox.showwarning("Thiếu file", "Hãy import file Excel trước.")
+            return
         try:
-            if not self.imported_data or not self.imported_file_path:
-                messagebox.showwarning("Cảnh báo", "Chưa import file Excel nào!")
+            n = int(self.so_an_var.get())
+            version = self.phien_ban_var.get()
+            original = os.path.splitext(self.imported_file_name)[0]
+            suffix = "_large" if self.imported_file_size_mb > 100 else ""
+            default_name = f"{original}{suffix}_equation_result_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            output = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel","*.xlsx")], initialfile=default_name)
+            if not output:
                 return
-            
-            if not os.path.exists(self.imported_file_path):
-                messagebox.showerror("Lỗi", f"File không tồn tại: {self.imported_file_path}")
-                return
-            
-            # Get output path
-            original_name = os.path.splitext(self.imported_file_name)[0]
-            default_output = f"{original_name}_equation_result_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-            
-            output_path = filedialog.asksaveasfilename(
-                title="Chọn nơi lưu kết quả",
-                defaultextension=".xlsx",
-                filetypes=[("Excel files", "*.xlsx")],
-                initialfile=default_output
-            )
-            
-            if not output_path:
-                return
-            
-            # Create progress window  
-            progress_window = self._create_progress_window("Đang xử lý file Excel...")
-            
-            def process_thread():
+
+            progress = self._create_progress_window("Đang xử lý file Excel...")
+
+            def worker():
                 try:
-                    n = int(self.so_an_var.get())
-                    version = self.phien_ban_var.get()
-                    
-                    result_file = self.batch_processor.process_file(
-                        self.imported_file_path, n, version, output_path
-                    )
-                    
-                    if not self.processing_cancelled:
-                        progress_window.destroy()
-                        messagebox.showinfo("Hoàn tất", 
-                            f"🎉 Xử lý Excel thành công!\n\n"
-                            f"📁 File gốc: {self.imported_file_name}\n"
-                            f"📁 Kết quả: {os.path.basename(result_file)}\n\n"
-                            f"File đã lưu tại:\n{result_file}")
-                        
-                        self.status_label.config(text="✅ Xử lý Excel hoàn tất!", fg="#2E7D32", anchor="w", justify="left")
-                
+                    # Smart processing: auto chunk for large files
+                    result = self.batch_processor.process_file_smart(self.imported_file_path, n, version, output)
+                    progress.destroy()
+                    messagebox.showinfo("Hoàn tất", f"Đã xử lý xong. File kết quả:\n{result}")
                 except Exception as e:
-                    if not self.processing_cancelled:
-                        progress_window.destroy()
-                        messagebox.showerror("Lỗi Xử lý", f"Lỗi xử lý Excel: {str(e)}")
+                    progress.destroy()
+                    messagebox.showerror("Lỗi", f"Không thể xử lý: {e}")
             
-            # Start processing thread
-            thread = threading.Thread(target=process_thread)
-            thread.daemon = True
-            thread.start()
-            
+            t = threading.Thread(target=worker, daemon=True)
+            t.start()
         except Exception as e:
-            messagebox.showerror("Lỗi Xử lý", f"Lỗi xử lý Excel: {str(e)}")
+            messagebox.showerror("Lỗi", f"Không thể xử lý: {e}")
 
     def _create_progress_window(self, title):
-        """Create progress dialog window"""
         progress_window = tk.Toplevel(self.window)
         progress_window.title(title)
-        progress_window.geometry("400x150")
+        progress_window.geometry("450x180")
         progress_window.resizable(False, False)
         progress_window.grab_set()
         progress_window.transient(self.window)
         
-        tk.Label(progress_window, text=title, font=("Arial", 12, "bold"), anchor="w", justify="left").pack(pady=20, fill="x")
+        tk.Label(progress_window, text=title, font=("Arial", 12, "bold"), anchor='w', justify='left').pack(pady=10, fill='x')
         
+        self.progress_var = tk.DoubleVar()
         progress_bar = ttk.Progressbar(
-            progress_window, mode='indeterminate', length=300
+            progress_window, variable=self.progress_var, 
+            maximum=100, length=350, mode='indeterminate'
         )
         progress_bar.pack(pady=10)
         progress_bar.start()
         
+        self.progress_label = tk.Label(progress_window, text="Chuẩn bị...", font=("Arial", 10), anchor='w', justify='left')
+        self.progress_label.pack(pady=5, fill='x')
+        
+        warning_label = tk.Label(
+            progress_window, 
+            text="⚠️ Đừng đóng cửa sổ! Đang xử lý .",
+            font=("Arial", 8), fg="#FF9800", anchor='w', justify='left'
+        )
+        warning_label.pack(pady=5, fill='x')
+        
         def cancel_processing():
             self.processing_cancelled = True
-            messagebox.showinfo("Đã hủy", "Đã yêu cầu hủy xử lý.")
-            progress_window.after(1000, progress_window.destroy)
+            messagebox.showinfo("Đã hủy", "Đã yêu cầu hủy xử lý. Vui lòng đợi...")
+            progress_window.after(2000, progress_window.destroy)
         
         tk.Button(progress_window, text="🛑 Hủy", command=cancel_processing,
                  bg="#F44336", fg="white", font=("Arial", 10)).pack(pady=10)
@@ -719,7 +612,6 @@ class EquationView:
         return progress_window
 
     def _export_excel(self):
-        """Export results to Excel"""
         try:
             if not self.has_result or not self.equation_service:
                 messagebox.showwarning("Cảnh báo", "Chưa có kết quả để xuất!\n\nVui lòng giải hệ phương trình trước.")
@@ -762,7 +654,6 @@ class EquationView:
             messagebox.showerror("Lỗi Xuất", f"Lỗi xuất Excel: {str(e)}")
 
     def _copy_result(self):
-        """Copy result to clipboard"""
         try:
             if not self.has_result:
                 messagebox.showwarning("Cảnh báo", "Chưa có kết quả để copy!")
@@ -780,74 +671,22 @@ class EquationView:
             messagebox.showerror("Lỗi Copy", f"Lỗi copy kết quả: {str(e)}")
 
     def _quit_import_mode(self):
-        """Quit import mode and return to manual"""
-        result = messagebox.askyesno("Thoát chế độ import", 
-            "Bạn có chắc muốn thoát chế độ import Excel và quay lại nhập thủ công?")
-        
+        result = messagebox.askyesno("Thoát chế độ import", "Bạn có chắc muốn thoát chế độ import Excel và quay lại nhập thủ công?")
         if result:
-            # Reset state
+            self.is_imported_mode = False
             self.imported_data = False
-            self.imported_file_path = ""
-            self.imported_file_name = ""
-            self.manual_data_entered = False
+            self.has_manual_data = False
             self.has_result = False
-            
-            # Clear and unlock inputs
-            self._unlock_and_clear_inputs()
-            
-            # Reset UI
-            self._hide_action_buttons()
-            self._hide_copy_button()
-            
-            # Reset displays
-            self._reset_displays()
-            
-            # Update status
-            self.excel_status_label.config(text="📊 Excel: ✅ Ready")
-            self.status_label.config(text="🟢 Đã quay lại chế độ thủ công", fg="#2E7D32", anchor="w", justify="left")
-
-    # ========== UTILITY METHODS ==========
-    def _clear_and_lock_inputs(self):
-        """Clear and lock all input fields"""
-        for entry in self.input_entries:
-            try:
+            for entry in self.input_entries:
                 entry.delete(0, tk.END)
-                entry.config(state='disabled', bg='#E0E0E0')
-            except:
-                pass
-
-    def _unlock_and_clear_inputs(self):
-        """Unlock and clear all input fields"""
-        for entry in self.input_entries:
-            try:
-                entry.config(state='normal', bg='white')
-                entry.delete(0, tk.END)
-            except:
-                pass
-
-    def _reset_displays(self):
-        """Reset all display fields"""
-        # Reset result entries
-        for entry in self.result_entries:
-            entry.config(state='normal')
-            entry.delete(0, tk.END)
-            entry.config(state='readonly', bg="#F3E5F5")
-        
-        # Reset solution entry
-        self.entry_nghiem.config(state='normal', justify='left')
-        self.entry_nghiem.delete(0, tk.END)
-        self.entry_nghiem.insert(0, "Chưa có kết quả nghiệm")
-        self.entry_nghiem.config(bg="#FFF9E6", fg="#FF6F00", state='readonly', justify='left')
-        
-        # Reset final result
-        self.entry_tong.config(state='normal')
-        self.entry_tong.delete(1.0, tk.END)
-        
-        service_status = "Service Ready" if self.equation_service else "Service Failed"
-        config_info = "Config loaded" if self.config else "Fallback config"
-        self.entry_tong.insert(tk.END, f"Equation Mode v2.1 - {service_status} | {config_info}")
-        self.entry_tong.config(bg="#F1F8E9", font=("Courier New", 9), state='disabled')
-
+            for entry in self.result_entries:
+                entry.config(state='normal'); entry.delete(0, tk.END); entry.config(state='readonly')
+            self.entry_nghiem.config(state='normal'); self.entry_nghiem.delete(0, tk.END); self.entry_nghiem.insert(0, "Chưa có kết quả nghiệm"); self.entry_nghiem.config(bg="#FFF9E6", fg="#FF6F00", state='readonly')
+            self.entry_tong.config(state='normal'); self.entry_tong.delete(1.0, tk.END)
+            service_status = "Service Ready" if self.equation_service else "Service Failed"; config_info = "Config loaded" if self.config else "Fallback config"
+            self.entry_tong.insert(tk.END, f"Equation Mode v2.1 - {service_status} | {config_info}"); self.entry_tong.config(bg="#F1F8E9", font=("Courier New", 9), state='disabled')
+            self.btn_copy_result.grid_remove(); self._update_button_visibility()
+            self.status_label.config(text="🟢 Đã quay lại chế độ thủ công", fg="#2E7D32")
 
 if __name__ == "__main__":
     root = tk.Tk()
