@@ -253,7 +253,7 @@ class EquationView:
         )
         self.frame_nghiem.grid(row=4, column=0, columnspan=4, pady=5, padx=10, sticky="we")
         
-        self.entry_nghiem = tk.Entry(self.frame_nghiem, width=80, font=("Arial", 10), justify="center")
+        self.entry_nghiem = tk.Entry(self.frame_nghiem, width=80, font=("Arial", 10), justify="left")
         self.entry_nghiem.pack(padx=15, pady=12, fill="x")
         self.entry_nghiem.insert(0, "Chưa có kết quả nghiệm")
         self.entry_nghiem.config(bg="#FFF9E6", fg="#FF6F00")
