@@ -62,6 +62,21 @@ class EquationService:
         self.encoded_coefficients = []
         self.coeff_text_list = []
     
+    # -------------------- VALIDATION (Compatibility with UI) --------------------
+    def validate_input(self, equation_inputs: List[str]) -> Tuple[bool, str]:
+        """Validate dữ liệu đầu vào: tương thích với equation_view.py"""
+        n = self.current_variables
+        if len(equation_inputs) < n:
+            return False, f"Cần ít nhất {n} phương trình cho hệ {n} ẩn"
+        for i, eq_input in enumerate(equation_inputs[:n]):
+            if not eq_input.strip():
+                return False, f"Phương trình {i+1} không có dữ liệu"
+            parts = [p.strip() for p in eq_input.split(',')]
+            non_empty = [p for p in parts if p]
+            if len(non_empty) < n + 1:
+                return False, f"Phương trình {i+1} cần {n+1} hệ số ({n} hệ số + 1 hằng số)"
+        return True, "Dữ liệu hợp lệ"
+    
     # -------------------- PARSE INPUTS --------------------
     def parse_equation_input(self, equation_inputs: List[str]) -> bool:
         """Parse input: tạo ma trận số cho giải nghiệm và list chuỗi cho mã hóa.
@@ -192,6 +207,11 @@ class EquationService:
     # -------------------- WORKFLOW --------------------
     def process_complete_workflow(self, equation_inputs: List[str]) -> Tuple[bool, str, str, str]:
         try:
+            # Validate trước theo UI
+            is_valid, msg = self.validate_input(equation_inputs)
+            if not is_valid:
+                return False, msg, "", ""
+            
             if not self.parse_equation_input(equation_inputs):
                 return False, "Lỗi parse dữ liệu đầu vào", "", ""
             if not self.solve_system():
