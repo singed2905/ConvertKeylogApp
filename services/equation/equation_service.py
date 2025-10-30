@@ -1,11 +1,12 @@
-"""Equation Service - Core Logic for System of Linear Equations"""
+"""Equation Service - Core Logic với TL-compatible encoding"""
 import numpy as np
 import math
 import re
 from typing import List, Dict, Tuple, Optional
+from .equation_encoding_service import EquationEncodingService
 
 class EquationService:
-    """Service xử lý giải hệ phương trình tuyến tính"""
+    """Service xử lý giải hệ phương trình - HYBRID: Numpy solver + TL encoding"""
     
     def __init__(self, config=None):
         self.config = config or {}
@@ -20,15 +21,28 @@ class EquationService:
         self.solutions = None
         self.encoded_coefficients = []
         
+        # TL Encoding Service
+        try:
+            self.encoding_service = EquationEncodingService()
+            self.tl_encoding_available = True
+        except Exception as e:
+            print(f"Warning: TL encoding service failed: {e}")
+            self.encoding_service = None
+            self.tl_encoding_available = False
+        
     def set_variables_count(self, count: int):
         """Thiết lập số ẩn"""
         if count in [2, 3, 4]:
             self.current_variables = count
+            if self.encoding_service:
+                self.encoding_service.set_variables_count(count)
             self._reset_matrices()
     
     def set_version(self, version: str):
         """Thiết lập phiên bản máy tính"""
         self.current_version = version
+        if self.encoding_service:
+            self.encoding_service.set_version(version)
     
     def _reset_matrices(self):
         """Reset matrices khi thay đổi số ẩn"""
@@ -122,7 +136,7 @@ class EquationService:
             return float(expr)
     
     def solve_system(self) -> bool:
-        """Giải hệ phương trình sử dụng numpy"""
+        """Giải hệ phương trình sử dụng numpy - GIỮU NUMPY"""
         try:
             if self.A_matrix is None or self.b_vector is None:
                 return False
@@ -142,135 +156,92 @@ class EquationService:
             self.solutions = f"Lỗi giải hệ: {str(e)}"
             return False
     
-    def encode_coefficients(self) -> List[str]:
-        """Mã hóa các hệ số thành keylog"""
+    def encode_coefficients_tl_format(self) -> List[str]:
+        """Mã hóa coefficients theo format TL - THAY THẾ METHOD CŨ"""
+        if self.A_matrix is None or self.b_vector is None:
+            return []
+        
+        if not self.tl_encoding_available:
+            print("Warning: TL encoding not available, using fallback")
+            return self._encode_coefficients_fallback()
+        
+        try:
+            # Chuẩn bị danh sách hệ số theo format TL
+            n = self.current_variables
+            danh_sach_he_so = []
+            
+            # Flatten ma trận A và vector b thành danh sách string
+            for i in range(n):
+                for j in range(n):
+                    coeff = self.A_matrix[i, j]
+                    danh_sach_he_so.append(str(coeff))
+                # Thêm hằng số
+                const = self.b_vector[i]
+                danh_sach_he_so.append(str(const))
+            
+            # Sử dụng TL encoding service
+            encoding_result = self.encoding_service.encode_equation_data(
+                danh_sach_he_so, n, self.current_version
+            )
+            
+            if encoding_result['success']:
+                self.encoded_coefficients = encoding_result['encoded_coefficients']
+                return self.encoded_coefficients
+            else:
+                print(f"TL encoding failed: {encoding_result.get('error', 'Unknown error')}")
+                return self._encode_coefficients_fallback()
+            
+        except Exception as e:
+            print(f"Lỗi TL encoding: {e}")
+            return self._encode_coefficients_fallback()
+    
+    def _encode_coefficients_fallback(self) -> List[str]:
+        """Fallback encoding nếu TL encoding không hoạt động"""
         if self.A_matrix is None or self.b_vector is None:
             return []
         
         encoded = []
         n = self.current_variables
         
-        # Lấy encoding config từ config file
-        encoding_map = self._get_encoding_map()
+        # Simple number-to-string encoding
+        for i in range(n):
+            for j in range(n):
+                coeff = self.A_matrix[i, j]
+                encoded.append(str(coeff).replace('-', 'p').replace('.', '_'))
+            # Hằng số
+            const = self.b_vector[i]
+            encoded.append(str(const).replace('-', 'p').replace('.', '_'))
         
-        try:
-            # Mã hóa từng hệ số của ma trận A và vector b
-            for i in range(n):
-                for j in range(n):
-                    coeff = self.A_matrix[i, j]
-                    encoded_coeff = self._encode_single_coefficient(coeff, encoding_map)
-                    encoded.append(encoded_coeff)
-                
-                # Mã hóa hằng số
-                const = self.b_vector[i]
-                encoded_const = self._encode_single_coefficient(const, encoding_map)
-                encoded.append(encoded_const)
-            
-            self.encoded_coefficients = encoded
-            return encoded
-            
-        except Exception as e:
-            print(f"Lỗi mã hóa: {e}")
-            return []
+        self.encoded_coefficients = encoded
+        return encoded
     
-    def _get_encoding_map(self) -> Dict:
-        """Lấy bảng mã hóa từ config"""
-        try:
-            if (self.config and 'equation' in self.config and 
-                'encoding' in self.config['equation']):
-                return self.config['equation']['encoding']
-        except:
-            pass
+    def generate_final_result_tl_format(self) -> str:
+        """Sinh kết quả cuối cùng theo format TL - THAY THẾ METHOD CŨ"""
+        if not self.encoded_coefficients:
+            # Tự động encode nếu chưa có
+            self.encode_coefficients_tl_format()
         
-        # Fallback encoding map cơ bản
-        return {
-            "numbers": {
-                "0": "00", "1": "01", "2": "02", "3": "03", "4": "04",
-                "5": "05", "6": "06", "7": "07", "8": "08", "9": "09",
-                "-": "FF", ".": "FE"
-            },
-            "prefix": "EQ"
-        }
-    
-    def _encode_single_coefficient(self, coeff: float, encoding_map: Dict) -> str:
-        """Mã hóa 1 hệ số thành keylog"""
-        try:
-            # Chuyển về string và format
-            if coeff == int(coeff):
-                coeff_str = str(int(coeff))
-            else:
-                coeff_str = f"{coeff:.3f}".rstrip('0').rstrip('.')
-            
-            # Mã hóa từng ký tự
-            numbers_map = encoding_map.get('numbers', {})
-            encoded = ""
-            
-            for char in coeff_str:
-                if char in numbers_map:
-                    encoded += numbers_map[char]
-                else:
-                    encoded += char  # Giữ nguyên nếu không tìm thấy
-            
-            return encoded
-            
-        except Exception as e:
-            print(f"Lỗi encode coefficient {coeff}: {e}")
-            return "00"
-    
-    def generate_final_result(self) -> str:
-        """Sinh kết quả cuối cùng cho máy tính"""
-        if not self.encoded_coefficients or self.solutions is None:
+        if not self.encoded_coefficients:
             return "Chưa có kết quả"
         
         try:
-            # Lấy prefix từ config
-            prefix = self._get_version_prefix()
-            
-            # Tạo chuỗi kết quả
-            encoded_str = "".join(self.encoded_coefficients)
-            
-            # Thêm solutions (nếu là số)
-            solution_part = ""
-            if isinstance(self.solutions, np.ndarray):
-                # Mã hóa solutions
-                encoding_map = self._get_encoding_map()
-                for sol in self.solutions:
-                    encoded_sol = self._encode_single_coefficient(sol, encoding_map)
-                    solution_part += encoded_sol
-            
-            # Kết quả cuối cùng
-            final_result = f"{prefix}{encoded_str}SOL{solution_part}"
-            return final_result
+            # Sử dụng TL encoding service để tạo kết quả cuối
+            if self.tl_encoding_available:
+                final_result = self.encoding_service.get_final_keylog(
+                    self.encoded_coefficients, 
+                    self.current_variables
+                )
+                return final_result
+            else:
+                # Fallback format
+                return "FALLBACK_" + "_".join(self.encoded_coefficients)
             
         except Exception as e:
             print(f"Lỗi generate final result: {e}")
             return "Lỗi sinh kết quả"
     
-    def _get_version_prefix(self) -> str:
-        """Lấy prefix cho phiên bản hiện tại"""
-        try:
-            if (self.config and 'equation' in self.config and 
-                'prefixes' in self.config['equation'] and
-                'versions' in self.config['equation']['prefixes']):
-                
-                version_prefixes = self.config['equation']['prefixes']['versions']
-                if self.current_version in version_prefixes:
-                    return version_prefixes[self.current_version].get('base_prefix', 'EQ')
-        except:
-            pass
-        
-        # Fallback prefixes
-        fallback_prefixes = {
-            "fx799": "EQ799",
-            "fx800": "EQ800", 
-            "fx801": "EQ801",
-            "fx802": "EQ802",
-            "fx803": "EQ803"
-        }
-        return fallback_prefixes.get(self.current_version, "EQ")
-    
     def get_solutions_text(self) -> str:
-        """Lấy text hiển thị nghiệm"""
+        """Lấy text hiển thị nghiệm - GIỮU NGUYÊN"""
         if self.solutions is None:
             return "Chưa giải hệ phương trình"
         
@@ -300,25 +271,25 @@ class EquationService:
         return self.encoded_coefficients
     
     def process_complete_workflow(self, equation_inputs: List[str]) -> Tuple[bool, str, str, str]:
-        """Xử lý hoàn chỉnh: parse -> solve -> encode -> generate"""
+        """Xử lý hoàn chỉnh: parse -> solve -> encode TL -> generate TL"""
         try:
             # Bước 1: Parse input
             parse_success = self.parse_equation_input(equation_inputs)
             if not parse_success:
                 return False, "Lỗi parse dữ liệu đầu vào", "", ""
             
-            # Bước 2: Giải hệ
+            # Bước 2: Giải hệ với numpy (giữ ưu điểm)
             solve_success = self.solve_system()
             if not solve_success:
                 solutions_text = self.get_solutions_text()
                 return False, "Lỗi giải hệ phương trình", solutions_text, ""
             
-            # Bước 3: Mã hóa coefficients
-            self.encode_coefficients()
+            # Bước 3: Mã hóa coefficients theo TL
+            self.encode_coefficients_tl_format()
             
-            # Bước 4: Sinh kết quả cuối cùng
+            # Bước 4: Sinh kết quả cuối cùng theo TL format
             solutions_text = self.get_solutions_text()
-            final_result = self.generate_final_result()
+            final_result = self.generate_final_result_tl_format()
             
             return True, "Thành công", solutions_text, final_result
             
@@ -334,7 +305,8 @@ class EquationService:
             info = f"Ma trận A ({self.current_variables}x{self.current_variables}):\n"
             info += str(self.A_matrix) + "\n\n"
             info += f"Vector b: {self.b_vector}\n"
-            info += f"Det(A): {np.linalg.det(self.A_matrix):.6f}"
+            info += f"Det(A): {np.linalg.det(self.A_matrix):.6f}\n"
+            info += f"TL Encoding: {'Available' if self.tl_encoding_available else 'Failed'}"
             return info
         except:
             return "Lỗi hiển thị thông tin ma trận"
@@ -358,3 +330,41 @@ class EquationService:
                 return False, f"Phương trình {i+1} cần {n+1} hệ số ({n} hệ số + 1 hằng số)"
         
         return True, "Dữ liệu hợp lệ"
+    
+    def test_tl_compatibility(self, test_coefficients: List[str]) -> Dict[str, Any]:
+        """Test tương thích với TL - để so sánh"""
+        if not self.tl_encoding_available:
+            return {"error": "TL encoding service not available"}
+        
+        try:
+            # Test encoding
+            encoding_result = self.encoding_service.encode_equation_data(
+                test_coefficients, 
+                self.current_variables, 
+                self.current_version
+            )
+            
+            return {
+                "success": encoding_result['success'],
+                "input_coefficients": test_coefficients,
+                "encoded_coefficients": encoding_result.get('encoded_coefficients', []),
+                "final_keylog": encoding_result.get('total_result', ""),
+                "prefix_used": encoding_result.get('prefix_used', ""),
+                "version": self.current_version,
+                "variables": self.current_variables
+            }
+            
+        except Exception as e:
+            return {
+                "error": str(e),
+                "success": False
+            }
+    
+    # Backward compatibility - alias các method cũ
+    def encode_coefficients(self) -> List[str]:
+        """Alias cho encode_coefficients_tl_format"""
+        return self.encode_coefficients_tl_format()
+    
+    def generate_final_result(self) -> str:
+        """Alias cho generate_final_result_tl_format"""
+        return self.generate_final_result_tl_format()
