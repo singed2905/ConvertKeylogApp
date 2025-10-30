@@ -1,7 +1,13 @@
 """Equation Encoding Service - Port từ TL với format chính xác"""
 from typing import List, Dict, Any
-from .mapping_manager import MappingManager
-from .prefix_resolver import EquationPrefixResolver
+
+try:
+    from .mapping_manager import MappingManager
+    from .prefix_resolver import EquationPrefixResolver
+except ImportError:
+    print("Warning: Cannot import MappingManager or PrefixResolver")
+    MappingManager = None
+    EquationPrefixResolver = None
 
 
 class EquationEncodingService:
@@ -9,8 +15,17 @@ class EquationEncodingService:
     
     def __init__(self, mapping_file: str = None, prefixes_file: str = None):
         # Khởi tạo các component
-        self.mapping_manager = MappingManager(mapping_file) if mapping_file else MappingManager()
-        self.prefix_resolver = EquationPrefixResolver(prefixes_file) if prefixes_file else EquationPrefixResolver()
+        try:
+            self.mapping_manager = MappingManager(mapping_file) if MappingManager and mapping_file else (MappingManager() if MappingManager else None)
+            self.prefix_resolver = EquationPrefixResolver(prefixes_file) if EquationPrefixResolver and prefixes_file else (EquationPrefixResolver() if EquationPrefixResolver else None)
+            
+            if not self.mapping_manager or not self.prefix_resolver:
+                raise Exception("Missing required components")
+                
+        except Exception as e:
+            print(f"Warning: EquationEncodingService init failed: {e}")
+            self.mapping_manager = None
+            self.prefix_resolver = None
         
         # Trạng thái hiện tại
         self.current_version = "fx799"
@@ -28,6 +43,14 @@ class EquationEncodingService:
     def encode_equation_data(self, danh_sach_he_so: List[str], so_an: int, phien_ban: str) -> Dict[str, Any]:
         """Mã hóa dữ liệu phương trình - API giống TL"""
         try:
+            if not self.mapping_manager or not self.prefix_resolver:
+                return {
+                    'success': False,
+                    'error': 'Missing MappingManager or PrefixResolver',
+                    'encoded_coefficients': [],
+                    'total_result': ""
+                }
+            
             # Cập nhật tham số
             self.set_variables_count(so_an)
             self.set_version(phien_ban)
@@ -65,6 +88,9 @@ class EquationEncodingService:
     def _create_total_result_string(self, encoded_coefficients: List[str], so_an: int) -> str:
         """Tạo chuỗi kết quả tổng theo format TL CHÍNH XÁC"""
         try:
+            if not self.prefix_resolver:
+                return "ERROR_NO_PREFIX_RESOLVER"
+                
             # Lấy prefix từ TL
             prefix = self.prefix_resolver.get_equation_prefix(self.current_version, so_an)
             
@@ -91,7 +117,7 @@ class EquationEncodingService:
 
         except Exception as e:
             print(f"Lỗi khi tạo chuỗi kết quả tổng: {e}")
-            return "=".join(encoded_coefficients) + "="
+            return "ERROR_" + "=".join(encoded_coefficients) + "="
     
     def validate_input_format(self, danh_sach_he_so: List[str], so_an: int) -> Dict[str, Any]:
         """Validate input trước khi encode"""
@@ -108,6 +134,9 @@ class EquationEncodingService:
     def test_encoding_parity(self, test_input: str) -> Dict[str, Any]:
         """Test mã hóa so với TL - để debug"""
         try:
+            if not self.mapping_manager or not self.prefix_resolver:
+                return {"error": "Components not available"}
+                
             encoded = self.mapping_manager.encode_string(test_input)
             
             return {
@@ -128,3 +157,7 @@ class EquationEncodingService:
         """Lấy keylog hoàn chỉnh theo format TL"""
         variables = so_an or self.current_variables
         return self._create_total_result_string(encoded_coefficients, variables)
+    
+    def is_available(self) -> bool:
+        """Kiểm tra service có sẵn sàng không"""
+        return self.mapping_manager is not None and self.prefix_resolver is not None
