@@ -1,0 +1,219 @@
+{
+  "metadata": {
+    "version": "2.1",
+    "description": "Polynomial keylog prefixes and suffixes for various calculator versions",
+    "last_updated": "2025-10-30",
+    "supported_degrees": [2, 3, 4],
+    "supported_versions": ["fx799", "fx991", "fx570", "fx580", "fx115"]
+  },
+  "global_defaults": {
+    "2": "P2=",
+    "3": "P3=",
+    "4": "P4="
+  },
+  "versions": {
+    "fx799": {
+      "base_prefix": "P",
+      "description": "Casio fx-799VN standard polynomial mode",
+      "polynomial": {
+        "2": "P2=",
+        "3": "P3=",
+        "4": "P4="
+      },
+      "suffix_patterns": {
+        "2": "==",
+        "3": "===",
+        "4": "===="
+      },
+      "examples": {
+        "2": "P2=1=-5=6==",
+        "3": "P3=1=-6=11=-6===",
+        "4": "P4=1=0=-5=0=4===="
+      },
+      "notes": "Vietnamese fx-799 calculator standard format"
+    },
+    "fx991": {
+      "base_prefix": "EQN",
+      "description": "Casio fx-991 equation solver mode",
+      "polynomial": {
+        "2": "EQN2=",
+        "3": "EQN3=",
+        "4": "EQN4="
+      },
+      "suffix_patterns": {
+        "2": "=0",
+        "3": "==0",
+        "4": "===0"
+      },
+      "examples": {
+        "2": "EQN2=1=-5=6=0",
+        "3": "EQN3=1=-6=11=-6==0",
+        "4": "EQN4=1=0=-5=0=4===0"
+      },
+      "notes": "fx-991 uses equation solver notation"
+    },
+    "fx570": {
+      "base_prefix": "POL",
+      "description": "Casio fx-570 polynomial solver",
+      "polynomial": {
+        "2": "POL2=",
+        "3": "POL3=",
+        "4": "POL4="
+      },
+      "suffix_patterns": {
+        "2": "=ROOT",
+        "3": "==ROOT",
+        "4": "===ROOT"
+      },
+      "examples": {
+        "2": "POL2=1=-5=6=ROOT",
+        "3": "POL3=1=-6=11=-6==ROOT",
+        "4": "POL4=1=0=-5=0=4===ROOT"
+      },
+      "notes": "fx-570 emphasizes root-finding notation"
+    },
+    "fx580": {
+      "base_prefix": "POLY",
+      "description": "Casio fx-580 extended polynomial format",
+      "polynomial": {
+        "2": "POLY2=",
+        "3": "POLY3=",
+        "4": "POLY4="
+      },
+      "suffix_patterns": {
+        "2": "=SOLVE",
+        "3": "==SOLVE",
+        "4": "===SOLVE"
+      },
+      "examples": {
+        "2": "POLY2=1=-5=6=SOLVE",
+        "3": "POLY3=1=-6=11=-6==SOLVE",
+        "4": "POLY4=1=0=-5=0=4===SOLVE"
+      },
+      "notes": "fx-580 uses extended SOLVE notation"
+    },
+    "fx115": {
+      "base_prefix": "Q",
+      "description": "Casio fx-115 compact format",
+      "polynomial": {
+        "2": "QUAD=",
+        "3": "CUB3=",
+        "4": "QUAT="
+      },
+      "suffix_patterns": {
+        "2": "=",
+        "3": "==",
+        "4": "==="
+      },
+      "examples": {
+        "2": "QUAD=1=-5=6=",
+        "3": "CUB3=1=-6=11=-6==",
+        "4": "QUAT=1=0=-5=0=4==="
+      },
+      "notes": "fx-115 uses compact mathematical notation"
+    },
+    "fx800": {
+      "base_prefix": "PE",
+      "description": "Casio fx-800 polynomial equation mode",
+      "polynomial": {
+        "2": "PE2=",
+        "3": "PE3=",
+        "4": "PE4="
+      },
+      "suffix_patterns": {
+        "2": "=END",
+        "3": "==END",
+        "4": "===END"
+      },
+      "examples": {
+        "2": "PE2=1=-5=6=END",
+        "3": "PE3=1=-6=11=-6==END",
+        "4": "PE4=1=0=-5=0=4===END"
+      },
+      "notes": "fx-800 polynomial equation mode with END terminator"
+    },
+    "fx801": {
+      "base_prefix": "yl",
+      "description": "Casio fx-801 legacy format",
+      "polynomial": {
+        "2": "yl2P=",
+        "3": "yl3P=",
+        "4": "yl4P="
+      },
+      "suffix_patterns": {
+        "2": "=xl",
+        "3": "==xl",
+        "4": "===xl"
+      },
+      "examples": {
+        "2": "yl2P=1=-5=6=xl",
+        "3": "yl3P=1=-6=11=-6==xl",
+        "4": "yl4P=1=0=-5=0=4===xl"
+      },
+      "notes": "Legacy fx-801 format with special codes"
+    },
+    "fx802": {
+      "base_prefix": "zm",
+      "description": "Casio fx-802 advanced format",
+      "polynomial": {
+        "2": "zm2Q=",
+        "3": "zm3Q=",
+        "4": "zm4Q="
+      },
+      "suffix_patterns": {
+        "2": "=ym",
+        "3": "==ym",
+        "4": "===ym"
+      },
+      "examples": {
+        "2": "zm2Q=1=-5=6=ym",
+        "3": "zm3Q=1=-6=11=-6==ym",
+        "4": "zm4Q=1=0=-5=0=4===ym"
+      },
+      "notes": "Advanced fx-802 format with Q notation"
+    },
+    "fx803": {
+      "base_prefix": "an",
+      "description": "Casio fx-803 scientific format",
+      "polynomial": {
+        "2": "an2S=",
+        "3": "an3S=",
+        "4": "an4S="
+      },
+      "suffix_patterns": {
+        "2": "=bn",
+        "3": "==bn",
+        "4": "===bn"
+      },
+      "examples": {
+        "2": "an2S=1=-5=6=bn",
+        "3": "an3S=1=-6=11=-6==bn",
+        "4": "an4S=1=0=-5=0=4===bn"
+      },
+      "notes": "Scientific fx-803 format with S notation"
+    }
+  },
+  "formatting_rules": {
+    "coefficient_separator": "=",
+    "decimal_precision": 6,
+    "zero_representation": "0",
+    "negative_format": "-{value}",
+    "expression_encoding": {
+      "sqrt": "√",
+      "pi": "π",
+      "power": "^",
+      "log": "log",
+      "ln": "ln",
+      "sin": "sin",
+      "cos": "cos",
+      "tan": "tan"
+    }
+  },
+  "validation_rules": {
+    "leading_coefficient_nonzero": true,
+    "max_coefficient_length": 20,
+    "supported_degrees": [2, 3, 4],
+    "allow_empty_coefficients": false,
+    "auto_fill_zeros": true
+  }
+}
