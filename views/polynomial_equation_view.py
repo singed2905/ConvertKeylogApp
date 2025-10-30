@@ -4,6 +4,7 @@ from datetime import datetime
 import os
 
 from services.polynomial.polynomial_service import PolynomialService
+from services.polynomial.polynomial_template_generator import PolynomialTemplateGenerator
 
 class PolynomialEquationView:
     def __init__(self, window, config=None):
@@ -93,6 +94,9 @@ class PolynomialEquationView:
 
         # === CONTROL PANEL ===
         self._create_control_panel(main_container)
+
+        # === QUICK ACTIONS ===
+        self._create_quick_actions(main_container)
 
         # === HƯỚNG DẪN ===
         self._create_guide_section(main_container)
@@ -235,6 +239,18 @@ class PolynomialEquationView:
             bg="#FFFFFF",
             fg="#666666"
         ).pack(side="right", padx=20)
+    
+    def _create_quick_actions(self, parent):
+        """Tạo thanh hành động nhanh"""
+        quick_frame = tk.Frame(parent, bg="#F0F8FF")
+        quick_frame.pack(fill="x", pady=5)
+        
+        tk.Button(quick_frame, text="📝 Tạo Template", 
+                 command=self._create_template,
+                 bg="#1565C0", fg="white", font=("Arial", 9, "bold")).pack(side="left", padx=2)
+        tk.Button(quick_frame, text="📁 Import Excel", 
+                 command=self._import_excel,
+                 bg="#FF9800", fg="white", font=("Arial", 9, "bold")).pack(side="left", padx=2)
 
     def _create_guide_section(self, parent):
         """Tạo section hướng dẫn"""
@@ -356,19 +372,6 @@ class PolynomialEquationView:
         # Main button frame
         button_frame = tk.Frame(parent, bg="#F0F8FF")
         button_frame.pack(fill="x", pady=20)
-
-        # Nút Import Excel
-        self.btn_import = tk.Button(
-            button_frame,
-            text="📁 Import Excel",
-            bg="#FF9800",
-            fg="white",
-            font=("Arial", 10, "bold"),
-            width=15,
-            height=2,
-            command=self._import_excel
-        )
-        self.btn_import.pack(side="left", padx=10)
 
         # Nút Xử lý
         self.btn_process = tk.Button(
@@ -710,9 +713,42 @@ class PolynomialEquationView:
         except Exception as e:
             messagebox.showerror("Lỗi Copy", f"Lỗi copy kết quả: {str(e)}")
 
+    # ========== EXCEL METHODS ==========
+    def _create_template(self):
+        """Tạo Excel template cho polynomial"""
+        try:
+            degree = int(self.bac_phuong_trinh_var.get())
+            
+            default_name = f"polynomial_template_degree_{degree}.xlsx"
+            path = filedialog.asksaveasfilename(
+                defaultextension=".xlsx", 
+                filetypes=[("Excel files", "*.xlsx")], 
+                initialfile=default_name,
+                title=f"Tạo Template cho Phương trình Bậc {degree}"
+            )
+            if not path:
+                return
+                
+            success = PolynomialTemplateGenerator.create_template(degree, path)
+            
+            if success:
+                messagebox.showinfo(
+                    "Thành công", 
+                    f"Đã tạo template bậc {degree}:\n{path}\n\n"
+                    f"Template gồm 3 sheet:\n"
+                    f"• Input: Nhập dữ liệu\n"
+                    f"• Examples: Ví dụ mẫu\n"
+                    f"• Instructions: Hướng dẫn sử dụng"
+                )
+            else:
+                messagebox.showerror("Lỗi", f"Không thể tạo template: Unknown error")
+                
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Không thể tạo template: {e}")
+
     def _import_excel(self):
         """Import file Excel"""
-        messagebox.showinfo("Import Excel", "Chức năng Import Excel cho Polynomial Mode sẽ được bổ sung trong phiên bản tiếp theo.")
+        messagebox.showinfo("Import Excel", "Chức năng Import Excel cho Polynomial Mode sẽ được bổ sung trong phiên bản tiếp theo.\n\nHiện tại vui lòng sử dụng 'Tạo Template' để tạo file Excel mẫu.")
     
     def _export_excel(self):
         """Export kết quả ra Excel"""
@@ -739,13 +775,18 @@ class PolynomialEquationView:
             input_data = [entry.get() for entry in self.coefficient_entries]
             roots_text = self.roots_text.get("1.0", tk.END).strip()
             final_result = self.final_result_text.get("1.0", tk.END).strip()
+            polynomial_info = self.polynomial_service.get_polynomial_info()
             
             export_data = {
                 'Polynomial_Degree': [self.bac_phuong_trinh_var.get()],
                 'Calculator_Version': [self.phien_ban_var.get()],
+                'Polynomial_Form': [self.polynomial_service.get_polynomial_form_display()],
                 'Input_Coefficients': [' | '.join(input_data)],
-                'Roots_Solution': [roots_text],
+                'Encoded_Coefficients': [' | '.join(self.polynomial_service.get_last_encoded_coefficients())],
+                'Roots_Solution': [roots_text.replace('\n', ' | ')],
                 'Final_Keylog': [final_result],
+                'Solver_Method': [polynomial_info.get('solver_method', 'unknown')],
+                'Real_Roots_Count': [len(self.polynomial_service.get_real_roots_only())],
                 'Export_Time': [datetime.now().strftime('%Y-%m-%d %H:%M:%S')]
             }
             
