@@ -3,6 +3,7 @@ Integrates solver, encoder, config management for complete workflow
 """
 from typing import List, Tuple, Dict, Any, Optional
 from .polynomial_solver import PolynomialSolver, PolynomialValidationError, PolynomialSolvingError
+from .polynomial_prefix_resolver import PolynomialPrefixResolver
 
 
 class PolynomialService:
@@ -11,6 +12,7 @@ class PolynomialService:
         
         # Initialize components
         self.solver = PolynomialSolver()
+        self.prefix_resolver = PolynomialPrefixResolver()
         self.degree = 2  # Default degree
         self.version = "fx799"  # Default calculator version
         
@@ -170,48 +172,28 @@ class PolynomialService:
         return result
     
     def _generate_final_keylog(self, encoded_coeffs: List[str]) -> str:
-        """Generate final keylog string for calculator input"""
+        """Generate final keylog string using PolynomialPrefixResolver"""
         try:
-            # Get prefix for polynomial based on degree and version
-            prefix = self._get_polynomial_prefix()
-            
-            # Join encoded coefficients
-            coeffs_part = "=".join(encoded_coeffs)
-            
-            # Add suffix based on degree
-            suffix = self._get_polynomial_suffix()
-            
-            # Combine parts
-            final_keylog = f"{prefix}{coeffs_part}{suffix}"
+            # Use prefix resolver for proper keylog formatting
+            final_keylog = self.prefix_resolver.get_complete_keylog_format(
+                self.version, self.degree, encoded_coeffs
+            )
             
             return final_keylog
             
         except Exception as e:
             print(f"Keylog generation error: {e}")
-            return "KEYLOG_ERROR"
+            # Fallback to simple format
+            return f"P{self.degree}=" + "=".join(encoded_coeffs) + "=" * self.degree
     
+    # ========== DEPRECATED - Now handled by prefix_resolver ==========
     def _get_polynomial_prefix(self) -> str:
-        """Get prefix for polynomial keylog based on version and degree"""
-        # TODO: Load from config based on version and degree
-        prefix_map = {
-            ("fx799", 2): "POLY2=",
-            ("fx799", 3): "POLY3=", 
-            ("fx799", 4): "POLY4=",
-            ("fx991", 2): "EQN2=",
-            ("fx991", 3): "EQN3=",
-            ("fx991", 4): "EQN4=",
-        }
-        
-        return prefix_map.get((self.version, self.degree), f"POLY{self.degree}=")
+        """DEPRECATED: Use prefix_resolver instead"""
+        return self.prefix_resolver.get_polynomial_prefix(self.version, self.degree)
     
     def _get_polynomial_suffix(self) -> str:
-        """Get suffix for polynomial keylog based on degree"""
-        suffix_map = {
-            2: "==",
-            3: "===", 
-            4: "===="
-        }
-        return suffix_map.get(self.degree, "==")
+        """DEPRECATED: Use prefix_resolver instead"""
+        return self.prefix_resolver.get_polynomial_suffix(self.version, self.degree)
     
     # ========== GETTERS FOR UI ==========
     def get_last_roots(self) -> List[complex]:
@@ -231,19 +213,32 @@ class PolynomialService:
         return self.solver.get_real_roots_only(self.last_roots)
     
     def get_polynomial_info(self) -> Dict[str, Any]:
-        """Get detailed polynomial information"""
+        """Get detailed polynomial information including prefix info"""
         if not self.last_coefficients_numeric:
-            return {}
+            base_info = {}
+        else:
+            base_info = self.solver.get_polynomial_info(self.last_coefficients_numeric, self.degree)
         
-        info = self.solver.get_polynomial_info(self.last_coefficients_numeric, self.degree)
-        info.update({
+        # Add service info
+        base_info.update({
             "version": self.version,
             "solver_method": self.solver.method,
             "solver_precision": self.solver.precision,
             "has_results": bool(self.last_roots)
         })
         
-        return info
+        # Add prefix info
+        try:
+            prefix_info = self.prefix_resolver.get_version_info(self.version)
+            base_info.update({
+                "keylog_prefix": self.prefix_resolver.get_polynomial_prefix(self.version, self.degree),
+                "keylog_suffix": self.prefix_resolver.get_polynomial_suffix(self.version, self.degree),
+                "prefix_system": prefix_info.get('description', 'Unknown')
+            })
+        except Exception as e:
+            print(f"Warning: Could not get prefix info: {e}")
+        
+        return base_info
     
     # ========== UTILITY METHODS ==========
     def reset_state(self):
@@ -276,6 +271,16 @@ class PolynomialService:
         }
         return forms.get(self.degree, "Invalid degree")
     
+    def get_keylog_preview(self, coefficient_inputs: List[str]) -> str:
+        """Get preview of what keylog would look like (without solving)"""
+        try:
+            encoded_coeffs = self._encode_coefficients(coefficient_inputs)
+            return self.prefix_resolver.get_complete_keylog_format(
+                self.version, self.degree, encoded_coeffs
+            )
+        except Exception as e:
+            return f"Preview error: {str(e)}"
+    
     # ========== ERROR HANDLING ==========
     def get_last_error(self) -> Optional[str]:
         """Get last error message if any"""
@@ -284,7 +289,9 @@ class PolynomialService:
     
     def is_service_ready(self) -> bool:
         """Check if service is ready for processing"""
-        return self.solver is not None and self.degree in [2, 3, 4]
+        return (self.solver is not None and 
+                self.prefix_resolver is not None and 
+                self.degree in [2, 3, 4])
 
 
 class PolynomialServiceError(Exception):
@@ -307,7 +314,7 @@ if __name__ == "__main__":
     service = PolynomialService(config)
     
     # Test quadratic polynomial
-    print("=== TEST POLYNOMIAL SERVICE ===")
+    print("=== TEST POLYNOMIAL SERVICE WITH PREFIX RESOLVER ===")
     service.set_degree(2)
     service.set_version("fx799")
     
@@ -321,16 +328,28 @@ if __name__ == "__main__":
     print(f"Encoded Coefficients: {service.get_last_encoded_coefficients()}")
     print(f"Polynomial Info: {service.get_polynomial_info()}")
     
-    # Test with expressions
-    print("\n=== TEST WITH EXPRESSIONS ===")
-    success, msg, roots_display, keylog = service.process_complete_workflow(["1", "-sqrt(9)", "2"])
-    print(f"Success: {success}")
-    print(f"Keylog: {keylog}")
+    # Test keylog preview
+    print(f"\nKeylog Preview: {service.get_keylog_preview(['1', '-sqrt(25)', '6'])}")
     
-    # Test cubic
-    print("\n=== TEST CUBIC ===")
+    # Test different versions
+    print("\n=== TEST DIFFERENT VERSIONS ===")
+    for version in ["fx799", "fx991", "fx570"]:
+        service.set_version(version)
+        success, _, _, keylog = service.process_complete_workflow(["1", "-3", "2"])
+        print(f"{version}: {keylog}")
+    
+    # Test different degrees
+    print("\n=== TEST DIFFERENT DEGREES ===")
+    service.set_version("fx799")
+    
+    # Degree 3
     service.set_degree(3)
-    success, msg, roots_display, keylog = service.process_complete_workflow(["1", "-6", "11", "-6"])
-    print(f"Success: {success}")
-    print(f"Roots Display:\n{roots_display}")
-    print(f"Keylog: {keylog}")
+    success, _, _, keylog = service.process_complete_workflow(["1", "-6", "11", "-6"])
+    print(f"Degree 3: {keylog}")
+    
+    # Degree 4  
+    service.set_degree(4)
+    success, _, _, keylog = service.process_complete_workflow(["1", "0", "-5", "0", "4"])
+    print(f"Degree 4: {keylog}")
+    
+    print("\n=== SERVICE TEST COMPLETED ===")
