@@ -446,58 +446,83 @@ class EquationView:
         """Get result count for variables"""
         return {2: 6, 3: 12, 4: 20}.get(so_an, 6)
 
-    # ========== BUTTON VISIBILITY MANAGEMENT ==========
-    def _update_button_visibility(self):
-        """Update button visibility based on current state"""
-        if self.imported_data:
-            self._show_import_buttons()
-        elif self.manual_data_entered:
-            self._show_manual_buttons()
-        else:
-            self._hide_action_buttons()
-
-    def _show_manual_buttons(self):
-        """Show buttons for manual mode"""
-        self.frame_buttons_manual.grid()
-        self.frame_buttons_import.grid_remove()
-
-    def _show_import_buttons(self):
-        """Show buttons for import mode"""
-        self.frame_buttons_import.grid()
-        self.frame_buttons_manual.grid_remove()
-
-    def _hide_action_buttons(self):
-        """Hide all action buttons"""
-        self.frame_buttons_manual.grid_remove()
-        self.frame_buttons_import.grid_remove()
-
-    def _show_copy_button(self):
-        """Show copy button when result available"""
-        self.btn_copy_result.grid()
-
-    def _hide_copy_button(self):
-        """Hide copy button"""
-        self.btn_copy_result.grid_remove()
-
-    # ========== EVENT HANDLERS ==========
-    def _on_so_an_changed(self, *args):
-        """Handle variables count change"""
-        self._update_input_fields()
-        if self.equation_service:
-            self.equation_service.set_variables_count(int(self.so_an_var.get()))
-        self.status_label.config(text=f"Đã chọn hệ {self.so_an_var.get()} phương trình {self.so_an_var.get()} ẩn")
-        self.has_result = False
-        self._hide_copy_button()
-        self._update_button_visibility()
-
-    def _on_phien_ban_changed(self, *args):
-        """Handle version change"""
-        selected_version = self.phien_ban_var.get()
-        if self.equation_service:
-            self.equation_service.set_version(selected_version)
-        self.status_label.config(text=f"Đã chọn phiên bản: {selected_version}")
-
     # ========== PROCESSING METHODS ==========
+    def _process_equations(self):
+        """Process equations - main calculation method"""
+        try:
+            if not self.equation_service:
+                messagebox.showerror("Lỗi", "EquationService chưa được khởi tạo!")
+                return
+
+            equation_inputs = [entry.get().strip() for entry in self.input_entries]
+            
+            # Validate input
+            is_valid, validation_msg = self.equation_service.validate_input(equation_inputs)
+            if not is_valid:
+                messagebox.showwarning("Dữ liệu không hợp lệ", validation_msg)
+                return
+
+            # Update status (left align)
+            self.status_label.config(text="🔄 Đang xử lý hệ phương trình...", fg="#FF9800", anchor="w", justify="left")
+            self.window.update()
+
+            # Process
+            success, status_msg, solutions_text, final_result = self.equation_service.process_complete_workflow(equation_inputs)
+
+            if success:
+                # Display encoded coefficients
+                encoded_coeffs = self.equation_service.get_encoded_coefficients_display()
+                self._display_encoded_coefficients(encoded_coeffs)
+
+                # Display solutions (left aligned)
+                self.entry_nghiem.config(state='normal', justify='left')
+                self.entry_nghiem.delete(0, tk.END)
+                self.entry_nghiem.insert(0, solutions_text)
+                self.entry_nghiem.config(bg="#E8F5E8", fg="#2E7D32", state='readonly', justify='left')
+
+                # Display final result with special font
+                self._show_single_line_result(final_result)
+
+                # Update state
+                self.has_result = True
+                self._show_copy_button()
+                self.status_label.config(text="✅ Giải hệ phương trình thành công!", fg="#2E7D32", anchor="w", justify="left")
+                self._update_button_visibility()
+
+            else:
+                messagebox.showerror("Lỗi Xử lý", status_msg)
+                self.status_label.config(text=f"❌ {status_msg}", fg="#F44336", anchor="w", justify="left")
+
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Lỗi xử lý phương trình: {str(e)}")
+            self.status_label.config(text="❌ Lỗi xử lý", fg="#F44336", anchor="w", justify="left")
+
+    def _show_single_line_result(self, result_text: str):
+        """Display single line result with Flexio font"""
+        self.entry_tong.config(state='normal')
+        self.entry_tong.delete(1.0, tk.END)
+        
+        one_line = (result_text or "").strip().splitlines()[0] if result_text else ""
+        self.entry_tong.insert(tk.END, one_line)
+        
+        # Try to use Flexio font
+        try:
+            self.entry_tong.config(font=("Flexio Fx799VN", 11, "bold"), fg="#000000", bg="#E8F5E8")
+        except:
+            self.entry_tong.config(font=("Courier New", 11, "bold"), fg="#000000", bg="#E8F5E8")
+        
+        self.entry_tong.config(state='disabled')
+
+    def _display_encoded_coefficients(self, encoded_coeffs):
+        """Display encoded coefficients in result grid"""
+        for i, entry in enumerate(self.result_entries):
+            if i < len(encoded_coeffs):
+                entry.config(state='normal')
+                entry.delete(0, tk.END)
+                entry.insert(0, encoded_coeffs[i])
+                entry.config(state='readonly', bg="#E8F5E8")
+
+    # ========== EXCEL METHODS ==========
     def _on_create_template(self):
         try:
             n = int(self.so_an_var.get())
