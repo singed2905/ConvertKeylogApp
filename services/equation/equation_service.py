@@ -1,5 +1,5 @@
 """Equation Service - Core Logic với TL-compatible encoding (no-eval for encoding)
-Updated behavior: always output keylog and set solutions text to 'Hệ vô nghiệm hoặc vô số nghiệm' when solving fails or determinant ~ 0. No error popups should be triggered by service.
+Updated behavior: always output keylog and distinguish between no solution vs infinite solutions using matrix rank.
 """
 import numpy as np
 import math
@@ -17,7 +17,7 @@ class EquationService:
     """Service xử lý giải hệ phương trình - HYBRID: Numpy solver + TL encoding.
     - Giải nghiệm: dùng hệ số đã EVAL (float)
     - Mã hóa keylog: dùng CHUỖI GỐC (giữ nguyên biểu thức), không eval
-    - Behavior v2.2: Luôn sinh keylog, nghiệm không chặn workflow; khi solve fail/degenerate → hiển thị 'Hệ vô nghiệm hoặc vô số nghiệm'
+    - Behavior v2.2: Luôn sinh keylog, phân biệt vô nghiệm vs vô số nghiệm bằng rank analysis
     """
     
     def __init__(self, config=None):
@@ -139,28 +139,61 @@ class EquationService:
             except Exception:
                 return 0.0
     
-    # -------------------- SOLVER --------------------
+    # -------------------- ENHANCED SOLVER --------------------
     def solve_system(self) -> bool:
-        """Giải hệ. Behavior mới: nếu det ~ 0 hoặc lỗi solve, không raise/propagate lỗi; chỉ set solutions_text."""
+        """Giải hệ với phân biệt vô nghiệm vs vô số nghiệm bằng rank analysis.
+        Behavior mới: không raise/propagate lỗi; chỉ set solutions_text phù hợp.
+        """
         try:
             if self.A_matrix is None or self.b_vector is None:
                 self.solutions = None
-                self.solutions_text = "Hệ vô nghiệm hoặc vô số nghiệm"
+                self.solutions_text = "Dữ liệu không hợp lệ"
                 return False
+                
+            # Phân tích rank để phân biệt vô nghiệm vs vô số nghiệm
+            rank_A = np.linalg.matrix_rank(self.A_matrix)
+            augmented = np.column_stack((self.A_matrix, self.b_vector))
+            rank_augmented = np.linalg.matrix_rank(augmented)
+            n = self.current_variables
+            
+            # Kiểm tra determinant cho quick check
             det = np.linalg.det(self.A_matrix)
-            if abs(det) < 1e-10:
-                self.solutions = None
-                self.solutions_text = "Hệ vô nghiệm hoặc vô số nghiệm"
-                return False
-            self.solutions = np.linalg.solve(self.A_matrix, self.b_vector)
-            # Mặc dù có nghiệm, theo yêu cầu mới ta vẫn có thể hiển thị nghiệm hoặc cố định câu thông báo.
-            # Ở đây giữ nguyên hiển thị nghiệm nếu solve được để dễ debug nội bộ; UI có thể override.
-            self.solutions_text = self._format_solutions_text(self.solutions)
-            return True
+            
+            if abs(det) > 1e-10:
+                # Hệ có nghiệm duy nhất
+                try:
+                    self.solutions = np.linalg.solve(self.A_matrix, self.b_vector)
+                    self.solutions_text = self._format_solutions_text(self.solutions)
+                    return True
+                except Exception as solve_error:
+                    print(f"Lỗi solve dù det != 0: {solve_error}")
+                    self.solutions = None
+                    self.solutions_text = "Lỗi giải hệ"
+                    return False
+            else:
+                # Hệ suy biến (det ~ 0), dùng rank analysis
+                if rank_A == rank_augmented:
+                    if rank_A < n:
+                        # Vô số nghiệm
+                        self.solutions = None
+                        self.solutions_text = "Hệ có vô số nghiệm"
+                        return False
+                    else:
+                        # Lý thuyết rank_A == n == rank_augmented, nhưng det ~ 0 
+                        # (trường hợp hiếm, có thể do numerical error)
+                        self.solutions = None
+                        self.solutions_text = "Hệ gần suy biến (vô số nghiệm hoặc nghiệm không ổn định)"
+                        return False
+                else:
+                    # rank_A < rank_augmented: vô nghiệm
+                    self.solutions = None
+                    self.solutions_text = "Hệ vô nghiệm (mâu thuẫn)"
+                    return False
+                    
         except Exception as e:
             print(f"Lỗi giải hệ: {e}")
             self.solutions = None
-            self.solutions_text = "Hệ vô nghiệm hoặc vô số nghiệm"
+            self.solutions_text = "Lỗi giải hệ phương trình"
             return False
     
     def _format_solutions_text(self, sols) -> str:
@@ -174,7 +207,7 @@ class EquationService:
                     parts.append(f"{variables[i]} = {sol:.4f}")
             return "; ".join(parts)
         except Exception as e:
-            return f"Hệ vô nghiệm hoặc vô số nghiệm"
+            return f"Lỗi hiển thị nghiệm: {str(e)}"
     
     # -------------------- ENCODING --------------------
     def encode_coefficients_tl_format(self) -> List[str]:
@@ -211,8 +244,27 @@ class EquationService:
     
     # -------------------- TEXT UTILS --------------------
     def get_solutions_text(self) -> str:
-        # Theo yêu cầu mới: nếu solve fail → luôn trả 'Hệ vô nghiệm hoặc vô số nghiệm'
-        return self.solutions_text or "Hệ vô nghiệm hoặc vô số nghiệm"
+        """Trả về text nghiệm đã phân loại hoặc fallback"""
+        return self.solutions_text or "Chưa có kết quả"
+    
+    def get_enhanced_solutions_text(self) -> str:
+        """Trả về text nghiệm chi tiết với thông tin rank (cho debug/advanced UI)"""
+        if self.A_matrix is None or self.b_vector is None:
+            return "Chưa parse dữ liệu"
+        try:
+            rank_A = np.linalg.matrix_rank(self.A_matrix)
+            augmented = np.column_stack((self.A_matrix, self.b_vector))
+            rank_augmented = np.linalg.matrix_rank(augmented)
+            det = np.linalg.det(self.A_matrix)
+            
+            base_info = f"rank(A)={rank_A}, rank([A|b])={rank_augmented}, det≈{det:.2e}"
+            
+            if self.solutions is not None:
+                return f"{self.solutions_text} | {base_info}"
+            else:
+                return f"{self.solutions_text} | {base_info}"
+        except Exception as e:
+            return f"{self.solutions_text} | Lỗi rank analysis: {str(e)}"
     
     def get_encoded_coefficients_display(self) -> List[str]:
         return self.encoded_coefficients
@@ -227,12 +279,12 @@ class EquationService:
             # Validate nhẹ để đảm bảo có dữ liệu
             is_valid, msg = self.validate_input(equation_inputs)
             if not is_valid:
-                return False, msg, "Hệ vô nghiệm hoặc vô số nghiệm", ""
+                return False, msg, "Dữ liệu không hợp lệ", ""
             
             # Parse luôn (bổ sung 0 nếu thiếu)
             if not self.parse_equation_input(equation_inputs):
                 # Dù parse fail hiếm gặp, vẫn trả về thông điệp chuẩn và không sinh keylog
-                return False, "Lỗi parse dữ liệu đầu vào", "Hệ vô nghiệm hoặc vô số nghiệm", ""
+                return False, "Lỗi parse dữ liệu đầu vào", "Dữ liệu không hợp lệ", ""
             
             # Solve (nhưng không chặn)
             self.solve_system()  # ignore boolean; solutions_text đã set nội bộ
@@ -247,7 +299,15 @@ class EquationService:
             
             return success_for_ui, status_msg, self.get_solutions_text(), final_result
         except Exception as e:
-            return False, f"Lỗi xử lý: {str(e)}", "Hệ vô nghiệm hoặc vô số nghiệm", ""
+            return False, f"Lỗi xử lý: {str(e)}", "Lỗi xử lý hệ thống", ""
+    
+    def process_complete_workflow_detailed(self, equation_inputs: List[str]) -> Tuple[bool, str, str, str, str]:
+        """Workflow với thông tin rank chi tiết cho advanced UI hoặc debugging.
+        Returns: (success_for_ui, status_msg, solutions_text_display, enhanced_solutions_text, final_keylog)
+        """
+        success, status, solutions, keylog = self.process_complete_workflow(equation_inputs)
+        enhanced_solutions = self.get_enhanced_solutions_text()
+        return success, status, solutions, enhanced_solutions, keylog
     
     # Backward compatibility
     def encode_coefficients(self) -> List[str]:
