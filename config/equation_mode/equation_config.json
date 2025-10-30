@@ -1,0 +1,125 @@
+{
+  "mode_name": "equation",
+  "display_name": "Equation Mode",
+  "version": "2.0",
+  "description": "System of Linear Equations Solver with Keylog Encoding",
+  
+  "encoding": {
+    "description": "Coefficient encoding for calculator keylog",
+    "numbers": {
+      "0": "00",
+      "1": "01", 
+      "2": "02",
+      "3": "03",
+      "4": "04",
+      "5": "05",
+      "6": "06",
+      "7": "07",
+      "8": "08",
+      "9": "09",
+      "-": "FF",
+      ".": "FE"
+    },
+    "base_prefix": "EQ"
+  },
+  
+  "prefixes": {
+    "description": "Version-specific prefixes for different calculator models",
+    "versions": {
+      "fx799": {
+        "base_prefix": "EQ799",
+        "description": "Casio fx-799 series"
+      },
+      "fx800": {
+        "base_prefix": "EQ800",
+        "description": "Casio fx-800 series"
+      },
+      "fx801": {
+        "base_prefix": "EQ801",
+        "description": "Casio fx-801 series"
+      },
+      "fx802": {
+        "base_prefix": "EQ802",
+        "description": "Casio fx-802 series"
+      },
+      "fx803": {
+        "base_prefix": "EQ803",
+        "description": "Casio fx-803 series"
+      }
+    }
+  },
+  
+  "supported_variables": {
+    "description": "Number of variables supported",
+    "min": 2,
+    "max": 4,
+    "default": 2,
+    "available": [2, 3, 4]
+  },
+  
+  "math_expressions": {
+    "description": "Supported mathematical expressions in input",
+    "functions": [
+      "sqrt", "sin", "cos", "tan", "log", "ln", "pi", "^"
+    ],
+    "operators": [
+      "+", "-", "*", "/", "^", "(", ")"
+    ],
+    "constants": {
+      "pi": 3.141592653589793,
+      "e": 2.718281828459045
+    }
+  },
+  
+  "validation": {
+    "description": "Input validation rules",
+    "coefficient_range": {
+      "min": -999999,
+      "max": 999999
+    },
+    "precision": {
+      "decimal_places": 6,
+      "zero_threshold": 1e-10
+    }
+  },
+  
+  "excel_support": {
+    "description": "Excel processing configuration (future feature)",
+    "enabled": false,
+    "template_format": {
+      "2_variables": ["a11", "a12", "c1", "a21", "a22", "c2", "keylog"],
+      "3_variables": ["a11", "a12", "a13", "c1", "a21", "a22", "a23", "c2", "a31", "a32", "a33", "c3", "keylog"],
+      "4_variables": ["a11", "a12", "a13", "a14", "c1", "a21", "a22", "a23", "a24", "c2", "a31", "a32", "a33", "a34", "c3", "a41", "a42", "a43", "a44", "c4", "keylog"]
+    }
+  },
+  
+  "ui_settings": {
+    "description": "UI-specific settings for equation mode",
+    "colors": {
+      "primary": "#1B5299",
+      "secondary": "#7B1FA2",
+      "success": "#2E7D32",
+      "warning": "#FF9800",
+      "error": "#F44336",
+      "info": "#1565C0"
+    },
+    "fonts": {
+      "result_primary": "Flexio Fx799VN",
+      "result_fallback": "Courier New",
+      "result_size": 11,
+      "result_weight": "bold"
+    }
+  },
+  
+  "features": {
+    "description": "Feature flags for equation mode",
+    "manual_input": true,
+    "expression_evaluation": true,
+    "coefficient_encoding": true,
+    "solution_display": true,
+    "copy_to_clipboard": true,
+    "excel_export": true,
+    "excel_import": false,
+    "batch_processing": false
+  }
+}
