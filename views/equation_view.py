@@ -1,5 +1,6 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
+from datetime import datetime
 
 class EquationView:
     def __init__(self, window, config=None):
@@ -22,14 +23,33 @@ class EquationView:
         # Trạng thái hiện tại
         self.is_imported_mode = False
         self.has_manual_data = False
+        self.has_result = False
 
         # Load danh sách phiên bản từ config
         self.phien_ban_list = self._get_available_versions()
         self.phien_ban_var.set(self.phien_ban_list[0] if self.phien_ban_list else "fx799")
+        
+        # Khởi tạo EquationService
+        self.equation_service = None
+        self._initialize_service()
 
         self._setup_ui()
         self._update_input_fields()
         self._update_button_visibility()
+    
+    def _initialize_service(self):
+        """Khởi tạo EquationService"""
+        try:
+            from services.equation.equation_service import EquationService
+            self.equation_service = EquationService(self.config)
+            self.equation_service.set_variables_count(int(self.so_an_var.get()))
+            self.equation_service.set_version(self.phien_ban_var.get())
+        except Exception as e:
+            print(f"Warning: Không thể khởi tạo EquationService: {e}")
+            messagebox.showwarning("Cảnh báo", 
+                f"Không thể khởi tạo EquationService.\n"
+                f"Một số tính năng sẽ bị hạn chế.\n\n"
+                f"Lỗi: {e}")
     
     def _get_available_versions(self):
         """Lấy danh sách phiên bản từ config hoặc sử dụng mặc định"""
@@ -64,17 +84,17 @@ class EquationView:
         # Tiêu đề
         title_label = tk.Label(
             main_frame,
-            text="🧠 EQUATION MODE v2.0 - GIẢI HỆ PHƯNG TRÌNH",
+            text="🧠 EQUATION MODE v2.0 - GIẢI HỆ PHƯƠNG TRÌNH",
             font=("Arial", 18, "bold"),
             bg="#F5F5F5",
             fg="#2E7D32"
         )
         title_label.pack(pady=(0, 15))
 
-        # === KHUNG LỰA CHỌ4N THAM SỐ ===
+        # === KHUNG LỰA CHỌN THAM SỐ ===
         control_frame = tk.LabelFrame(
             main_frame,
-            text="⚙️ THIẾ4T LẬP PHƯNG TRÌNH",
+            text="⚙️ THIẾT LậP PHƯƠNG TRÌNH",
             font=("Arial", 11, "bold"),
             bg="#FFFFFF",
             fg="#1B5299",
@@ -131,20 +151,21 @@ class EquationView:
         phien_ban_menu.pack(side="left", padx=5)
         phien_ban_menu.bind("<<ComboboxSelected>>", self._on_phien_ban_changed)
         
-        # Config status
+        # Service status
+        service_status = "✅ Service Ready" if self.equation_service else "⚠️ Service Failed"
         config_status = "Config: ✅ Loaded" if self.config else "Config: ⚠️ Fallback"
         tk.Label(
             row2,
-            text=config_status,
+            text=f"{service_status} | {config_status}",
             font=("Arial", 8),
             bg="#FFFFFF",
             fg="#666666"
         ).pack(side="right", padx=20)
 
-        # === KHUNG HƯỚNG DẪN ===
+        # === KHUNG HƯỚNG DẮN ===
         guide_frame = tk.LabelFrame(
             main_frame,
-            text="💡 HƯỚNG DẪN NHẬP LIỆU",
+            text="💡 HƯỚNG DẮN NHẬP LIỆU",
             font=("Arial", 10, "bold"),
             bg="#E3F2FD",
             fg="#1565C0",
@@ -172,7 +193,7 @@ class EquationView:
         # === KHUNG NHẬP LIỆU ===
         self.input_frame = tk.LabelFrame(
             main_frame,
-            text="📝 NHẬP HỆ SỐ PHƯNG TRÌNH",
+            text="📝 NHẬP HỆ SỐ PHƯƠNG TRÌNH",
             font=("Arial", 11, "bold"),
             bg="#FFFFFF",
             fg="#1B5299",
@@ -227,18 +248,32 @@ class EquationView:
         )
         self.frame_tong.pack(fill="x", pady=10, padx=10)
 
-        self.entry_tong = tk.Entry(
+        # Entry kết quả tổng - height=2 cho nhất quán với geometry
+        self.entry_tong = tk.Text(
             self.frame_tong,
             width=80,
-            font=("Courier New", 9),
-            justify="center"
+            height=2,
+            font=("Courier New", 9, "bold"),
+            wrap=tk.NONE,
+            state='normal'
         )
         self.entry_tong.pack(padx=15, pady=12, fill="x")
         
         # Hiển thị config info trong kết quả tổng
-        config_info = "Config loaded successfully" if self.config else "Using fallback config"
-        self.entry_tong.insert(0, f"Equation Mode v2.0 - {config_info}")
+        service_status = "Service Ready" if self.equation_service else "Service Failed"  
+        config_info = "Config loaded" if self.config else "Fallback config"
+        self.entry_tong.insert(tk.END, f"Equation Mode v2.0 - {service_status} | {config_info}")
         self.entry_tong.config(bg="#F1F8E9")
+
+        # Nút Copy kết quả (ẩn ban đầu)
+        self.btn_copy_result = tk.Button(
+            main_frame, text="📋 Copy Kết Quả",
+            command=self._copy_result,
+            bg="#9C27B0", fg="white", font=("Arial", 9, "bold"),
+            width=20
+        )
+        self.btn_copy_result.pack(pady=5)
+        self.btn_copy_result.pack_forget()  # Ẩn ban đầu
 
         # === KHUNG NÚT CHỨC NĂNG ===
         button_frame = tk.Frame(main_frame, bg="#F5F5F5")
@@ -253,20 +288,20 @@ class EquationView:
             font=("Arial", 10, "bold"),
             width=14,
             height=1,
-            command=self._placeholder_action
+            command=self._import_excel
         )
         self.btn_import.pack(side="left", padx=5)
 
         # Nút Xử lý (luôn hiển thị)
         self.btn_process = tk.Button(
             button_frame,
-            text="🔄 Xử lý & Giải nghiệm",
-            bg="#2196F3",
+            text="🚀 Xử lý & Giải nghiệm",
+            bg="#4CAF50",
             fg="white",
             font=("Arial", 10, "bold"),
-            width=16,
+            width=18,
             height=1,
-            command=self._placeholder_action
+            command=self._process_equations
         )
         self.btn_process.pack(side="left", padx=5)
 
@@ -279,7 +314,7 @@ class EquationView:
             font=("Arial", 10, "bold"),
             width=14,
             height=1,
-            command=self._placeholder_action
+            command=self._import_excel
         )
 
         # Nút Quay lại (ban đầu ẩn)
@@ -291,7 +326,19 @@ class EquationView:
             font=("Arial", 10, "bold"),
             width=14,
             height=1,
-            command=self._placeholder_action
+            command=self._quit_import_mode
+        )
+        
+        # Nút Xuất Excel
+        self.btn_export = tk.Button(
+            button_frame,
+            text="💾 Xuất Excel",
+            bg="#FF9800",
+            fg="white",
+            font=("Arial", 10, "bold"),
+            width=14,
+            height=1,
+            command=self._export_excel
         )
 
         # === THÔNG BÁO TRẠNG THÁI ===
@@ -326,15 +373,29 @@ class EquationView:
             fg="#666666"
         )
         footer_label.pack(side="bottom", pady=5)
-
+    
     def _on_so_an_changed(self, event=None):
         """Cập nhật số ô nhập liệu khi số ẩn thay đổi"""
         self._update_input_fields()
+        
+        # Cập nhật service
+        if self.equation_service:
+            self.equation_service.set_variables_count(int(self.so_an_var.get()))
+        
         self.status_label.config(text=f"Đã chọn hệ {self.so_an_var.get()} phương trình {self.so_an_var.get()} ẩn")
+        
+        # Reset trạng thái
+        self.has_result = False
+        self._update_button_visibility()
 
     def _on_phien_ban_changed(self, event=None):
         """Cập nhật khi phiên bản thay đổi"""
         selected_version = self.phien_ban_var.get()
+        
+        # Cập nhật service
+        if self.equation_service:
+            self.equation_service.set_version(selected_version)
+        
         # Lấy prefix từ config nếu có
         prefixes = self._get_equation_prefixes()
         prefix_info = ""
@@ -483,28 +544,227 @@ class EquationView:
         self._update_button_visibility()
 
     def _update_button_visibility(self):
-        """Ẩn ứng hiển thị nút dựa trên trạng thái hiện tại"""
+        """An/hiện thị nút dựa trên trạng thái hiện tại"""
         # Ẩn tất cả các nút trước
         self.btn_import.pack_forget()
         self.btn_import_other.pack_forget()
         self.btn_quay_lai.pack_forget()
+        self.btn_export.pack_forget()
 
         if self.is_imported_mode:
             # Trạng thái import từ Excel
             self.btn_import_other.pack(side="left", padx=5)
             self.btn_quay_lai.pack(side="left", padx=5)
             self.btn_process.pack(side="left", padx=5)
+            
+            # Khóa input fields
+            for entry in self.input_entries:
+                entry.config(state='disabled', bg='#F0F0F0')
+                
         elif self.has_manual_data:
             # Trạng thái nhập liệu thủ công
             self.btn_process.pack(side="left", padx=5)
+            if self.has_result:
+                self.btn_export.pack(side="left", padx=5)
+            
+            # Mở khóa input fields
+            for entry in self.input_entries:
+                entry.config(state='normal', bg='white')
+                
         else:
             # Trạng thái ban đầu
             self.btn_import.pack(side="left", padx=5)
             self.btn_process.pack(side="left", padx=5)
-
-    def _placeholder_action(self):
-        """Hành động placeholder"""
-        messagebox.showinfo("Thông báo", "Chức năng đang phát triển. Chỉ là giao diện v2.0!")
+            
+            # Mở khóa input fields
+            for entry in self.input_entries:
+                entry.config(state='normal', bg='white')
+    
+    def _process_equations(self):
+        """Xử lý giải hệ phương trình - CORE FUNCTION!"""
+        try:
+            if not self.equation_service:
+                messagebox.showerror("Lỗi", "EquationService chưa được khởi tạo!")
+                return
+            
+            # Lấy dữ liệu từ input fields
+            equation_inputs = [entry.get().strip() for entry in self.input_entries]
+            
+            # Validate input
+            is_valid, validation_msg = self.equation_service.validate_input(equation_inputs)
+            if not is_valid:
+                messagebox.showwarning("Dữ liệu không hợp lệ", validation_msg)
+                return
+            
+            self.status_label.config(text="🔄 Đang xử lý hệ phương trình...", fg="#FF9800")
+            self.window.update()
+            
+            # Xử lý hoàn chỉnh
+            success, status_msg, solutions_text, final_result = self.equation_service.process_complete_workflow(equation_inputs)
+            
+            if success:
+                # Hiển thị encoded coefficients trong grid
+                encoded_coeffs = self.equation_service.get_encoded_coefficients_display()
+                self._display_encoded_coefficients(encoded_coeffs)
+                
+                # Hiển thị nghiệm
+                self.entry_nghiem.config(state='normal')
+                self.entry_nghiem.delete(0, tk.END)
+                self.entry_nghiem.insert(0, solutions_text)
+                self.entry_nghiem.config(bg="#E8F5E8", fg="#2E7D32")
+                self.entry_nghiem.config(state='readonly')
+                
+                # Hiển thị kết quả tổng với font Flexio (fallback Courier New bold)
+                self.entry_tong.config(state='normal')
+                self.entry_tong.delete(1.0, tk.END)
+                self.entry_tong.insert(tk.END, final_result)
+                
+                # Thử dùng font Flexio Fx799VN, fallback Courier New bold
+                try:
+                    self.entry_tong.config(font=("Flexio Fx799VN", 11, "bold"), bg="#E8F5E8")
+                except:
+                    self.entry_tong.config(font=("Courier New", 11, "bold"), bg="#E8F5E8")
+                
+                self.entry_tong.config(state='disabled')
+                
+                # Cập nhật trạng thái
+                self.has_result = True
+                self.btn_copy_result.pack(pady=5)
+                self.status_label.config(text="✅ Giải hệ phương trình thành công!", fg="#2E7D32")
+                
+                # Cập nhật button visibility
+                self._update_button_visibility()
+                
+            else:
+                messagebox.showerror("Lỗi Xử lý", status_msg)
+                self.status_label.config(text=f"❌ {status_msg}", fg="#F44336")
+                
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Lỗi xử lý phương trình: {str(e)}")
+            self.status_label.config(text="❌ Lỗi xử lý", fg="#F44336")
+    
+    def _display_encoded_coefficients(self, encoded_coeffs):
+        """Hiển thị hệ số đã mã hóa trong grid"""
+        for i, entry in enumerate(self.result_entries):
+            if i < len(encoded_coeffs):
+                entry.config(state='normal')
+                entry.delete(0, tk.END)
+                entry.insert(0, encoded_coeffs[i])
+                entry.config(state='readonly', bg="#E8F5E8")
+    
+    def _import_excel(self):
+        """Import file Excel cho xử lý hàng loạt"""
+        messagebox.showinfo("Thông báo", 
+            "Chức năng Import Excel cho Equation Mode \n"
+            "sẽ được phát triển trong phiên bản tiếp theo!\n\n"
+            "Hiện tại vui lòng sử dụng chế độ thủ công.")
+    
+    def _export_excel(self):
+        """Xuất kết quả ra Excel"""
+        try:
+            if not self.has_result or not self.equation_service:
+                messagebox.showwarning("Cảnh báo", "Chưa có kết quả để xuất!\n\nVui lòng giải hệ phương trình trước.")
+                return
+            
+            # Chọn nơi lưu
+            default_name = f"equation_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            output_path = filedialog.asksaveasfilename(
+                title="Xuất kết quả Equation ra Excel",
+                defaultextension=".xlsx",
+                filetypes=[("Excel files", "*.xlsx")],
+                initialfile=default_name
+            )
+            
+            if not output_path:
+                return
+            
+            # Tạo data xuất Excel
+            import pandas as pd
+            
+            # Thu thập dữ liệu
+            input_data = [entry.get() for entry in self.input_entries]
+            solutions_text = self.entry_nghiem.get()
+            final_result = self.entry_tong.get(1.0, tk.END).strip()
+            encoded_coeffs = self.equation_service.get_encoded_coefficients_display()
+            
+            # Tạo DataFrame
+            export_data = {
+                'Variable_Count': [self.so_an_var.get()],
+                'Calculator_Version': [self.phien_ban_var.get()],
+                'Input_Equations': [' | '.join(input_data)],
+                'Solutions': [solutions_text],
+                'Encoded_Coefficients': [' '.join(encoded_coeffs)],
+                'Final_Keylog': [final_result],
+                'Export_Time': [datetime.now().strftime('%Y-%m-%d %H:%M:%S')]
+            }
+            
+            df = pd.DataFrame(export_data)
+            df.to_excel(output_path, index=False, sheet_name='Equation_Results')
+            
+            messagebox.showinfo("Xuất thành công", 
+                f"Kết quả Equation Mode đã xuất tại:\n{output_path}")
+            
+        except Exception as e:
+            messagebox.showerror("Lỗi Xuất", f"Lỗi xuất Excel: {str(e)}")
+    
+    def _copy_result(self):
+        """Copy kết quả keylog vào clipboard"""
+        try:
+            if not self.has_result:
+                messagebox.showwarning("Cảnh báo", "Chưa có kết quả để copy!")
+                return
+            
+            result_text = self.entry_tong.get(1.0, tk.END).strip()
+            if result_text:
+                self.window.clipboard_clear()
+                self.window.clipboard_append(result_text)
+                messagebox.showinfo("Đã copy", 
+                    f"Đã copy kết quả Equation vào clipboard:\n\n{result_text}")
+            else:
+                messagebox.showwarning("Cảnh báo", "Không có kết quả để copy!")
+        except Exception as e:
+            messagebox.showerror("Lỗi Copy", f"Lỗi copy kết quả: {str(e)}")
+    
+    def _quit_import_mode(self):
+        """Thoát chế độ import và quay lại manual"""
+        result = messagebox.askyesno("Thoát chế độ import", 
+            "Bạn có chắc muốn thoát chế độ import Excel và quay lại nhập thủ công?")
+        
+        if result:
+            # Reset state
+            self.is_imported_mode = False
+            self.has_manual_data = False
+            self.has_result = False
+            
+            # Clear các input và result
+            for entry in self.input_entries:
+                entry.delete(0, tk.END)
+            
+            for entry in self.result_entries:
+                entry.config(state='normal')
+                entry.delete(0, tk.END)
+                entry.config(state='readonly')
+            
+            # Reset displays
+            self.entry_nghiem.config(state='normal')
+            self.entry_nghiem.delete(0, tk.END)
+            self.entry_nghiem.insert(0, "Chưa có kết quả nghiệm")
+            self.entry_nghiem.config(bg="#FFF9E6", fg="#FF6F00", state='readonly')
+            
+            self.entry_tong.config(state='normal')
+            self.entry_tong.delete(1.0, tk.END)
+            service_status = "Service Ready" if self.equation_service else "Service Failed"  
+            config_info = "Config loaded" if self.config else "Fallback config"
+            self.entry_tong.insert(tk.END, f"Equation Mode v2.0 - {service_status} | {config_info}")
+            self.entry_tong.config(bg="#F1F8E9", font=("Courier New", 9), state='disabled')
+            
+            # Ẩn copy button
+            self.btn_copy_result.pack_forget()
+            
+            # Cập nhật buttons
+            self._update_button_visibility()
+            
+            self.status_label.config(text="🟢 Đã quay lại chế độ thủ công", fg="#2E7D32")
 
 
 if __name__ == "__main__":
