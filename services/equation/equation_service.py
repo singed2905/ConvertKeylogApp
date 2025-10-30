@@ -1,4 +1,6 @@
-"""Equation Service - Core Logic với TL-compatible encoding (no-eval for encoding)"""
+"""Equation Service - Core Logic với TL-compatible encoding (no-eval for encoding)
+Updated behavior: always output keylog and set solutions text to 'Hệ vô nghiệm hoặc vô số nghiệm' when solving fails or determinant ~ 0. No error popups should be triggered by service.
+"""
 import numpy as np
 import math
 from typing import List, Dict, Tuple, Optional, Any
@@ -15,6 +17,7 @@ class EquationService:
     """Service xử lý giải hệ phương trình - HYBRID: Numpy solver + TL encoding.
     - Giải nghiệm: dùng hệ số đã EVAL (float)
     - Mã hóa keylog: dùng CHUỖI GỐC (giữ nguyên biểu thức), không eval
+    - Behavior v2.2: Luôn sinh keylog, nghiệm không chặn workflow; khi solve fail/degenerate → hiển thị 'Hệ vô nghiệm hoặc vô số nghiệm'
     """
     
     def __init__(self, config=None):
@@ -29,6 +32,7 @@ class EquationService:
         
         # Solutions
         self.solutions = None
+        self.solutions_text = "Chưa giải hệ phương trình"
         self.encoded_coefficients = []
         
         # Services
@@ -59,6 +63,7 @@ class EquationService:
         self.A_matrix = np.zeros((n, n))
         self.b_vector = np.zeros(n)
         self.solutions = None
+        self.solutions_text = "Chưa giải hệ phương trình"
         self.encoded_coefficients = []
         self.coeff_text_list = []
     
@@ -74,7 +79,8 @@ class EquationService:
             parts = [p.strip() for p in eq_input.split(',')]
             non_empty = [p for p in parts if p]
             if len(non_empty) < n + 1:
-                return False, f"Phương trình {i+1} cần {n+1} hệ số ({n} hệ số + 1 hằng số)"
+                # Cho phép thiếu → encode vẫn chạy được nếu điền 0 bổ sung ở parse
+                pass
         return True, "Dữ liệu hợp lệ"
     
     # -------------------- PARSE INPUTS --------------------
@@ -82,6 +88,7 @@ class EquationService:
         """Parse input: tạo ma trận số cho giải nghiệm và list chuỗi cho mã hóa.
         - Không eval khi build chuỗi mã hóa
         - Có eval khi build ma trận số để giải nghiệm
+        - Bổ sung '0' nếu thiếu để đủ n+1 mục mỗi phương trình
         """
         try:
             n = self.current_variables
@@ -99,7 +106,6 @@ class EquationService:
                     parts.extend(["0"] * (n + 1 - len(parts)))
                 
                 # 1) Lưu nguyên chuỗi cho mã hóa
-                # Thứ tự: a_i1, a_i2, ..., a_in, c_i
                 self.coeff_text_list.extend(parts[:n+1])
                 
                 # 2) Evaluate để giải nghiệm
@@ -135,32 +141,51 @@ class EquationService:
     
     # -------------------- SOLVER --------------------
     def solve_system(self) -> bool:
+        """Giải hệ. Behavior mới: nếu det ~ 0 hoặc lỗi solve, không raise/propagate lỗi; chỉ set solutions_text."""
         try:
             if self.A_matrix is None or self.b_vector is None:
+                self.solutions = None
+                self.solutions_text = "Hệ vô nghiệm hoặc vô số nghiệm"
                 return False
             det = np.linalg.det(self.A_matrix)
             if abs(det) < 1e-10:
-                self.solutions = "Hệ vô nghiệm hoặc vô số nghiệm"
+                self.solutions = None
+                self.solutions_text = "Hệ vô nghiệm hoặc vô số nghiệm"
                 return False
             self.solutions = np.linalg.solve(self.A_matrix, self.b_vector)
+            # Mặc dù có nghiệm, theo yêu cầu mới ta vẫn có thể hiển thị nghiệm hoặc cố định câu thông báo.
+            # Ở đây giữ nguyên hiển thị nghiệm nếu solve được để dễ debug nội bộ; UI có thể override.
+            self.solutions_text = self._format_solutions_text(self.solutions)
             return True
         except Exception as e:
             print(f"Lỗi giải hệ: {e}")
-            self.solutions = f"Lỗi giải hệ: {str(e)}"
+            self.solutions = None
+            self.solutions_text = "Hệ vô nghiệm hoặc vô số nghiệm"
             return False
+    
+    def _format_solutions_text(self, sols) -> str:
+        try:
+            variables = ['x', 'y', 'z', 't'][: self.current_variables]
+            parts = []
+            for i, sol in enumerate(sols):
+                if abs(sol - round(sol)) < 1e-10:
+                    parts.append(f"{variables[i]} = {int(round(sol))}")
+                else:
+                    parts.append(f"{variables[i]} = {sol:.4f}")
+            return "; ".join(parts)
+        except Exception as e:
+            return f"Hệ vô nghiệm hoặc vô số nghiệm"
     
     # -------------------- ENCODING --------------------
     def encode_coefficients_tl_format(self) -> List[str]:
-        """Mã hóa theo TL: dùng CHUỖI GỐC self.coeff_text_list (không eval)."""
+        """Mã hóa theo TL: dùng CHUỖI GỐC self.coeff_text_list (không eval). Luôn cố gắng encode."""
         if not self.tl_encoding_available:
             print("Warning: TL encoding not available")
             return []
         try:
             n = self.current_variables
-            # Đảm bảo độ dài đúng n*(n+1)
             expected = n * (n + 1)
             coeffs_text = self.coeff_text_list[:expected]
-            # Gọi service TL để encode
             result = self.encoding_service.encode_equation_data(coeffs_text, n, self.current_version)
             if result.get('success'):
                 self.encoded_coefficients = result.get('encoded_coefficients', [])
@@ -173,6 +198,7 @@ class EquationService:
             return []
     
     def generate_final_result_tl_format(self) -> str:
+        """Sinh keylog tổng. Luôn cố gắng trả về keylog nếu có encoded_coefficients."""
         if not self.encoded_coefficients:
             self.encode_coefficients_tl_format()
         if not self.encoded_coefficients:
@@ -185,42 +211,43 @@ class EquationService:
     
     # -------------------- TEXT UTILS --------------------
     def get_solutions_text(self) -> str:
-        if self.solutions is None:
-            return "Chưa giải hệ phương trình"
-        if isinstance(self.solutions, str):
-            return self.solutions
-        try:
-            variables = ['x', 'y', 'z', 't'][: self.current_variables]
-            parts = []
-            for i, sol in enumerate(self.solutions):
-                if abs(sol - round(sol)) < 1e-10:
-                    parts.append(f"{variables[i]} = {int(round(sol))}")
-                else:
-                    parts.append(f"{variables[i]} = {sol:.4f}")
-            return "; ".join(parts)
-        except Exception as e:
-            return f"Lỗi hiển thị nghiệm: {e}"
+        # Theo yêu cầu mới: nếu solve fail → luôn trả 'Hệ vô nghiệm hoặc vô số nghiệm'
+        return self.solutions_text or "Hệ vô nghiệm hoặc vô số nghiệm"
     
     def get_encoded_coefficients_display(self) -> List[str]:
         return self.encoded_coefficients
     
     # -------------------- WORKFLOW --------------------
     def process_complete_workflow(self, equation_inputs: List[str]) -> Tuple[bool, str, str, str]:
+        """Behavior v2.2: Không chặn khi solve fail. Luôn encode và sinh keylog.
+        Returns: (success_for_ui, status_msg, solutions_text_display, final_keylog)
+        success_for_ui luôn True nếu encode/keylog đã sinh (dù solve fail), để UI không popup lỗi.
+        """
         try:
-            # Validate trước theo UI
+            # Validate nhẹ để đảm bảo có dữ liệu
             is_valid, msg = self.validate_input(equation_inputs)
             if not is_valid:
-                return False, msg, "", ""
+                return False, msg, "Hệ vô nghiệm hoặc vô số nghiệm", ""
             
+            # Parse luôn (bổ sung 0 nếu thiếu)
             if not self.parse_equation_input(equation_inputs):
-                return False, "Lỗi parse dữ liệu đầu vào", "", ""
-            if not self.solve_system():
-                return False, "Lỗi giải hệ phương trình", self.get_solutions_text(), ""
+                # Dù parse fail hiếm gặp, vẫn trả về thông điệp chuẩn và không sinh keylog
+                return False, "Lỗi parse dữ liệu đầu vào", "Hệ vô nghiệm hoặc vô số nghiệm", ""
+            
+            # Solve (nhưng không chặn)
+            self.solve_system()  # ignore boolean; solutions_text đã set nội bộ
+            
+            # Encode luôn
             self.encode_coefficients_tl_format()
             final_result = self.generate_final_result_tl_format()
-            return True, "Thành công", self.get_solutions_text(), final_result
+            
+            # success_for_ui: true nếu có final_result hợp lệ
+            success_for_ui = bool(final_result and final_result.strip() and final_result != "Chưa có kết quả")
+            status_msg = "Thành công" if success_for_ui else "Không thể sinh keylog"
+            
+            return success_for_ui, status_msg, self.get_solutions_text(), final_result
         except Exception as e:
-            return False, f"Lỗi xử lý: {str(e)}", "", ""
+            return False, f"Lỗi xử lý: {str(e)}", "Hệ vô nghiệm hoặc vô số nghiệm", ""
     
     # Backward compatibility
     def encode_coefficients(self) -> List[str]:
