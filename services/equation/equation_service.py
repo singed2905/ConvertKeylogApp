@@ -2,8 +2,13 @@
 import numpy as np
 import math
 import re
-from typing import List, Dict, Tuple, Optional
-from .equation_encoding_service import EquationEncodingService
+from typing import List, Dict, Tuple, Optional, Any
+
+try:
+    from .equation_encoding_service import EquationEncodingService
+except ImportError:
+    print("Warning: Cannot import EquationEncodingService")
+    EquationEncodingService = None
 
 class EquationService:
     """Service xử lý giải hệ phương trình - HYBRID: Numpy solver + TL encoding"""
@@ -23,8 +28,12 @@ class EquationService:
         
         # TL Encoding Service
         try:
-            self.encoding_service = EquationEncodingService()
-            self.tl_encoding_available = True
+            if EquationEncodingService:
+                self.encoding_service = EquationEncodingService()
+                self.tl_encoding_available = True
+            else:
+                self.encoding_service = None
+                self.tl_encoding_available = False
         except Exception as e:
             print(f"Warning: TL encoding service failed: {e}")
             self.encoding_service = None
