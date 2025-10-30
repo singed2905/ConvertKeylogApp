@@ -277,9 +277,10 @@ class PolynomialEquationView:
             font=("Arial", 9),
             bg="#E8F4FD",
             fg="#333333",
-            justify="left"
+            justify="left",
+            anchor="w"
         )
-        guide_label.pack(padx=15, pady=10)
+        guide_label.pack(side="left", padx=15, pady=10, anchor="w")
 
     def _create_input_section(self, parent):
         """Tạo section nhập hệ số"""
