@@ -12,7 +12,7 @@ from services.equation.equation_service import EquationService
 class EquationView:
     def __init__(self, window, config=None):
         self.window = window
-        self.window.title("Equation Mode v2.2 - Always Output Keylog")
+        self.window.title("Equation Mode v2.2 - Enhanced Solution Analysis")
         self.window.geometry("900x1000")
         self.window.configure(bg="#F8F9FA")
 
@@ -25,6 +25,7 @@ class EquationView:
         self.imported_file_name = ""
         self.imported_file_size_mb = 0.0
         self.processing_cancelled = False
+        self.show_detailed_analysis = False  # Toggle giữa basic/detailed
 
         # Variables
         self.so_an_var = tk.StringVar(value="2")
@@ -91,7 +92,7 @@ class EquationView:
         left_section = tk.Frame(header_content, bg=HEADER_COLORS["primary"])
         left_section.pack(side="left", fill="y")
         tk.Label(left_section, text="🧠", font=("Arial", 20), bg=HEADER_COLORS["primary"], fg=HEADER_COLORS["text"]).pack(side="left")
-        tk.Label(left_section, text="Equation v2.2 - Always Output Keylog", font=("Arial", 16, "bold"), bg=HEADER_COLORS["primary"], fg=HEADER_COLORS["text"]).pack(side="left", padx=(5, 20))
+        tk.Label(left_section, text="Equation v2.2 - Enhanced Analysis", font=("Arial", 16, "bold"), bg=HEADER_COLORS["primary"], fg=HEADER_COLORS["text"]).pack(side="left", padx=(5, 20))
         controls_frame = tk.Frame(left_section, bg=HEADER_COLORS["primary"])
         controls_frame.pack(side="top", fill="x", pady=(5, 0))
         tk.Label(controls_frame, text="Số ẩn:", font=("Arial", 10), bg=HEADER_COLORS["primary"], fg=HEADER_COLORS["text"]).pack(side="left")
@@ -110,11 +111,14 @@ class EquationView:
         excel_frame.grid(row=0, column=0, columnspan=4, pady=5, sticky="we")
         tk.Button(excel_frame, text="📝 Tạo Template", command=self._on_create_template, bg="#1565C0", fg="white", font=("Arial", 9, "bold")).pack(side="left", padx=2)
         tk.Button(excel_frame, text="📁 Import Excel", command=self._on_import_excel, bg="#FF9800", fg="white", font=("Arial", 9, "bold")).pack(side="left", padx=2)
+        # Nút toggle detailed analysis
+        self.btn_toggle_detail = tk.Button(excel_frame, text="🔍 Chi tiết", command=self._toggle_detailed_analysis, bg="#9C27B0", fg="white", font=("Arial", 9, "bold"))
+        self.btn_toggle_detail.pack(side="right", padx=2)
 
     def _setup_guide_frame(self):
         guide_frame = tk.LabelFrame(self.main_container, text="💡 HƯỚNG DẪN NHẬP LIỆU", font=("Arial", 10, "bold"), bg="#E3F2FD", fg="#1565C0", bd=1, relief="solid")
         guide_frame.grid(row=1, column=0, columnspan=4, pady=5, padx=10, sticky="we")
-        guide_text = ("• Hỗ trợ: sqrt(5), sin(pi/2), 2^3, log(10)\n" "• Nhập hệ số cách nhau bằng dấu phẩy\n" "• Ô trống sẽ tự động điền số 0")
+        guide_text = ("• Hỗ trợ: sqrt(5), sin(pi/2), 2^3, log(10)\n" "• Nhập hệ số cách nhau bằng dấu phẩy\n" "• Ô trống sẽ tự động điền số 0 | Nhấn '🔍 Chi tiết' để xem rank analysis")
         tk.Label(guide_frame, text=guide_text, font=("Arial", 9), bg="#E3F2FD", fg="#333333", justify="left", anchor="w").pack(padx=10, pady=8, fill="x")
 
     def _setup_input_output_frames(self):
@@ -188,6 +192,16 @@ class EquationView:
 
     def _hide_copy_button(self):
         self.btn_copy_result.grid_remove()
+
+    def _toggle_detailed_analysis(self):
+        """Toggle giữa basic và detailed solution analysis"""
+        self.show_detailed_analysis = not self.show_detailed_analysis
+        btn_text = "🔍 Bỏ chi tiết" if self.show_detailed_analysis else "🔍 Chi tiết"
+        self.btn_toggle_detail.config(text=btn_text)
+        
+        # Cập nhật hiển thị nghiệm hiện tại nếu có
+        if self.has_result and self.equation_service:
+            self._refresh_solution_display()
 
     # ========== INPUT FIELD MANAGEMENT ==========
     def _setup_input_bindings(self):
@@ -318,12 +332,36 @@ class EquationView:
                 return
             self.status_label.config(text="🔄 Đang mã hóa keylog...", fg="#FF9800", anchor="w", justify="left")
             self.window.update()
-            success, status_msg, solutions_text, final_result = self.equation_service.process_complete_workflow(equation_inputs)
-            # Luôn hiển thị nghiệm theo yêu cầu mới (nếu solve fail):
+            
+            # Xử lý với detailed analysis nếu đã bật
+            if self.show_detailed_analysis:
+                success, status_msg, solutions_text, enhanced_solutions, final_result = self.equation_service.process_complete_workflow_detailed(equation_inputs)
+                display_solution = enhanced_solutions
+            else:
+                success, status_msg, solutions_text, final_result = self.equation_service.process_complete_workflow(equation_inputs)
+                display_solution = solutions_text
+            
+            # Hiển thị nghiệm
             self.entry_nghiem.config(state='normal', justify='left')
             self.entry_nghiem.delete(0, tk.END)
-            self.entry_nghiem.insert(0, solutions_text or "Hệ vô nghiệm hoặc vô số nghiệm")
-            self.entry_nghiem.config(bg="#FFF9E6", fg="#FF6F00", state='readonly', justify='left')
+            self.entry_nghiem.insert(0, display_solution or "Chưa có kết quả")
+            
+            # Color coding dựa trên loại nghiệm
+            if "vô nghiệm" in display_solution.lower() and "vô số" not in display_solution.lower():
+                # Vô nghiệm
+                self.entry_nghiem.config(bg="#FFEBEE", fg="#C62828")
+            elif "vô số nghiệm" in display_solution.lower():
+                # Vô số nghiệm
+                self.entry_nghiem.config(bg="#FFF3E0", fg="#F57C00")
+            elif "=" in display_solution and any(var in display_solution for var in ['x', 'y', 'z', 't']):
+                # Có nghiệm
+                self.entry_nghiem.config(bg="#E8F5E8", fg="#2E7D32")
+            else:
+                # Default hoặc unknown
+                self.entry_nghiem.config(bg="#FFF9E6", fg="#FF6F00")
+            
+            self.entry_nghiem.config(state='readonly', justify='left')
+            
             # Hiển thị final keylog
             self._show_single_line_result(final_result)
             # Hiển thị encoded coefficients nếu có
@@ -333,12 +371,38 @@ class EquationView:
             self.has_result = bool(final_result and final_result.strip())
             if self.has_result:
                 self._show_copy_button()
-                self.status_label.config(text="✅ Đã sinh Keylog (bỏ qua nghiệm)", fg="#2E7D32", anchor="w", justify="left")
+                self.status_label.config(text="✅ Đã sinh Keylog (phân tích rank hoàn tất)", fg="#2E7D32", anchor="w", justify="left")
             else:
                 self.status_label.config(text=f"❌ {status_msg}", fg="#F44336", anchor="w", justify="left")
         except Exception as e:
             messagebox.showerror("Lỗi", f"Lỗi xử lý phương trình: {str(e)}")
             self.status_label.config(text="❌ Lỗi xử lý", fg="#F44336", anchor="w", justify="left")
+
+    def _refresh_solution_display(self):
+        """Cập nhật lại hiển thị nghiệm theo mode hiện tại (basic/detailed)"""
+        try:
+            if self.show_detailed_analysis:
+                display_text = self.equation_service.get_enhanced_solutions_text()
+            else:
+                display_text = self.equation_service.get_solutions_text()
+            
+            self.entry_nghiem.config(state='normal')
+            self.entry_nghiem.delete(0, tk.END)
+            self.entry_nghiem.insert(0, display_text)
+            
+            # Color coding
+            if "vô nghiệm" in display_text.lower() and "vô số" not in display_text.lower():
+                self.entry_nghiem.config(bg="#FFEBEE", fg="#C62828")
+            elif "vô số nghiệm" in display_text.lower():
+                self.entry_nghiem.config(bg="#FFF3E0", fg="#F57C00")
+            elif "=" in display_text and any(var in display_text for var in ['x', 'y', 'z', 't']):
+                self.entry_nghiem.config(bg="#E8F5E8", fg="#2E7D32")
+            else:
+                self.entry_nghiem.config(bg="#FFF9E6", fg="#FF6F00")
+                
+            self.entry_nghiem.config(state='readonly')
+        except Exception as e:
+            print(f"Lỗi refresh solution display: {e}")
 
     def _show_single_line_result(self, result_text: str):
         self.entry_tong.config(state='normal')
@@ -456,14 +520,19 @@ class EquationView:
                 return
             import pandas as pd
             input_data = [entry.get() for entry in self.input_entries]
-            solutions_text = self.entry_nghiem.get()
+            
+            # Lấy cả basic và enhanced solutions
+            basic_solutions = self.equation_service.get_solutions_text()
+            enhanced_solutions = self.equation_service.get_enhanced_solutions_text()
             final_result = self.entry_tong.get(1.0, tk.END).strip()
             encoded_coeffs = self.equation_service.get_encoded_coefficients_display()
+            
             export_data = {
                 'Variable_Count': [self.so_an_var.get()],
                 'Calculator_Version': [self.phien_ban_var.get()],
                 'Input_Equations': [' | '.join(input_data)],
-                'Solutions': [solutions_text],
+                'Basic_Solutions': [basic_solutions],
+                'Detailed_Analysis': [enhanced_solutions],
                 'Encoded_Coefficients': [' '.join(encoded_coeffs)],
                 'Final_Keylog': [final_result],
                 'Export_Time': [datetime.now().strftime('%Y-%m-%d %H:%M:%S')]
