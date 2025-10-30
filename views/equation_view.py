@@ -168,11 +168,11 @@ class EquationView:
 
         button_frame = tk.Frame(main_frame, bg="#F5F5F5")
         button_frame.pack(fill="x", pady=20)
-        self.btn_import = tk.Button(button_frame, text="📁 Import Excel", bg="#FF9800", fg="white", font=("Arial", 10, "bold"), width=14, height=1, command=self._import_excel)
+        self.btn_import = tk.Button(button_frame, text="📁 Import Excel", bg="#FF9800", fg="white", font=("Arial", 10, "bold"), width=14, height=1, command=self._on_import_excel)
         self.btn_import.pack(side="left", padx=5)
         self.btn_process_manual = tk.Button(button_frame, text="🚀 Xử lý & Giải nghiệm", bg="#4CAF50", fg="white", font=("Arial", 10, "bold"), width=18, height=1, command=self._process_equations)
         self.btn_process_manual.pack(side="left", padx=5)
-        self.btn_import_other = tk.Button(button_frame, text="📂 Import File Khác", bg="#9C27B0", fg="white", font=("Arial", 10, "bold"), width=14, height=1, command=self._import_excel)
+        self.btn_import_other = tk.Button(button_frame, text="📂 Import File Khác", bg="#9C27B0", fg="white", font=("Arial", 10, "bold"), width=14, height=1, command=self._on_import_excel)
         self.btn_quay_lai = tk.Button(button_frame, text="↩️ Quay lại", bg="#607D8B", fg="white", font=("Arial", 10, "bold"), width=14, height=1, command=self._quit_import_mode)
         self.btn_export = tk.Button(button_frame, text="💾 Xuất Excel", bg="#FF9800", fg="white", font=("Arial", 10, "bold"), width=14, height=1, command=self._export_excel)
 
