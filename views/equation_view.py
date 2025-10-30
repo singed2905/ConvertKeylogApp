@@ -301,12 +301,12 @@ class EquationView:
         self.frame_buttons_import = tk.Frame(self.main_container, bg="#F8F9FA")
         self.frame_buttons_import.grid(row=7, column=0, columnspan=4, pady=10, sticky="we")
 
-        tk.Button(self.frame_buttons_import, text="🔥 Xử lý File Excel",
-                 command=self._on_process_excel,
-                 bg="#F44336", fg="white", font=("Arial", 10, "bold")).pack(side="left", padx=5)
         tk.Button(self.frame_buttons_import, text="📁 Import File Khác",
                  command=self._on_import_excel,
                  bg="#2196F3", fg="white", font=("Arial", 10, "bold")).pack(side="left", padx=5)
+        tk.Button(self.frame_buttons_import, text="🔥 Xử lý File Excel",
+                 command=self._on_process_excel,
+                 bg="#F44336", fg="white", font=("Arial", 10, "bold")).pack(side="left", padx=5)
         tk.Button(self.frame_buttons_import, text="↩️ Quay lại",
                  command=self._quit_import_mode,
                  bg="#607D8B", fg="white", font=("Arial", 10, "bold")).pack(side="left", padx=5)
@@ -322,6 +322,47 @@ class EquationView:
         )
         self.status_label.grid(row=8, column=0, columnspan=4, pady=10, sticky="we")
 
+    # ========== BUTTON VISIBILITY MANAGEMENT ==========
+    def _update_button_visibility(self):
+        """Update button visibility based on current state"""
+        try:
+            if self.imported_data:
+                self._show_import_buttons()
+            elif self.manual_data_entered:
+                self._show_manual_buttons()
+            else:
+                self._hide_action_buttons()
+        except Exception:
+            # Fallback: ẩn cả hai frame nếu lỗi
+            try:
+                self.frame_buttons_manual.grid_remove()
+                self.frame_buttons_import.grid_remove()
+            except Exception:
+                pass
+
+    def _show_manual_buttons(self):
+        """Show buttons for manual mode"""
+        self.frame_buttons_manual.grid()
+        self.frame_buttons_import.grid_remove()
+
+    def _show_import_buttons(self):
+        """Show buttons for import mode"""
+        self.frame_buttons_import.grid()
+        self.frame_buttons_manual.grid_remove()
+
+    def _hide_action_buttons(self):
+        """Hide all action buttons"""
+        self.frame_buttons_manual.grid_remove()
+        self.frame_buttons_import.grid_remove()
+
+    def _show_copy_button(self):
+        """Show copy button when result available"""
+        self.btn_copy_result.grid()
+
+    def _hide_copy_button(self):
+        """Hide copy button"""
+        self.btn_copy_result.grid_remove()
+
     # ========== INPUT FIELD MANAGEMENT ==========
     def _setup_input_bindings(self):
         """Setup bindings for input change detection"""
@@ -333,7 +374,11 @@ class EquationView:
         """Handle manual data input changes"""
         if self.imported_data:
             messagebox.showerror("Lỗi", "Đã import Excel, không thể nhập dữ liệu thủ công!")
-            event.widget.delete(0, tk.END)
+            if event and getattr(event, 'widget', None):
+                try:
+                    event.widget.delete(0, tk.END)
+                except Exception:
+                    pass
             return
 
         has_data = self._check_manual_data()
@@ -352,7 +397,7 @@ class EquationView:
             try:
                 if entry.get().strip():
                     return True
-            except:
+            except Exception:
                 pass
         return False
 
@@ -537,7 +582,7 @@ class EquationView:
         # Try to use Flexio font
         try:
             self.entry_tong.config(font=("Flexio Fx799VN", 11, "bold"), fg="#000000", bg="#E8F5E8")
-        except:
+        except Exception:
             self.entry_tong.config(font=("Courier New", 11, "bold"), fg="#000000", bg="#E8F5E8")
         
         self.entry_tong.config(state='disabled')
