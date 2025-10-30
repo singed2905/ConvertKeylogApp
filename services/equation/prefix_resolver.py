@@ -1,7 +1,7 @@
 """Equation Prefix Resolver - Port từ TL controllers/equation_controller.py"""
 import json
 import os
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 
 class EquationPrefixResolver:
