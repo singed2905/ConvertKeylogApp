@@ -1,5 +1,5 @@
-"""Polynomial Service - Main service orchestrating polynomial solving and encoding
-Integrates solver, encoder, config management for complete workflow
+"""Polynomial Service - Enhanced service orchestrating polynomial solving and encoding
+Integrates enhanced solver with repeated roots detection, encoder, config management for complete workflow
 """
 from typing import List, Tuple, Dict, Any, Optional
 from .polynomial_solver import PolynomialSolver, PolynomialValidationError, PolynomialSolvingError
@@ -25,6 +25,8 @@ class PolynomialService:
         self.last_roots = []
         self.last_encoded_coefficients = []
         self.last_final_keylog = ""
+        self.last_roots_display = ""
+        self.last_compact_display = ""
     
     def _load_config(self):
         """Load configuration for polynomial service"""
@@ -35,11 +37,13 @@ class PolynomialService:
             solver_config = poly_config.get('solver', {})
             method = solver_config.get('method', 'numpy')
             precision = solver_config.get('precision', 6)
+            duplicate_threshold = solver_config.get('duplicate_threshold', 1e-8)
             
             self.solver.set_method(method)
             self.solver.set_precision(precision)
+            self.solver.set_duplicate_threshold(duplicate_threshold)
             
-            print(f"Polynomial config loaded: method={method}, precision={precision}")
+            print(f"Polynomial config loaded: method={method}, precision={precision}, dup_threshold={duplicate_threshold}")
             
         except Exception as e:
             print(f"Warning: Could not load polynomial config: {e}")
@@ -63,6 +67,10 @@ class PolynomialService:
     def set_precision(self, precision: int):
         """Set decimal precision for results"""
         self.solver.set_precision(precision)
+    
+    def set_duplicate_threshold(self, threshold: float):
+        """Set threshold for detecting repeated roots"""
+        self.solver.set_duplicate_threshold(threshold)
     
     # ========== INPUT VALIDATION ==========
     def validate_input(self, coefficient_inputs: List[str]) -> Tuple[bool, str]:
@@ -104,7 +112,7 @@ class PolynomialService:
             if not valid:
                 return False, validation_msg, "", ""
             
-            # Step 2: Solve polynomial
+            # Step 2: Solve polynomial with enhanced solver
             success, solve_msg, roots, roots_display = self.solver.solve_polynomial(
                 coefficient_inputs, self.degree
             )
@@ -116,6 +124,8 @@ class PolynomialService:
             coeffs, _ = self.solver.parse_coefficients(coefficient_inputs)
             self.last_coefficients_numeric = coeffs
             self.last_roots = roots
+            self.last_roots_display = roots_display
+            self.last_compact_display = self.solver.get_compact_display(roots)
             
             # Step 4: Encode coefficients and generate keylog 
             encoded_coeffs = self._encode_coefficients(coefficient_inputs)
@@ -200,6 +210,14 @@ class PolynomialService:
         """Get last computed roots"""
         return self.last_roots.copy()
     
+    def get_last_roots_display(self) -> str:
+        """Get last roots display with repeated root analysis"""
+        return self.last_roots_display
+    
+    def get_last_compact_display(self) -> str:
+        """Get compact one-line display for UI constraints"""
+        return self.last_compact_display
+    
     def get_last_encoded_coefficients(self) -> List[str]:
         """Get last encoded coefficients for display"""
         return self.last_encoded_coefficients.copy()
@@ -211,6 +229,12 @@ class PolynomialService:
     def get_real_roots_only(self) -> List[float]:
         """Get only real roots from last solution"""
         return self.solver.get_real_roots_only(self.last_roots)
+    
+    def get_root_multiplicities(self) -> Dict[str, int]:
+        """Get multiplicity information for last computed roots"""
+        if not self.last_roots:
+            return {}
+        return self.solver.get_root_multiplicities(self.last_roots)
     
     def get_polynomial_info(self) -> Dict[str, Any]:
         """Get detailed polynomial information including prefix info"""
@@ -224,8 +248,19 @@ class PolynomialService:
             "version": self.version,
             "solver_method": self.solver.method,
             "solver_precision": self.solver.precision,
+            "duplicate_threshold": self.solver.duplicate_threshold,
             "has_results": bool(self.last_roots)
         })
+        
+        # Add repeated roots analysis
+        if self.last_roots:
+            multiplicities = self.get_root_multiplicities()
+            has_repeated = any(mult > 1 for mult in multiplicities.values())
+            base_info.update({
+                "has_repeated_roots": has_repeated,
+                "root_multiplicities": multiplicities,
+                "compact_display": self.last_compact_display
+            })
         
         # Add prefix info
         try:
@@ -248,6 +283,8 @@ class PolynomialService:
         self.last_roots = []
         self.last_encoded_coefficients = []
         self.last_final_keylog = ""
+        self.last_roots_display = ""
+        self.last_compact_display = ""
     
     def get_expected_coefficient_count(self) -> int:
         """Get expected number of coefficients for current degree"""
@@ -281,6 +318,34 @@ class PolynomialService:
         except Exception as e:
             return f"Preview error: {str(e)}"
     
+    def get_enhanced_roots_analysis(self) -> Dict[str, Any]:
+        """Get detailed analysis of roots including repeated root detection"""
+        if not self.last_roots:
+            return {"has_results": False}
+        
+        multiplicities = self.get_root_multiplicities()
+        real_roots = self.get_real_roots_only()
+        
+        analysis = {
+            "has_results": True,
+            "total_roots": len(self.last_roots),
+            "real_roots_count": len(real_roots),
+            "complex_roots_count": len(self.last_roots) - len(real_roots),
+            "has_repeated_roots": any(mult > 1 for mult in multiplicities.values()),
+            "root_multiplicities": multiplicities,
+            "compact_display": self.last_compact_display,
+            "full_display": self.last_roots_display
+        }
+        
+        # Add discriminant info for degree 2
+        if self.degree == 2 and self.last_coefficients_numeric:
+            poly_info = self.solver.get_polynomial_info(self.last_coefficients_numeric, 2)
+            if 'discriminant' in poly_info:
+                analysis['discriminant'] = poly_info['discriminant']
+                analysis['discriminant_analysis'] = poly_info.get('root_type', 'unknown')
+        
+        return analysis
+    
     # ========== ERROR HANDLING ==========
     def get_last_error(self) -> Optional[str]:
         """Get last error message if any"""
@@ -298,58 +363,3 @@ class PolynomialServiceError(Exception):
     """Custom exception for polynomial service errors"""
     pass
 
-
-# ========== TESTING ==========
-if __name__ == "__main__":
-    # Test service with mock config
-    config = {
-        'polynomial': {
-            'solver': {
-                'method': 'numpy',
-                'precision': 4
-            }
-        }
-    }
-    
-    service = PolynomialService(config)
-    
-    # Test quadratic polynomial
-    print("=== TEST POLYNOMIAL SERVICE WITH PREFIX RESOLVER ===")
-    service.set_degree(2)
-    service.set_version("fx799")
-    
-    # Test input: x² - 5x + 6 = 0
-    success, msg, roots_display, keylog = service.process_complete_workflow(["1", "-5", "6"])
-    
-    print(f"Success: {success}")
-    print(f"Message: {msg}")
-    print(f"Roots Display:\n{roots_display}")
-    print(f"Final Keylog: {keylog}")
-    print(f"Encoded Coefficients: {service.get_last_encoded_coefficients()}")
-    print(f"Polynomial Info: {service.get_polynomial_info()}")
-    
-    # Test keylog preview
-    print(f"\nKeylog Preview: {service.get_keylog_preview(['1', '-sqrt(25)', '6'])}")
-    
-    # Test different versions
-    print("\n=== TEST DIFFERENT VERSIONS ===")
-    for version in ["fx799", "fx991", "fx570"]:
-        service.set_version(version)
-        success, _, _, keylog = service.process_complete_workflow(["1", "-3", "2"])
-        print(f"{version}: {keylog}")
-    
-    # Test different degrees
-    print("\n=== TEST DIFFERENT DEGREES ===")
-    service.set_version("fx799")
-    
-    # Degree 3
-    service.set_degree(3)
-    success, _, _, keylog = service.process_complete_workflow(["1", "-6", "11", "-6"])
-    print(f"Degree 3: {keylog}")
-    
-    # Degree 4  
-    service.set_degree(4)
-    success, _, _, keylog = service.process_complete_workflow(["1", "0", "-5", "0", "4"])
-    print(f"Degree 4: {keylog}")
-    
-    print("\n=== SERVICE TEST COMPLETED ===")
