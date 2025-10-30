@@ -1,15 +1,17 @@
-"""Polynomial Solver - Core engine for solving polynomial equations of degree 2, 3, 4
-Supports both numerical (NumPy) and analytical methods with expression parsing
+"""Polynomial Solver - Enhanced engine for solving polynomial equations of degree 2, 3, 4
+Supports both numerical (NumPy) and analytical methods with expression parsing and repeated roots detection
 """
 import math
 import numpy as np
-from typing import List, Tuple, Union, Optional
+from typing import List, Tuple, Union, Optional, Dict
 import cmath
+from collections import Counter
 
 class PolynomialSolver:
     def __init__(self):
         self.precision = 6  # Decimal places for display
         self.zero_threshold = 1e-12  # Consider as zero
+        self.duplicate_threshold = 1e-8  # Consider as duplicate/repeated root
         self.method = "numpy"  # "numpy" or "analytical"
         
     def set_method(self, method: str):
@@ -22,6 +24,10 @@ class PolynomialSolver:
     def set_precision(self, precision: int):
         """Set decimal precision for results"""
         self.precision = max(1, min(15, precision))
+    
+    def set_duplicate_threshold(self, threshold: float):
+        """Set threshold for detecting repeated roots"""
+        self.duplicate_threshold = max(1e-15, threshold)
     
     # ========== EXPRESSION PARSING ==========
     def parse_expression(self, expr: str) -> float:
@@ -81,6 +87,52 @@ class PolynomialSolver:
             print(f"Error parsing coefficients: {e}")
             return [0.0] * len(raw_coeffs), False
     
+    # ========== REPEATED ROOTS DETECTION ==========
+    def _group_repeated_roots(self, roots: List[complex]) -> List[Tuple[complex, int]]:
+        """Group roots by value and return (root, multiplicity) pairs"""
+        if not roots:
+            return []
+        
+        # Group roots that are very close to each other
+        grouped = []
+        remaining = roots.copy()
+        
+        while remaining:
+            current = remaining.pop(0)
+            multiplicity = 1
+            
+            # Find all roots close to current
+            i = 0
+            while i < len(remaining):
+                if abs(remaining[i] - current) < self.duplicate_threshold:
+                    multiplicity += 1
+                    remaining.pop(i)
+                else:
+                    i += 1
+            
+            grouped.append((current, multiplicity))
+        
+        # Sort by real part, then by imaginary part
+        grouped.sort(key=lambda x: (x[0].real, x[0].imag))
+        return grouped
+    
+    def _detect_discriminant_case(self, coeffs: List[float], degree: int) -> Optional[str]:
+        """Detect special cases based on discriminant analysis"""
+        if degree == 2:
+            a, b, c = coeffs[0], coeffs[1], coeffs[2]
+            discriminant = b*b - 4*a*c
+            
+            if abs(discriminant) < self.zero_threshold:
+                return "repeated_root"  # Perfect square
+            elif discriminant > 0:
+                return "two_distinct_real"
+            else:
+                return "complex_conjugate"
+        
+        # For higher degrees, discriminant is more complex
+        # Can be implemented later if needed
+        return None
+    
     # ========== VALIDATION ==========
     def validate_polynomial(self, coeffs: List[float], degree: int) -> Tuple[bool, str]:
         """Validate polynomial coefficients"""
@@ -100,7 +152,7 @@ class PolynomialSolver:
     # ========== MAIN SOLVING INTERFACE ==========
     def solve_polynomial(self, raw_coeffs: List[str], degree: int) -> Tuple[bool, str, List[complex], str]:
         """
-        Main interface to solve polynomial
+        Main interface to solve polynomial with repeated roots detection
         Returns: (success, status_msg, roots, formatted_display)
         """
         try:
@@ -120,8 +172,8 @@ class PolynomialSolver:
             else:  # numpy method (default)
                 roots = self._solve_numpy(coeffs)
             
-            # Format display
-            display = self._format_roots_display(roots, degree)
+            # Format display with repeated roots handling
+            display = self._format_roots_display_enhanced(roots, coeffs, degree)
             
             return True, "Success", roots, display
             
@@ -170,14 +222,18 @@ class PolynomialSolver:
         
         discriminant = b*b - 4*a*c
         
-        if discriminant >= 0:
-            # Real roots
+        if abs(discriminant) < self.zero_threshold:
+            # Repeated root (perfect square)
+            root = -b / (2*a)
+            return [complex(root, 0), complex(root, 0)]  # Return twice for multiplicity
+        elif discriminant > 0:
+            # Two distinct real roots
             sqrt_d = math.sqrt(discriminant)
             root1 = (-b + sqrt_d) / (2*a)
             root2 = (-b - sqrt_d) / (2*a)
             return [complex(root1, 0), complex(root2, 0)]
         else:
-            # Complex roots  
+            # Complex conjugate roots  
             sqrt_d = math.sqrt(-discriminant)
             real_part = -b / (2*a)
             imag_part = sqrt_d / (2*a)
@@ -202,13 +258,13 @@ class PolynomialSolver:
             t1 = m * math.cos(theta)
             t2 = m * math.cos(theta - 2*math.pi/3)
             t3 = m * math.cos(theta - 4*math.pi/3)
-        elif discriminant == 0:
-            # Multiple roots
+        elif abs(discriminant) < self.zero_threshold:
+            # Multiple roots case
             if abs(p) < self.zero_threshold:  # p = 0
-                t1 = t2 = t3 = 0
+                t1 = t2 = t3 = 0  # Triple root at origin
             else:
                 t1 = 3*q/p
-                t2 = t3 = -3*q/(2*p)
+                t2 = t3 = -3*q/(2*p)  # Double root
         else:
             # One real root, two complex conjugates
             sqrt_disc = math.sqrt(-discriminant/108)
@@ -235,32 +291,108 @@ class PolynomialSolver:
         # TODO: Implement analytical quartic solver if needed for precision
         return self._solve_numpy(coeffs)
     
-    # ========== OUTPUT FORMATTING ==========
-    def _format_roots_display(self, roots: List[complex], degree: int) -> str:
-        """Format roots for display in UI"""
+    # ========== ENHANCED OUTPUT FORMATTING ==========
+    def _format_roots_display_enhanced(self, roots: List[complex], coeffs: List[float], degree: int) -> str:
+        """Enhanced formatting with repeated roots detection"""
         if not roots:
             return "Không tìm thấy nghiệm"
         
         lines = []
         lines.append(f"Phương trình bậc {degree} có {len(roots)} nghiệm:")
-        lines.append("=" * 50)
+        lines.append("=" * 60)
         
-        for i, root in enumerate(roots, 1):
+        # Group repeated roots
+        grouped_roots = self._group_repeated_roots(roots)
+        
+        # Detect special polynomial cases
+        poly_case = self._detect_polynomial_case(coeffs, degree, grouped_roots)
+        if poly_case:
+            lines.append(f"🔍 Phân tích: {poly_case}")
+            lines.append("-" * 60)
+        
+        # Display roots with multiplicity
+        for i, (root, multiplicity) in enumerate(grouped_roots, 1):
             formatted_root = self._format_single_root(root)
-            lines.append(f"x_{i} = {formatted_root}")
+            
+            if multiplicity == 1:
+                lines.append(f"x_{i} = {formatted_root}")
+            else:
+                lines.append(f"x_{i} = {formatted_root} (nghiệm kép bội {multiplicity})")
         
-        lines.append("=" * 50)
+        lines.append("=" * 60)
         
-        # Statistics
-        real_count = sum(1 for r in roots if abs(r.imag) < self.zero_threshold)
-        complex_count = len(roots) - real_count
+        # Statistics with multiplicity info
+        real_count = sum(mult for root, mult in grouped_roots if abs(root.imag) < self.zero_threshold)
+        complex_pairs = sum(mult for root, mult in grouped_roots if abs(root.imag) >= self.zero_threshold)
+        repeated_count = sum(1 for root, mult in grouped_roots if mult > 1)
         
-        if complex_count > 0:
-            lines.append(f"Thống kê: {real_count} nghiệm thực, {complex_count} nghiệm phức")
-        else:
-            lines.append(f"Tất cả {real_count} nghiệm đều là số thực")
+        stats_parts = []
+        if real_count > 0:
+            stats_parts.append(f"{real_count} nghiệm thực")
+        if complex_pairs > 0:
+            stats_parts.append(f"{complex_pairs} nghiệm phức")
+        if repeated_count > 0:
+            stats_parts.append(f"{repeated_count} nghiệm kép")
+        
+        if stats_parts:
+            lines.append(f"Thống kê: {', '.join(stats_parts)}")
         
         return "\n".join(lines)
+    
+    def _format_roots_display(self, roots: List[complex], degree: int) -> str:
+        """Original format method for backward compatibility"""
+        return self._format_roots_display_enhanced(roots, [], degree)
+    
+    def _group_repeated_roots(self, roots: List[complex]) -> List[Tuple[complex, int]]:
+        """Group roots by value and return (root, multiplicity) pairs"""
+        if not roots:
+            return []
+        
+        # Group roots that are very close to each other
+        grouped = []
+        remaining = roots.copy()
+        
+        while remaining:
+            current = remaining.pop(0)
+            multiplicity = 1
+            
+            # Find all roots close to current
+            i = 0
+            while i < len(remaining):
+                if abs(remaining[i] - current) < self.duplicate_threshold:
+                    multiplicity += 1
+                    remaining.pop(i)
+                else:
+                    i += 1
+            
+            grouped.append((current, multiplicity))
+        
+        # Sort by real part, then by imaginary part
+        grouped.sort(key=lambda x: (x[0].real, x[0].imag))
+        return grouped
+    
+    def _detect_polynomial_case(self, coeffs: List[float], degree: int, grouped_roots: List[Tuple[complex, int]]) -> Optional[str]:
+        """Detect and describe special polynomial cases"""
+        if degree == 2 and len(coeffs) >= 3:
+            a, b, c = coeffs[0], coeffs[1], coeffs[2]
+            discriminant = b*b - 4*a*c
+            
+            if abs(discriminant) < self.zero_threshold:
+                root_val = self._format_single_root(grouped_roots[0][0])
+                return f"Tam thức phương chính (discriminant = 0), nghiệm kép tại x = {root_val}"
+            elif discriminant > 0:
+                return f"Tam thức có 2 nghiệm thực phân biệt (discriminant = {discriminant:.3f})"
+            else:
+                return f"Tam thức có 2 nghiệm phức liên hợp (discriminant = {discriminant:.3f})"
+        
+        # Check for repeated roots in any degree
+        has_repeated = any(mult > 1 for root, mult in grouped_roots)
+        if has_repeated:
+            repeated_info = [f"{self._format_single_root(root)} (bội {mult})" 
+                           for root, mult in grouped_roots if mult > 1]
+            return f"Phương trình có nghiệm kép: {', '.join(repeated_info)}"
+        
+        return None
     
     def _format_single_root(self, root: complex) -> str:
         """Format a single complex number as root"""
@@ -279,14 +411,14 @@ class PolynomialSolver:
         real_str = f"{real:.{self.precision}f}" if abs(real) > self.zero_threshold else "0"
         
         if abs(imag - round(imag)) < self.zero_threshold:
-            imag_str = str(int(round(imag)))
+            imag_str = str(int(round(abs(imag))))
         else:
-            imag_str = f"{imag:.{self.precision}f}"
+            imag_str = f"{abs(imag):.{self.precision}f}"
         
         if imag > 0:
             return f"{real_str} + {imag_str}i"
         else:
-            return f"{real_str} - {abs(imag):.{self.precision}f}i"
+            return f"{real_str} - {imag_str}i"
     
     # ========== UTILITY METHODS ==========
     def get_real_roots_only(self, roots: List[complex]) -> List[float]:
@@ -296,6 +428,17 @@ class PolynomialSolver:
             if abs(root.imag) < self.zero_threshold:
                 real_roots.append(root.real)
         return real_roots
+    
+    def get_root_multiplicities(self, roots: List[complex]) -> Dict[str, int]:
+        """Get multiplicity information for roots"""
+        grouped = self._group_repeated_roots(roots)
+        result = {}
+        
+        for root, mult in grouped:
+            root_str = self._format_single_root(root)
+            result[root_str] = mult
+        
+        return result
     
     def get_polynomial_info(self, coeffs: List[float], degree: int) -> dict:
         """Get additional polynomial information"""
@@ -311,14 +454,31 @@ class PolynomialSolver:
             a, b, c = coeffs[0], coeffs[1], coeffs[2]
             discriminant = b*b - 4*a*c
             info["discriminant"] = discriminant
-            if discriminant > 0:
-                info["root_type"] = "two_distinct_real"
-            elif discriminant == 0:
+            if abs(discriminant) < self.zero_threshold:
                 info["root_type"] = "one_repeated_real" 
+            elif discriminant > 0:
+                info["root_type"] = "two_distinct_real"
             else:
                 info["root_type"] = "two_complex_conjugate"
         
         return info
+    
+    def get_compact_display(self, roots: List[complex]) -> str:
+        """Get compact one-line display for UI constraints"""
+        if not roots:
+            return "Không có nghiệm"
+        
+        grouped = self._group_repeated_roots(roots)
+        parts = []
+        
+        for root, mult in grouped:
+            root_str = self._format_single_root(root)
+            if mult == 1:
+                parts.append(root_str)
+            else:
+                parts.append(f"{root_str} (kép ×{mult})")
+        
+        return "; ".join(parts)
 
 
 class PolynomialValidationError(Exception):
@@ -335,22 +495,31 @@ class PolynomialSolvingError(Exception):
 if __name__ == "__main__":
     solver = PolynomialSolver()
     
-    # Test quadratic: x² - 5x + 6 = 0 (roots: 2, 3)
-    print("=== TEST QUADRATIC ===")
-    success, msg, roots, display = solver.solve_polynomial(["1", "-5", "6"], 2)
+    # Test quadratic with repeated root: x² - 4x + 4 = 0 (root: 2, 2)
+    print("=== TEST REPEATED ROOT ===")
+    success, msg, roots, display = solver.solve_polynomial(["1", "-4", "4"], 2)
     print(f"Success: {success}")
     print(f"Message: {msg}")  
     print(f"Display:\n{display}")
+    print(f"Compact: {solver.get_compact_display(roots)}")
+    
+    # Test quadratic: x² - 5x + 6 = 0 (roots: 2, 3)
+    print("\n=== TEST DISTINCT ROOTS ===")
+    success, msg, roots, display = solver.solve_polynomial(["1", "-5", "6"], 2)
+    print(f"Success: {success}")
+    print(f"Display:\n{display}")
+    print(f"Compact: {solver.get_compact_display(roots)}")
+    
+    # Test cubic with repeated root: (x-1)²(x-3) = x³-5x²+7x-3
+    print("\n=== TEST CUBIC WITH REPEATED ===") 
+    success, msg, roots, display = solver.solve_polynomial(["1", "-5", "7", "-3"], 3)
+    print(f"Success: {success}")
+    print(f"Display:\n{display}")
+    print(f"Compact: {solver.get_compact_display(roots)}")
     
     # Test with expressions: x² - sqrt(4)x + sin(pi/2) = 0
     print("\n=== TEST WITH EXPRESSIONS ===")
     success, msg, roots, display = solver.solve_polynomial(["1", "-sqrt(4)", "sin(pi/2)"], 2)
-    print(f"Success: {success}")
-    print(f"Display:\n{display}")
-    
-    # Test cubic: x³ - 6x² + 11x - 6 = 0 (roots: 1, 2, 3)
-    print("\n=== TEST CUBIC ===")
-    success, msg, roots, display = solver.solve_polynomial(["1", "-6", "11", "-6"], 3)
     print(f"Success: {success}")
     print(f"Display:\n{display}")
     
