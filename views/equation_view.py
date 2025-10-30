@@ -228,7 +228,7 @@ class EquationView:
             "• Ô trống sẽ tự động điền số 0"
         )
         tk.Label(guide_frame, text=guide_text, font=("Arial", 9), 
-                bg="#E3F2FD", fg="#333333", justify="left").pack(padx=10, pady=8)
+                bg="#E3F2FD", fg="#333333", justify="left", anchor="w").pack(padx=10, pady=8, fill="x")
 
     def _setup_input_output_frames(self):
         """Setup input and output frames"""
@@ -317,9 +317,9 @@ class EquationView:
         # Status label
         self.status_label = tk.Label(
             self.main_container, text="🟢 Sẵn sàng nhập liệu và giải hệ phương trình", 
-            font=("Arial", 10, "bold"), bg="#F8F9FA", fg="#2E7D32"
+            font=("Arial", 10, "bold"), bg="#F8F9FA", fg="#2E7D32", anchor="w", justify="left"
         )
-        self.status_label.grid(row=8, column=0, columnspan=4, pady=10)
+        self.status_label.grid(row=8, column=0, columnspan=4, pady=10, sticky="we")
 
     # ========== INPUT FIELD MANAGEMENT ==========
     def _setup_input_bindings(self):
@@ -512,8 +512,8 @@ class EquationView:
                 messagebox.showwarning("Dữ liệu không hợp lệ", validation_msg)
                 return
 
-            # Update status
-            self.status_label.config(text="🔄 Đang xử lý hệ phương trình...", fg="#FF9800")
+            # Update status (left align)
+            self.status_label.config(text="🔄 Đang xử lý hệ phương trình...", fg="#FF9800", anchor="w", justify="left")
             self.window.update()
 
             # Process
@@ -524,11 +524,11 @@ class EquationView:
                 encoded_coeffs = self.equation_service.get_encoded_coefficients_display()
                 self._display_encoded_coefficients(encoded_coeffs)
 
-                # Display solutions
-                self.entry_nghiem.config(state='normal')
+                # Display solutions (left aligned)
+                self.entry_nghiem.config(state='normal', justify='left')
                 self.entry_nghiem.delete(0, tk.END)
                 self.entry_nghiem.insert(0, solutions_text)
-                self.entry_nghiem.config(bg="#E8F5E8", fg="#2E7D32", state='readonly')
+                self.entry_nghiem.config(bg="#E8F5E8", fg="#2E7D32", state='readonly', justify='left')
 
                 # Display final result with special font
                 self._show_single_line_result(final_result)
@@ -536,16 +536,16 @@ class EquationView:
                 # Update state
                 self.has_result = True
                 self._show_copy_button()
-                self.status_label.config(text="✅ Giải hệ phương trình thành công!", fg="#2E7D32")
+                self.status_label.config(text="✅ Giải hệ phương trình thành công!", fg="#2E7D32", anchor="w", justify="left")
                 self._update_button_visibility()
 
             else:
                 messagebox.showerror("Lỗi Xử lý", status_msg)
-                self.status_label.config(text=f"❌ {status_msg}", fg="#F44336")
+                self.status_label.config(text=f"❌ {status_msg}", fg="#F44336", anchor="w", justify="left")
 
         except Exception as e:
             messagebox.showerror("Lỗi", f"Lỗi xử lý phương trình: {str(e)}")
-            self.status_label.config(text="❌ Lỗi xử lý", fg="#F44336")
+            self.status_label.config(text="❌ Lỗi xử lý", fg="#F44336", anchor="w", justify="left")
 
     def _show_single_line_result(self, result_text: str):
         """Display single line result with Flexio font"""
@@ -624,9 +624,9 @@ class EquationView:
             self._show_import_buttons()
             self._hide_copy_button()
             
-            # Update status
+            # Update status (left align)
             self.excel_status_label.config(text=f"Excel: 📁 {self.imported_file_name[:15]}...")
-            self.status_label.config(text=f"📁 Đã import: {self.imported_file_name}", fg="#2E7D32")
+            self.status_label.config(text=f"📁 Đã import: {self.imported_file_name}", fg="#2E7D32", anchor="w", justify="left")
             
         except Exception as e:
             messagebox.showerror("Lỗi Import", f"Lỗi import Excel: {str(e)}")
@@ -676,7 +676,7 @@ class EquationView:
                             f"📁 Kết quả: {os.path.basename(result_file)}\n\n"
                             f"File đã lưu tại:\n{result_file}")
                         
-                        self.status_label.config(text="✅ Xử lý Excel hoàn tất!", fg="#2E7D32")
+                        self.status_label.config(text="✅ Xử lý Excel hoàn tất!", fg="#2E7D32", anchor="w", justify="left")
                 
                 except Exception as e:
                     if not self.processing_cancelled:
@@ -700,7 +700,7 @@ class EquationView:
         progress_window.grab_set()
         progress_window.transient(self.window)
         
-        tk.Label(progress_window, text=title, font=("Arial", 12, "bold")).pack(pady=20)
+        tk.Label(progress_window, text=title, font=("Arial", 12, "bold"), anchor="w", justify="left").pack(pady=20, fill="x")
         
         progress_bar = ttk.Progressbar(
             progress_window, mode='indeterminate', length=300
@@ -804,7 +804,7 @@ class EquationView:
             
             # Update status
             self.excel_status_label.config(text="📊 Excel: ✅ Ready")
-            self.status_label.config(text="🟢 Đã quay lại chế độ thủ công", fg="#2E7D32")
+            self.status_label.config(text="🟢 Đã quay lại chế độ thủ công", fg="#2E7D32", anchor="w", justify="left")
 
     # ========== UTILITY METHODS ==========
     def _clear_and_lock_inputs(self):
@@ -834,10 +834,10 @@ class EquationView:
             entry.config(state='readonly', bg="#F3E5F5")
         
         # Reset solution entry
-        self.entry_nghiem.config(state='normal')
+        self.entry_nghiem.config(state='normal', justify='left')
         self.entry_nghiem.delete(0, tk.END)
         self.entry_nghiem.insert(0, "Chưa có kết quả nghiệm")
-        self.entry_nghiem.config(bg="#FFF9E6", fg="#FF6F00", state='readonly')
+        self.entry_nghiem.config(bg="#FFF9E6", fg="#FF6F00", state='readonly', justify='left')
         
         # Reset final result
         self.entry_tong.config(state='normal')
