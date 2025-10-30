@@ -12,7 +12,7 @@ from services.equation.equation_service import EquationService
 class EquationView:
     def __init__(self, window, config=None):
         self.window = window
-        self.window.title("Equation Mode v2.1 - Optimized UI! 💪")
+        self.window.title("Equation Mode v2.1 - Fixed 3-4 Variables! 🔧")
         self.window.geometry("900x1000")
         self.window.configure(bg="#F8F9FA")
 
@@ -115,7 +115,7 @@ class EquationView:
         logo_frame.pack(side="top", fill="x")
         tk.Label(logo_frame, text="🧠", font=("Arial", 20), 
                  bg=HEADER_COLORS["primary"], fg=HEADER_COLORS["text"]).pack(side="left")
-        tk.Label(logo_frame, text="Equation v2.1 - Optimized! 💪", font=("Arial", 16, "bold"), 
+        tk.Label(logo_frame, text="Equation v2.2 - Fixed 3-4 Variables! 🔧", font=("Arial", 16, "bold"), 
                  bg=HEADER_COLORS["primary"], fg=HEADER_COLORS["text"]).pack(side="left", padx=(5, 20))
 
         # Variables & Version selectors
@@ -272,7 +272,7 @@ class EquationView:
         # Initial status
         service_status = "Service Ready" if self.equation_service else "Service Failed"
         config_info = "Config loaded" if self.config else "Fallback config"
-        self.entry_tong.insert(tk.END, f"Equation Mode v2.1 - {service_status} | {config_info}")
+        self.entry_tong.insert(tk.END, f"Equation Mode v2.2 - {service_status} | {config_info}")
         self.entry_tong.config(bg="#F1F8E9")
 
     def _setup_control_buttons(self):
@@ -425,7 +425,7 @@ class EquationView:
                 row_frame.pack(fill="x", padx=15, pady=6)
                 
                 tk.Label(row_frame, text=label_text, font=("Arial", 9), 
-                        bg="#FFFFFF", fg="#333333", width=35).pack(side="left")
+                        bg="#FFFFFF", fg="#333333", width=50).pack(side="left")
                 
                 entry = tk.Entry(row_frame, width=45, font=("Arial", 9))
                 entry.pack(side="left", padx=5, fill="x", expand=True)
@@ -477,13 +477,17 @@ class EquationView:
                     self.result_entries.append(entry)
 
     def _get_input_labels(self, so_an):
-        """Get input labels for equations"""
+        """Get input labels for equations - FIXED VERSION!"""
         config = {
             2: ["Phương trình 1 (a₁₁, a₁₂, c₁):", "Phương trình 2 (a₂₁, a₂₂, c₂):"],
-            3: ["Phương trình 1 (a₁₁, a₁₂, a₁₃, c₁):", "Phương trình 2 (a₂₁, a₂₂, a₂₃, c₂):", 
+            3: ["Phương trình 1 (a₁₁, a₁₂, a₁₃, c₁):", 
+                "Phương trình 2 (a₂₁, a₂₂, a₂₃, c₂):", 
                 "Phương trình 3 (a₃₁, a₃₂, a₃₃, c₃):"],
-            4: ["Phương trình 1 (a₁₁, a₁₂, a₁₃, a₁₄, c₁):", "Phương trình 2 (a₂₁, a₂₂, a₂₃, a₂₄, c₂):", 
-                "Phương trình 3 (a₃₁, a₃₂, a₃₃, c₃):", "Phương trình 4 (a₄₁, a₄₂, a₄₃, a₄₄, c₄):"]
+            # 🔧 FIXED: Hệ 4 ẩn cần đầy đủ 4×5=20 hệ số!
+            4: ["Phương trình 1 (a₁₁, a₁₂, a₁₃, a₁₄, c₁):", 
+                "Phương trình 2 (a₂₁, a₂₂, a₂₃, a₂₄, c₂):", 
+                "Phương trình 3 (a₃₁, a₃₂, a₃₃, a₃₄, c₃):",  # ← FIXED: Thêm a₃₄
+                "Phương trình 4 (a₄₁, a₄₂, a₄₃, a₄₄, c₄):"]
         }
         return config.get(so_an, config[2])
 
@@ -503,9 +507,11 @@ class EquationView:
             self._hide_copy_button()
             self._update_button_visibility()
             # Update status
+            so_an = self.so_an_var.get()
+            expected_coeffs = int(so_an) * (int(so_an) + 1)
             self.status_label.config(
-                text=f"Đã chọn hệ {self.so_an_var.get()} phương trình {self.so_an_var.get()} ẩn",
-                anchor='w', justify='left'
+                text=f"Đã chọn hệ {so_an} phương trình {so_an} ẩn (cần {expected_coeffs} hệ số)",
+                anchor='w', justify='left', fg='#2E7D32'
             )
         except Exception as e:
             messagebox.showerror("Lỗi", f"Không thể đổi số ẩn: {e}")
@@ -560,7 +566,8 @@ class EquationView:
                 # Update state
                 self.has_result = True
                 self._show_copy_button()
-                self.status_label.config(text="✅ Giải hệ phương trình thành công!", fg="#2E7D32", anchor="w", justify="left")
+                so_an = self.so_an_var.get()
+                self.status_label.config(text=f"✅ Giải hệ {so_an}×{so_an} thành công!", fg="#2E7D32", anchor="w", justify="left")
                 self._update_button_visibility()
 
             else:
@@ -783,7 +790,7 @@ class EquationView:
             self.entry_nghiem.config(state='normal'); self.entry_nghiem.delete(0, tk.END); self.entry_nghiem.insert(0, "Chưa có kết quả nghiệm"); self.entry_nghiem.config(bg="#FFF9E6", fg="#FF6F00", state='readonly')
             self.entry_tong.config(state='normal'); self.entry_tong.delete(1.0, tk.END)
             service_status = "Service Ready" if self.equation_service else "Service Failed"; config_info = "Config loaded" if self.config else "Fallback config"
-            self.entry_tong.insert(tk.END, f"Equation Mode v2.1 - {service_status} | {config_info}"); self.entry_tong.config(bg="#F1F8E9", font=("Courier New", 9), state='disabled')
+            self.entry_tong.insert(tk.END, f"Equation Mode v2.2 - {service_status} | {config_info}"); self.entry_tong.config(bg="#F1F8E9", font=("Courier New", 9), state='disabled')
             self.btn_copy_result.grid_remove(); self._update_button_visibility()
             self.status_label.config(text="🟢 Đã quay lại chế độ thủ công", fg="#2E7D32")
 
