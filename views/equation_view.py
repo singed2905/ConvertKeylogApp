@@ -446,7 +446,36 @@ class EquationView:
         """Get result count for variables"""
         return {2: 6, 3: 12, 4: 20}.get(so_an, 6)
 
-    # ========== PROCESSING METHODS ==========
+    # ========== EVENT HANDLERS ==========
+    def _on_so_an_changed(self, *args):
+        """Handle variables count change (combobox/optionmenu callback)"""
+        try:
+            self._update_input_fields()
+            if self.equation_service:
+                self.equation_service.set_variables_count(int(self.so_an_var.get()))
+            # Reset state when variables change
+            self.has_result = False
+            self._hide_copy_button()
+            self._update_button_visibility()
+            # Update status
+            self.status_label.config(
+                text=f"Đã chọn hệ {self.so_an_var.get()} phương trình {self.so_an_var.get()} ẩn",
+                anchor='w', justify='left'
+            )
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Không thể đổi số ẩn: {e}")
+
+    def _on_phien_ban_changed(self, *args):
+        """Handle version change"""
+        try:
+            selected_version = self.phien_ban_var.get()
+            if self.equation_service:
+                self.equation_service.set_version(selected_version)
+            self.status_label.config(text=f"Đã chọn phiên bản: {selected_version}")
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Không thể đổi phiên bản: {e}")
+
+    # ========== PROCESSING ==========
     def _process_equations(self):
         """Process equations - main calculation method"""
         try:
