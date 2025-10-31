@@ -10,7 +10,7 @@ class PolynomialEquationView:
     def __init__(self, window, config=None):
         self.window = window
         self.window.title("Polynomial Equation Mode v2.1 - Fully Functional! 💪")
-        self.window.geometry("900x1000")
+        self.window.geometry("900x1200")
         self.window.configure(bg="#F0F8FF")
         
         # Make window resizable

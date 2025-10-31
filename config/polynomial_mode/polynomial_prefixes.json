@@ -13,7 +13,7 @@
   },
   "versions": {
     "fx799": {
-      "base_prefix": "P",
+      "base_prefix": "w",
       "description": "Casio fx-799VN standard polynomial mode",
       "polynomial": {
         "2": "P2=",
