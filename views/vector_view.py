@@ -1,15 +1,16 @@
 # Vector View - Giao diện Vector Mode cho ConvertKeylogApp
+# Tích hợp với VectorService hoàn chỉnh và fixed values system
 # Hỗ trợ 2 kiểu tính: Số thực với Vector và Vector với Vector
-# Tương thích với kiến trúc hiện tại của Geometry Mode
 
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import json
 import os
 from datetime import datetime
+from services.vector import VectorService, VectorServiceError, VectorValidationError
 
 class VectorView:
-    """Giao diện Vector Mode - Tính toán vector và sinh keylog"""
+    """Giao diện Vector Mode với VectorService integration"""
     
     def __init__(self, parent):
         self.parent = parent
@@ -25,12 +26,19 @@ class VectorView:
         self.version_var = tk.StringVar(value="fx799")
         
         # Data storage
-        self.scalar_value = ""
-        self.vector_A = ""
-        self.vector_B = ""
         self.current_result = ""
+        self.has_result = False
         
-        # Operation mappings
+        # Initialize VectorService
+        try:
+            self.vector_service = VectorService()
+            self.service_status = "Service Ready"
+        except Exception as e:
+            self.vector_service = None
+            self.service_status = f"Service Error: {str(e)}"
+            print(f"Warning: Could not initialize VectorService: {e}")
+        
+        # Operation mappings (updated with VectorService operations)
         self.operations_map = {
             "scalar_vector": {
                 "Nhân scalar": "multiply",
@@ -60,6 +68,9 @@ class VectorView:
         # Header
         self.create_header(main_frame)
         
+        # Service Status
+        self.create_service_status(main_frame)
+        
         # Control Panel
         self.create_control_panel(main_frame)
         
@@ -84,7 +95,7 @@ class VectorView:
         header_frame.pack(fill=tk.X, pady=(0, 10))
         
         # Title
-        title_label = ttk.Label(header_frame, text="🧮 Vector Calculator & Keylog Generator", 
+        title_label = ttk.Label(header_frame, text="🔢 Vector Calculator & Keylog Generator", 
                                font=("Arial", 14, "bold"))
         title_label.pack()
         
@@ -93,6 +104,20 @@ class VectorView:
                               text="Hỗ trợ tính toán vector 2D/3D với số thực hoặc vector khác, tự động sinh keylog TL",
                               font=("Arial", 9))
         desc_label.pack(pady=(5, 0))
+        
+    def create_service_status(self, parent):
+        """Hiển thị trạng thái VectorService"""
+        status_frame = ttk.Frame(parent)
+        status_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        status_color = "green" if self.vector_service else "red"
+        status_text = f"📊 Service Status: {self.service_status}"
+        if self.vector_service:
+            service_info = self.vector_service.get_service_info()
+            status_text += f" | Fixed Values: {'Loaded' if service_info['fixed_values_loaded'] else 'Default'}"
+        
+        ttk.Label(status_frame, text=status_text, foreground=status_color, 
+                 font=("Arial", 9, "italic")).pack()
         
     def create_control_panel(self, parent):
         """Tạo panel điều khiển chính"""
@@ -123,6 +148,7 @@ class VectorView:
         version_combo = ttk.Combobox(row1_frame, textvariable=self.version_var,
                                     values=["fx799", "fx991", "fx570"], state="readonly", width=10)
         version_combo.pack(side=tk.LEFT, padx=(5, 0))
+        version_combo.bind("<<ComboboxSelected>>", self.on_version_changed)
         
         # Row 2: Operation
         row2_frame = ttk.Frame(control_frame)
@@ -189,12 +215,12 @@ class VectorView:
                                        wrap=tk.WORD, state=tk.DISABLED)
         self.calc_result_text.pack(fill=tk.X, pady=(5, 0))
         
-        # Encoded Values
+        # Encoded Values with Fixed Values Info
         encoded_frame = ttk.Frame(results_frame)
         encoded_frame.pack(fill=tk.X, pady=(0, 10))
         
-        ttk.Label(encoded_frame, text="Giá trị đã mã hóa:", font=("Arial", 10, "bold")).pack(anchor=tk.W)
-        self.encoded_text = tk.Text(encoded_frame, height=3, width=80, font=("Consolas", 10),
+        ttk.Label(encoded_frame, text="Giá trị mã hóa + Fixed Values:", font=("Arial", 10, "bold")).pack(anchor=tk.W)
+        self.encoded_text = tk.Text(encoded_frame, height=4, width=80, font=("Consolas", 10),
                                    wrap=tk.WORD, state=tk.DISABLED)
         self.encoded_text.pack(fill=tk.X, pady=(5, 0))
         
@@ -261,7 +287,8 @@ class VectorView:
         
     def create_status_bar(self):
         """Tạo thanh trạng thái"""
-        self.status_bar = ttk.Label(self.root, text="Sẵn sàng", relief=tk.SUNKEN, padding="5")
+        self.status_bar = ttk.Label(self.root, text="Sẵn sàng - Vector Mode v1.0 with VectorService", 
+                                   relief=tk.SUNKEN, padding="5")
         self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
         
     # ========== EVENT HANDLERS ==========
@@ -278,6 +305,7 @@ class VectorView:
             self.vector_b_frame.pack(fill=tk.X)
             
         self.update_operation_dropdown()
+        self.update_service_config()
         self.update_status("Đã chuyển sang kiểu: " + ("Số thực với Vector" if calc_type == "scalar_vector" else "Vector với Vector"))
         
     def on_dimension_changed(self, event=None):
@@ -293,7 +321,14 @@ class VectorView:
             
         # Update operation list (cross product only available in 3D)
         self.update_operation_dropdown()
+        self.update_service_config()
         self.update_status(f"Đã chuyển sang {dimension}D")
+        
+    def on_version_changed(self, event=None):
+        """Xử lý khi thay đổi phiên bản"""
+        self.update_service_config()
+        version = self.version_var.get()
+        self.update_status(f"Đã chọn phiên bản: {version}")
         
     def update_operation_dropdown(self):
         """Cập nhật dropdown phép toán"""
@@ -310,35 +345,81 @@ class VectorView:
         if operations:
             self.operation_var.set(operations[0])
     
+    def update_service_config(self):
+        """Cập nhật cấu hình VectorService"""
+        if not self.vector_service:
+            return
+            
+        try:
+            calc_type = self.calc_type_var.get()
+            dimension = int(self.dimension_var.get())
+            version = self.version_var.get()
+            
+            self.vector_service.set_calculation_type(calc_type)
+            self.vector_service.set_dimension(dimension)
+            self.vector_service.set_version(version)
+            
+        except Exception as e:
+            print(f"Error updating service config: {e}")
+    
     # ========== MAIN PROCESSING ==========
     
     def process_calculation(self):
-        """Xử lý tính toán chính"""
+        """Xử lý tính toán chính với VectorService"""
         try:
+            if not self.vector_service:
+                messagebox.showerror("Lỗi", "VectorService không sẵn sàng!")
+                return
+                
             # Validate inputs
             if not self.validate_inputs():
                 return
                 
-            # Get inputs
+            # Update service config
+            self.update_service_config()
+            
+            # Set operation
+            operation_name = self.operation_var.get()
+            operation_code = self.operations_map[self.calc_type_var.get()][operation_name]
+            self.vector_service.set_operation(operation_code)
+            
+            # Process inputs
             calc_type = self.calc_type_var.get()
-            operation = self.operation_var.get()
-            dimension = int(self.dimension_var.get())
             
-            # Process calculation
             if calc_type == "scalar_vector":
-                result = self.calculate_scalar_vector(operation, dimension)
-            else:
-                result = self.calculate_vector_vector(operation, dimension)
+                scalar_input = self.scalar_entry.get().strip()
+                if not self.vector_service.process_scalar_input(scalar_input):
+                    messagebox.showerror("Lỗi", "Không thể xử lý scalar input")
+                    return
+                    
+            vector_a_input = self.vector_a_entry.get().strip()
+            if not self.vector_service.process_vector_A(vector_a_input):
+                messagebox.showerror("Lỗi", "Không thể xử lý Vector A")
+                return
                 
-            # Display results
-            self.display_results(result)
+            if calc_type == "vector_vector":
+                vector_b_input = self.vector_b_entry.get().strip()
+                if not self.vector_service.process_vector_B(vector_b_input):
+                    messagebox.showerror("Lỗi", "Không thể xử lý Vector B")
+                    return
             
-            # Enable buttons
-            self.copy_button.config(state=tk.NORMAL)
-            self.export_button.config(state=tk.NORMAL)
+            # Process complete workflow
+            success, message, result = self.vector_service.process_complete_workflow()
             
-            self.update_status("Tính toán thành công!")
-            
+            if success:
+                # Display results
+                self.display_results(result)
+                
+                # Enable buttons
+                self.copy_button.config(state=tk.NORMAL)
+                self.export_button.config(state=tk.DISABLED)  # Will enable after Excel integration
+                
+                self.has_result = True
+                self.update_status("Tính toán thành công!")
+            else:
+                messagebox.showerror("Lỗi", f"Lỗi tính toán: {message}")
+                self.update_status("Lỗi tính toán")
+                
         except Exception as e:
             messagebox.showerror("Lỗi", f"Lỗi tính toán: {str(e)}")
             self.update_status("Lỗi tính toán")
@@ -368,212 +449,27 @@ class VectorView:
             return False
             
         return True
-    
-    def calculate_scalar_vector(self, operation, dimension):
-        """Tính toán scalar với vector"""
-        scalar_str = self.scalar_entry.get().strip()
-        vector_str = self.vector_a_entry.get().strip()
-        
-        # Parse inputs
-        scalar = self.parse_scalar(scalar_str)
-        vector = self.parse_vector(vector_str, dimension)
-        
-        # Calculate based on operation
-        op_code = self.operations_map["scalar_vector"][operation]
-        
-        if op_code == "multiply":
-            result_vector = [scalar * v for v in vector]
-            calc_result = f"{scalar} × {self.format_vector(vector)} = {self.format_vector(result_vector)}"
-        elif op_code == "divide":
-            if scalar == 0:
-                raise ValueError("Không thể chia cho 0")
-            result_vector = [v / scalar for v in vector]
-            calc_result = f"{self.format_vector(vector)} ÷ {scalar} = {self.format_vector(result_vector)}"
-        elif op_code == "add":
-            result_vector = [v + scalar for v in vector]
-            calc_result = f"{self.format_vector(vector)} + {scalar} = {self.format_vector(result_vector)}"
-        elif op_code == "subtract":
-            result_vector = [v - scalar for v in vector]
-            calc_result = f"{self.format_vector(vector)} - {scalar} = {self.format_vector(result_vector)}"
-        else:
-            raise ValueError(f"Phép toán không hỗ trợ: {operation}")
-            
-        # Generate encoded values and keylog
-        encoded_scalar = self.encode_value(scalar_str)
-        encoded_vector = [self.encode_value(str(v)) for v in vector]
-        keylog = self.generate_keylog_scalar_vector(encoded_scalar, encoded_vector, op_code)
-        
-        return {
-            'calculation': calc_result,
-            'encoded_scalar': encoded_scalar,
-            'encoded_vector': encoded_vector,
-            'keylog': keylog,
-            'result_vector': result_vector
-        }
-    
-    def calculate_vector_vector(self, operation, dimension):
-        """Tính toán vector với vector"""
-        vector_a_str = self.vector_a_entry.get().strip()
-        vector_b_str = self.vector_b_entry.get().strip()
-        
-        # Parse inputs
-        vector_a = self.parse_vector(vector_a_str, dimension)
-        vector_b = self.parse_vector(vector_b_str, dimension)
-        
-        # Calculate based on operation
-        op_code = self.operations_map["vector_vector"][operation]
-        
-        if op_code == "dot_product":
-            result = sum(a * b for a, b in zip(vector_a, vector_b))
-            calc_result = f"{self.format_vector(vector_a)} • {self.format_vector(vector_b)} = {result}"
-        elif op_code == "cross_product":
-            if dimension != 3:
-                raise ValueError("Tích có hướng chỉ áp dụng cho vector 3D")
-            result = self.cross_product_3d(vector_a, vector_b)
-            calc_result = f"{self.format_vector(vector_a)} × {self.format_vector(vector_b)} = {self.format_vector(result)}"
-        elif op_code == "add":
-            result = [a + b for a, b in zip(vector_a, vector_b)]
-            calc_result = f"{self.format_vector(vector_a)} + {self.format_vector(vector_b)} = {self.format_vector(result)}"
-        elif op_code == "subtract":
-            result = [a - b for a, b in zip(vector_a, vector_b)]
-            calc_result = f"{self.format_vector(vector_a)} - {self.format_vector(vector_b)} = {self.format_vector(result)}"
-        elif op_code == "angle":
-            import math
-            dot = sum(a * b for a, b in zip(vector_a, vector_b))
-            mag_a = math.sqrt(sum(a * a for a in vector_a))
-            mag_b = math.sqrt(sum(b * b for b in vector_b))
-            cos_theta = dot / (mag_a * mag_b)
-            cos_theta = max(-1, min(1, cos_theta))  # Clamp to [-1, 1]
-            angle_rad = math.acos(cos_theta)
-            angle_deg = math.degrees(angle_rad)
-            result = angle_deg
-            calc_result = f"Góc giữa {self.format_vector(vector_a)} và {self.format_vector(vector_b)} = {angle_deg:.2f}°"
-        elif op_code == "distance":
-            import math
-            diff = [a - b for a, b in zip(vector_a, vector_b)]
-            result = math.sqrt(sum(d * d for d in diff))
-            calc_result = f"Khoảng cách giữa {self.format_vector(vector_a)} và {self.format_vector(vector_b)} = {result:.4f}"
-        else:
-            raise ValueError(f"Phép toán không hỗ trợ: {operation}")
-            
-        # Generate encoded values and keylog
-        encoded_vector_a = [self.encode_value(str(v)) for v in vector_a]
-        encoded_vector_b = [self.encode_value(str(v)) for v in vector_b]
-        keylog = self.generate_keylog_vector_vector(encoded_vector_a, encoded_vector_b, op_code)
-        
-        return {
-            'calculation': calc_result,
-            'encoded_vector_a': encoded_vector_a,
-            'encoded_vector_b': encoded_vector_b,
-            'keylog': keylog,
-            'result': result
-        }
-    
-    # ========== UTILITY FUNCTIONS ==========
-    
-    def parse_scalar(self, scalar_str):
-        """Parse scalar từ string"""
-        try:
-            # Handle basic math expressions
-            import math
-            scalar_str = scalar_str.replace('sqrt', 'math.sqrt').replace('pi', 'math.pi').replace('^', '**')
-            allowed = {"__builtins__": {}, "math": math}
-            return float(eval(scalar_str, allowed))
-        except:
-            return float(scalar_str)
-            
-    def parse_vector(self, vector_str, expected_dim):
-        """Parse vector từ string"""
-        components = [comp.strip() for comp in vector_str.split(',')]
-        if len(components) != expected_dim:
-            raise ValueError(f"Vector cần có {expected_dim} thành phần, nhận được {len(components)}")
-            
-        result = []
-        for comp in components:
-            try:
-                # Handle basic math expressions
-                import math  
-                comp = comp.replace('sqrt', 'math.sqrt').replace('pi', 'math.pi').replace('^', '**')
-                allowed = {"__builtins__": {}, "math": math}
-                result.append(float(eval(comp, allowed)))
-            except:
-                result.append(float(comp))
-                
-        return result
-        
-    def cross_product_3d(self, a, b):
-        """Tính tích có hướng cho vector 3D"""
-        return [
-            a[1] * b[2] - a[2] * b[1],
-            a[2] * b[0] - a[0] * b[2], 
-            a[0] * b[1] - a[1] * b[0]
-        ]
-        
-    def format_vector(self, vector):
-        """Format vector để hiển thị"""
-        formatted = [f"{v:.3f}".rstrip('0').rstrip('.') for v in vector]
-        return f"({', '.join(formatted)})"
-        
-    def encode_value(self, value_str):
-        """Mã hóa giá trị theo quy tắc TL (đơn giản hóa)"""
-        # Thay thế một số ký hiệu cơ bản
-        encoded = value_str.replace('-', 'p').replace('sqrt', 's').replace('pi', 'π')
-        return encoded
-        
-    def generate_keylog_scalar_vector(self, encoded_scalar, encoded_vector, op_code):
-        """Sinh keylog cho scalar-vector"""
-        version = self.version_var.get()
-        prefix = "wv" if version == "fx799" else "wv"  # Có thể customize theo version
-        
-        vector_part = "=".join(encoded_vector)
-        operation_codes = {
-            "multiply": "qV1",
-            "divide": "qV2",
-            "add": "qV3", 
-            "subtract": "qV4"
-        }
-        
-        op_code_str = operation_codes.get(op_code, "qV1")
-        return f"{prefix}{encoded_scalar}={vector_part}=C{op_code_str}="
-        
-    def generate_keylog_vector_vector(self, encoded_vector_a, encoded_vector_b, op_code):
-        """Sinh keylog cho vector-vector"""
-        version = self.version_var.get()
-        prefix = "wv" if version == "fx799" else "wv"
-        
-        vector_a_part = "=".join(encoded_vector_a)
-        vector_b_part = "=".join(encoded_vector_b)
-        
-        operation_codes = {
-            "dot_product": "qV5",
-            "cross_product": "qV6",
-            "add": "qV7",
-            "subtract": "qV8",
-            "angle": "qV9",
-            "distance": "qV10"
-        }
-        
-        op_code_str = operation_codes.get(op_code, "qV5")
-        return f"{prefix}{vector_a_part}=C{vector_b_part}=C{op_code_str}="
         
     def display_results(self, result):
-        """Hiển thị kết quả"""
+        """Hiển thị kết quả từ VectorService"""
         # Clear previous results
         self.calc_result_text.config(state=tk.NORMAL)
         self.calc_result_text.delete(1.0, tk.END)
-        self.calc_result_text.insert(tk.END, result['calculation'])
+        self.calc_result_text.insert(tk.END, result['calculation_display'])
         self.calc_result_text.config(state=tk.DISABLED)
         
-        # Encoded values
+        # Encoded values with fixed values info
         encoded_text = ""
-        if 'encoded_scalar' in result:
-            encoded_text += f"Scalar: {result['encoded_scalar']}\n"
-        if 'encoded_vector' in result:
-            encoded_text += f"Vector A: {' = '.join(result['encoded_vector'])}\n"
-        if 'encoded_vector_a' in result:
-            encoded_text += f"Vector A: {' = '.join(result['encoded_vector_a'])}\n"
-        if 'encoded_vector_b' in result:
-            encoded_text += f"Vector B: {' = '.join(result['encoded_vector_b'])}\n"
+        if result['encoded_scalar']:
+            encoded_text += f"Scalar encoded: {result['encoded_scalar']}\n"
+        if result['encoded_vector_A']:
+            encoded_text += f"Vector A encoded: {' = '.join(result['encoded_vector_A'])}\n"
+        if result['encoded_vector_B']:
+            encoded_text += f"Vector B encoded: {' = '.join(result['encoded_vector_B'])}\n"
+        
+        # Fixed value info
+        fixed_value_info = result['fixed_value']
+        encoded_text += f"Fixed value: {fixed_value_info['fixed_value']} ({fixed_value_info['description']})\n"
             
         self.encoded_text.config(state=tk.NORMAL)
         self.encoded_text.delete(1.0, tk.END)
@@ -581,7 +477,7 @@ class VectorView:
         self.encoded_text.config(state=tk.DISABLED)
         
         # Final keylog
-        self.current_result = result['keylog']
+        self.current_result = result['final_keylog']
         self.keylog_text.config(state=tk.NORMAL)
         self.keylog_text.delete(1.0, tk.END)
         self.keylog_text.insert(tk.END, self.current_result)
@@ -617,84 +513,32 @@ class VectorView:
         self.keylog_text.delete(1.0, tk.END)
         self.keylog_text.config(state=tk.DISABLED)
         
+        # Reset service state
+        if self.vector_service:
+            self.vector_service.reset_state()
+        
         self.current_result = ""
+        self.has_result = False
         self.copy_button.config(state=tk.DISABLED)
         self.export_button.config(state=tk.DISABLED)
         
         self.update_status("Đã xóa tất cả dữ liệu")
         
     def export_single_result(self):
-        """Xuất kết quả hiện tại ra Excel"""
-        if not self.current_result:
-            messagebox.showwarning("Cảnh báo", "Chưa có kết quả để xuất")
-            return
-            
-        try:
-            file_path = filedialog.asksaveasfilename(
-                defaultextension=".xlsx",
-                filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
-                title="Lưu kết quả Vector"
-            )
-            
-            if file_path:
-                # Create simple Excel export (placeholder)
-                data = {
-                    "Thời gian": [datetime.now().strftime("%Y-%m-%d %H:%M:%S")],
-                    "Kiểu tính": [self.calc_type_var.get()],
-                    "Kích thước": [self.dimension_var.get()],
-                    "Phép toán": [self.operation_var.get()],
-                    "Keylog": [self.current_result]
-                }
-                
-                # Would use pandas DataFrame here in real implementation
-                messagebox.showinfo("Thành công", f"Đã xuất kết quả ra: {file_path}")
-                self.update_status("Đã xuất Excel thành công")
-                
-        except Exception as e:
-            messagebox.showerror("Lỗi", f"Lỗi xuất Excel: {str(e)}")
-            
+        """Xuất kết quả hiện tại ra Excel (placeholder)"""
+        messagebox.showinfo("Thông báo", "Chức năng Export Excel sẽ được bổ sung khi VectorExcelProcessor hoàn thành")
+        
     def create_template(self):
-        """Tạo template Excel"""
-        try:
-            file_path = filedialog.asksaveasfilename(
-                defaultextension=".xlsx",
-                filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
-                title="Tạo Template Vector"
-            )
-            
-            if file_path:
-                # Create template (placeholder)
-                messagebox.showinfo("Thành công", f"Đã tạo template: {file_path}")
-                self.update_status("Đã tạo template Excel")
-                
-        except Exception as e:
-            messagebox.showerror("Lỗi", f"Lỗi tạo template: {str(e)}")
+        """Tạo template Excel (placeholder)"""
+        messagebox.showinfo("Thông báo", "Chức năng tạo Template sẽ được bổ sung")
             
     def import_excel(self):
-        """Import file Excel"""
-        try:
-            file_path = filedialog.askopenfilename(
-                filetypes=[("Excel files", "*.xlsx *.xls"), ("All files", "*.*")],
-                title="Chọn file Excel Vector"
-            )
-            
-            if file_path:
-                self.file_label.config(text=f"File: {os.path.basename(file_path)}", foreground="blue")
-                self.process_excel_button.config(state=tk.NORMAL)
-                self.update_status(f"Đã import file: {os.path.basename(file_path)}")
-                
-        except Exception as e:
-            messagebox.showerror("Lỗi", f"Lỗi import Excel: {str(e)}")
+        """Import file Excel (placeholder)"""
+        messagebox.showinfo("Thông báo", "Chức năng Import Excel sẽ được bổ sung")
             
     def process_excel_file(self):
-        """Xử lý file Excel batch"""
-        try:
-            # Placeholder for Excel batch processing
-            messagebox.showinfo("Thông báo", "Chức năng xử lý Excel batch đang được phát triển")
-            self.update_status("Excel batch processing - Coming soon")
-            
-        except Exception as e:
-            messagebox.showerror("Lỗi", f"Lỗi xử lý Excel: {str(e)}")
+        """Xử lý file Excel batch (placeholder)"""
+        messagebox.showinfo("Thông báo", "Chức năng xử lý Excel batch sẽ được bổ sung")
             
     def update_status(self, message):
         """Cập nhật thanh trạng thái"""
