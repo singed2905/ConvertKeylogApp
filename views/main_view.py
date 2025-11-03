@@ -13,7 +13,7 @@ class MainView:
         self.modes = self._load_modes()
         self.mode_var = tk.StringVar(value=self.modes[0] if self.modes else "Không có mode")
 
-        # Active windows tracking
+        # Active windows tracking - Store (window, view) pairs
         self.active_windows = {}
 
         self._setup_ui()
@@ -123,12 +123,13 @@ class MainView:
         # Prevent multiple instances of same mode
         if selected in self.active_windows:
             try:
-                # Bring existing window to front
-                self.active_windows[selected].root.lift()
-                self.active_windows[selected].root.focus_force()
+                # Bring existing window to front using correct tuple structure
+                window, view = self.active_windows[selected]
+                window.lift()
+                window.focus_force()
                 return
-            except tk.TclError:
-                # Window was closed, remove from tracking
+            except (tk.TclError, ValueError):
+                # Window was closed or invalid, remove from tracking
                 del self.active_windows[selected]
 
         if selected == "Geometry Mode":
@@ -153,8 +154,8 @@ class MainView:
             geometry_window = tk.Toplevel(self.root)
             view = GeometryView(geometry_window, config=geometry_config)
             
-            # Track window
-            self.active_windows["Geometry Mode"] = view
+            # Track window and view as tuple
+            self.active_windows["Geometry Mode"] = (geometry_window, view)
             geometry_window.protocol("WM_DELETE_WINDOW", 
                                     lambda: self.on_mode_window_close("Geometry Mode"))
             
@@ -170,8 +171,8 @@ class MainView:
             equation_window = tk.Toplevel(self.root)
             view = EquationView(equation_window, config=equation_config)
             
-            # Track window
-            self.active_windows["Equation Mode"] = view
+            # Track window and view as tuple
+            self.active_windows["Equation Mode"] = (equation_window, view)
             equation_window.protocol("WM_DELETE_WINDOW",
                                    lambda: self.on_mode_window_close("Equation Mode"))
             
@@ -187,8 +188,8 @@ class MainView:
             polynomial_window = tk.Toplevel(self.root)
             view = PolynomialEquationView(polynomial_window, config=polynomial_config)
             
-            # Track window
-            self.active_windows["Polynomial Equation Mode"] = view
+            # Track window and view as tuple
+            self.active_windows["Polynomial Equation Mode"] = (polynomial_window, view)
             polynomial_window.protocol("WM_DELETE_WINDOW",
                                       lambda: self.on_mode_window_close("Polynomial Equation Mode"))
             
@@ -198,10 +199,10 @@ class MainView:
     def _open_vector_mode(self):
         try:
             from views.vector_view import VectorView
-            view = VectorView(self.root)
+            view = VectorView(self.root)  # VectorView creates its own Toplevel
             
-            # Track window
-            self.active_windows["Vector Mode"] = view
+            # Track VectorView's root window and view as tuple
+            self.active_windows["Vector Mode"] = (view.root, view)
             view.root.protocol("WM_DELETE_WINDOW",
                               lambda: self.on_mode_window_close("Vector Mode"))
             
@@ -209,10 +210,14 @@ class MainView:
             messagebox.showerror("Lỗi", f"Không thể mở Vector Mode:\n{str(e)}")
 
     def on_mode_window_close(self, mode_name: str):
-        """Handle mode window closing"""
+        """Handle mode window closing with proper tuple handling"""
         try:
             if mode_name in self.active_windows:
-                self.active_windows[mode_name].root.destroy()
+                window, view = self.active_windows[mode_name]
+                try:
+                    window.destroy()
+                except Exception:
+                    pass  # Window might be already destroyed
                 del self.active_windows[mode_name]
         except Exception as e:
             print(f"Error closing {mode_name} window: {e}")
@@ -227,14 +232,15 @@ class MainView:
         self.root.mainloop()
 
     def on_closing(self):
-        """Handle application closing with cleanup"""
+        """Handle application closing with proper cleanup"""
         try:
-            # Close all active mode windows
-            for mode_name, window in list(self.active_windows.items()):
+            # Close all active mode windows using tuple structure
+            for mode_name, pair in list(self.active_windows.items()):
                 try:
-                    window.root.destroy()
-                except:
-                    pass
+                    window, view = pair
+                    window.destroy()
+                except Exception:
+                    pass  # Ignore cleanup errors
             
             # Close main window
             self.root.destroy()
