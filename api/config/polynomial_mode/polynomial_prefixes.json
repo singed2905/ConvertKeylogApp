@@ -1,0 +1,80 @@
+{
+  "metadata": {
+    "version": "2.1",
+    "description": "Polynomial keylog prefixes and suffixes for various calculator versions",
+    "last_updated": "2025-10-30",
+    "supported_degrees": [2, 3, 4],
+    "supported_versions": ["fx799", "fx991", "fx570", "fx580", "fx115"]
+  },
+  "global_defaults": {
+    "2": "w922",
+    "3": "w923",
+    "4": "w924"
+  },
+  "versions": {
+    "fx799": {
+      "base_prefix": "w",
+      "description": "Casio fx-799VN standard polynomial mode",
+      "polynomial": {
+        "2": "w922",
+        "3": "w923",
+        "4": "w924"
+      },
+      "suffix_patterns": {
+        "2": "== ",
+        "3": "== = ",
+        "4": "== = = "
+      },
+      "examples": {
+        "2": "w9221=-5=6==",
+        "3": "w9231=-6=11=-6===",
+        "4": "w9241=0=-5=0=4===="
+      },
+      "notes": "Vietnamese fx-799 calculator standard format"
+    },
+    "fx880": {
+      "base_prefix": "EQN",
+      "description": "Casio fx-991 equation solver mode",
+      "polynomial": {
+        "2": "EQN2=",
+        "3": "EQN3=",
+        "4": "EQN4="
+      },
+      "suffix_patterns": {
+        "2": "=0",
+        "3": "==0",
+        "4": "===0"
+      },
+      "examples": {
+        "2": "EQN2=1=-5=6=0",
+        "3": "EQN3=1=-6=11=-6==0",
+        "4": "EQN4=1=0=-5=0=4===0"
+      },
+      "notes": "fx-880 uses equation solver notation"
+    }
+
+  },
+  "formatting_rules": {
+    "coefficient_separator": "=",
+    "decimal_precision": 6,
+    "zero_representation": "0",
+    "negative_format": "-{value}",
+    "expression_encoding": {
+      "sqrt": "√",
+      "pi": "π",
+      "power": "^",
+      "log": "log",
+      "ln": "ln",
+      "sin": "sin",
+      "cos": "cos",
+      "tan": "tan"
+    }
+  },
+  "validation_rules": {
+    "leading_coefficient_nonzero": true,
+    "max_coefficient_length": 20,
+    "supported_degrees": [2, 3, 4],
+    "allow_empty_coefficients": false,
+    "auto_fill_zeros": true
+  }
+}

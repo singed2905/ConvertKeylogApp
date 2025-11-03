@@ -1,0 +1,15 @@
+{
+  "polynomial_excel": {
+    "input_sheet": "Input",
+    "required_columns": {
+      "2": ["a", "b", "c"],
+      "3": ["a", "b", "c", "d"],
+      "4": ["a", "b", "c", "d", "e"]
+    },
+    "optional_columns": ["version", "method", "precision"],
+    "method_values": ["numpy", "analytical"],
+    "versions": ["fx799", "fx991", "fx570", "fx580", "fx115"],
+    "notes": "Columns are case-insensitive; will be normalized to lowercase. Missing required columns will stop processing.",
+    "last_updated": "2025-11-03"
+  }
+}

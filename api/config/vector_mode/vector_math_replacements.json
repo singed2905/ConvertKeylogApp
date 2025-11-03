@@ -1,0 +1,150 @@
+{
+  "math_function_replacements": {
+    "operators": {
+      "^": {
+        "python_equivalent": "**",
+        "description": "Power operator for evaluation",
+        "encoding": "^",
+        "category": "arithmetic"
+      },
+      "*": {
+        "python_equivalent": "*",
+        "description": "Multiplication operator",
+        "encoding": "O",
+        "category": "arithmetic"
+      },
+      "/": {
+        "python_equivalent": "/", 
+        "description": "Division operator",
+        "encoding": "P",
+        "category": "arithmetic"
+      },
+      "+": {
+        "python_equivalent": "+",
+        "description": "Addition operator",
+        "encoding": "+",
+        "category": "arithmetic"
+      },
+      "-": {
+        "python_equivalent": "-",
+        "description": "Subtraction operator",
+        "encoding": "p",
+        "category": "arithmetic"
+      }
+    },
+    "functions": {
+      "sqrt": {
+        "python_equivalent": "math.sqrt",
+        "description": "Square root function",
+        "encoding": "s",
+        "category": "algebraic"
+      },
+      "sin": {
+        "python_equivalent": "math.sin",
+        "description": "Sine trigonometric function",
+        "encoding": "j",
+        "category": "trigonometric"
+      },
+      "cos": {
+        "python_equivalent": "math.cos",
+        "description": "Cosine trigonometric function", 
+        "encoding": "k",
+        "category": "trigonometric"
+      },
+      "tan": {
+        "python_equivalent": "math.tan",
+        "description": "Tangent trigonometric function",
+        "encoding": "l", 
+        "category": "trigonometric"
+      },
+      "ln": {
+        "python_equivalent": "math.log",
+        "description": "Natural logarithm function",
+        "encoding": "h",
+        "category": "logarithmic"
+      },
+      "log": {
+        "python_equivalent": "math.log10",
+        "description": "Base-10 logarithm function",
+        "encoding": "log",
+        "category": "logarithmic"
+      },
+      "abs": {
+        "python_equivalent": "abs",
+        "description": "Absolute value function",
+        "encoding": "abs",
+        "category": "algebraic"
+      },
+      "exp": {
+        "python_equivalent": "math.exp",
+        "description": "Exponential function (e^x)",
+        "encoding": "exp",
+        "category": "exponential"
+      }
+    },
+    "constants": {
+      "pi": {
+        "python_equivalent": "math.pi",
+        "description": "Pi mathematical constant",
+        "encoding": "π",
+        "value": 3.141592653589793
+      },
+      "e": {
+        "python_equivalent": "math.e", 
+        "description": "Euler's number mathematical constant",
+        "encoding": "e",
+        "value": 2.718281828459045
+      }
+    }
+  },
+  "vector_specific_operations": {
+    "dot_product_symbol": {
+      "input": ["•", ".", "*"],
+      "encoding": "DOT",
+      "description": "Dot product operation symbol"
+    },
+    "cross_product_symbol": {
+      "input": ["×", "x", "cross"],
+      "encoding": "CROSS",
+      "description": "Cross product operation symbol"
+    },
+    "magnitude_symbol": {
+      "input": ["|", "mag", "length"],
+      "encoding": "MAG",
+      "description": "Vector magnitude/length"
+    }
+  },
+  "special_replacements": {
+    "negative_numbers": {
+      "pattern": "^-|\\s-",
+      "replacement": "p",
+      "description": "Negative sign at start or after space"
+    },
+    "decimal_point": {
+      "pattern": "\\.",
+      "replacement": ".",
+      "description": "Decimal point preserved"
+    },
+    "parentheses": {
+      "open": "(",
+      "close": ")",
+      "encoding_open": "(",
+      "encoding_close": ")",
+      "description": "Parentheses for grouping"
+    }
+  },
+  "validation_rules": {
+    "max_vector_components": 4,
+    "min_vector_components": 2,
+    "supported_dimensions": [2, 3],
+    "max_component_length": 15,
+    "allow_expressions_in_components": true,
+    "require_numeric_evaluation": true
+  },
+  "metadata": {
+    "version": "1.0",
+    "description": "Mathematical expression replacements for vector calculations and keylog encoding",
+    "last_updated": "2025-11-03",
+    "compatible_with": ["ConvertKeylogApp v2.2", "TL encoding system"]
+  }
+}

@@ -1,0 +1,105 @@
+{
+  "math_expression_mappings": [
+    {
+      "find": "\\\\sqrt\\{([^{}]+)\\}",
+      "replace": "s$1)",
+      "type": "regex",
+      "description": "Square root \\sqrt{x} → s(x)"
+    },
+    {
+      "find": "sqrt\\(([^)]+)\\)",
+      "replace": "s$1)",
+      "type": "regex", 
+      "description": "Square root sqrt(x) → s(x)"
+    },
+    {
+      "find": "\\-",
+      "replace": "p",
+      "type": "regex",
+      "description": "Negative sign → p"
+    },
+    {
+      "find": "\\*",
+      "replace": "O",
+      "type": "regex",
+      "description": "Multiplication * → O"
+    },
+    {
+      "find": "\\/", 
+      "replace": "P",
+      "type": "regex",
+      "description": "Division / → P"
+    },
+    {
+      "find": "\\\\pi",
+      "replace": "π",
+      "type": "regex",
+      "description": "Pi symbol \\pi → π"
+    },
+    {
+      "find": "pi",
+      "replace": "π", 
+      "type": "string",
+      "description": "Pi constant pi → π"
+    },
+    {
+      "find": "\\\\sin\\(",
+      "replace": "j(",
+      "type": "regex",
+      "description": "Sine function \\sin( → j("
+    },
+    {
+      "find": "sin\\(",
+      "replace": "j(",
+      "type": "regex",
+      "description": "Sine function sin( → j("
+    },
+    {
+      "find": "\\\\cos\\(",
+      "replace": "k(",
+      "type": "regex", 
+      "description": "Cosine function \\cos( → k("
+    },
+    {
+      "find": "cos\\(",
+      "replace": "k(",
+      "type": "regex",
+      "description": "Cosine function cos( → k("
+    },
+    {
+      "find": "\\\\tan\\(",
+      "replace": "l(",
+      "type": "regex",
+      "description": "Tangent function \\tan( → l("
+    },
+    {
+      "find": "tan\\(",
+      "replace": "l(",
+      "type": "regex",
+      "description": "Tangent function tan( → l("
+    },
+    {
+      "find": "\\\\ln\\(",
+      "replace": "h(",
+      "type": "regex",
+      "description": "Natural log \\ln( → h("
+    },
+    {
+      "find": "ln\\(",
+      "replace": "h(",
+      "type": "regex",
+      "description": "Natural log ln( → h("
+    },
+    {
+      "find": "\\^",
+      "replace": "^",
+      "type": "regex",
+      "description": "Power operator ^ preserved"
+    }
+  ],
+  "metadata": {
+    "version": "1.0",
+    "description": "Vector expression mappings for calculator keylog encoding",
+    "last_updated": "2025-11-03"
+  }
+}

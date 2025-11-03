@@ -1,0 +1,11 @@
+{
+  "versions": [
+    "fx799",
+    "fx880",
+    "fx801",
+    "fx802",
+    "fx803"
+  ],
+  "default_version": "fx799",
+  "description": "Danh sách các phiên bản máy tính được hỗ trợ"
+}

@@ -1,0 +1,85 @@
+{
+  "modes": {
+    "equation": {
+      "name": "Equation Mode",
+      "version": "2.2",
+      "description": "Giải hệ phương trình tuyến tính 2×2, 3×3, 4×4",
+      "icon": "🧠",
+      "status": "production",
+      "features": [
+        "Hệ phương trình 2-4 ẩn",
+        "NumPy solver với rank analysis", 
+        "TL-compatible encoding",
+        "Excel batch processing",
+        "Multi-version support (fx799-fx803)"
+      ],
+      "view_class": "EquationView",
+      "service_class": "EquationService",
+      "config_path": "config/equation_mode/",
+      "enabled": true
+    },
+    "polynomial": {
+      "name": "Polynomial Mode", 
+      "version": "2.1",
+      "description": "Giải phương trình đa thức bậc 2, 3, 4",
+      "icon": "📈",
+      "status": "production",
+      "features": [
+        "Polynomial bậc 2-4",
+        "Complex roots handling",
+        "Multi-version keylog (fx799/fx991/fx570/fx580/fx115)",
+        "Repeated roots detection",
+        "Excel template system"
+      ],
+      "view_class": "PolynomialEquationView",
+      "service_class": "PolynomialService", 
+      "config_path": "config/polynomial_mode/",
+      "enabled": true
+    },
+    "geometry": {
+      "name": "Geometry Mode",
+      "version": "2.1", 
+      "description": "Xử lý bài toán hình học 2D/3D",
+      "icon": "📐",
+      "status": "production",
+      "features": [
+        "5 hình dạng: Điểm, Đường thẳng, Mặt phẳng, Đường tròn, Mặt cầu",
+        "5 phép toán: Tương giao, Khoảng cách, Diện tích, Thể tích, PT đường thẳng",
+        "Large file Excel processing",
+        "Memory monitoring & progress tracking",
+        "LaTeX to calculator encoding"
+      ],
+      "view_class": "GeometryView",
+      "service_class": "GeometryService",
+      "config_path": "config/geometry_mode/",
+      "enabled": true
+    },
+    "vector": {
+      "name": "Vector Mode",
+      "version": "1.0",
+      "description": "Tính toán vector 2D/3D với scalar và vector",
+      "icon": "🔢",
+      "status": "beta",
+      "features": [
+        "2 kiểu tính: Scalar-Vector và Vector-Vector",
+        "Phép toán đầy đủ: Tích vô hướng, tích có hướng, góc, khoảng cách",
+        "Hỗ trợ 2D/3D với auto-detection",
+        "Excel template và batch processing",
+        "Keylog encoding tương thích TL"
+      ],
+      "view_class": "VectorView",
+      "service_class": "VectorService",
+      "config_path": "config/vector_mode/",
+      "enabled": true
+    }
+  },
+  "display_order": ["equation", "polynomial", "geometry", "vector"],
+  "default_mode": "equation",
+  "experimental_modes": ["vector"],
+  "metadata": {
+    "version": "2.2",
+    "last_updated": "2025-11-03",
+    "total_modes": 4,
+    "description": "Configuration for all available calculation modes in ConvertKeylogApp"
+  }
+}

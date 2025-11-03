@@ -1,0 +1,136 @@
+{
+  "equation_mapping_by_phuong_trinh": {
+    "2_an": {
+      "description": "Ánh xạ cho hệ 2 phương trình 2 ẩn - theo cột phương trình",
+      "columns": {
+        "phuong_trinh_1": {
+          "excel_column": "Phương trình 1",
+          "required": true,
+          "description": "Chuỗi hệ số phương trình 1: a11,a12,c1 (phân cách bằng dấu phẩy)"
+        },
+        "phuong_trinh_2": {
+          "excel_column": "Phương trình 2",
+          "required": true,
+          "description": "Chuỗi hệ số phương trình 2: a21,a22,c2 (phân cách bằng dấu phẩy)"
+        }
+      },
+      "required_columns": ["Phương trình 1", "Phương trình 2"],
+      "total_columns": 2,
+      "he_so_per_equation": 3,
+      "total_he_so": 6,
+      "example": {
+        "Phương trình 1": "2,1,5",
+        "Phương trình 2": "1,3,10",
+        "description": "Tương ứng với hệ: 2x + y = 5; x + 3y = 10"
+      }
+    },
+    "3_an": {
+      "description": "Ánh xạ cho hệ 3 phương trình 3 ẩn - theo cột phương trình",
+      "columns": {
+        "phuong_trinh_1": {
+          "excel_column": "Phương trình 1",
+          "required": true,
+          "description": "Chuỗi hệ số phương trình 1: a11,a12,a13,c1"
+        },
+        "phuong_trinh_2": {
+          "excel_column": "Phương trình 2",
+          "required": true,
+          "description": "Chuỗi hệ số phương trình 2: a21,a22,a23,c2"
+        },
+        "phuong_trinh_3": {
+          "excel_column": "Phương trình 3",
+          "required": true,
+          "description": "Chuỗi hệ số phương trình 3: a31,a32,a33,c3"
+        }
+      },
+      "required_columns": ["Phương trình 1", "Phương trình 2", "Phương trình 3"],
+      "total_columns": 3,
+      "he_so_per_equation": 4,
+      "total_he_so": 12
+    },
+    "4_an": {
+      "description": "Ánh xạ cho hệ 4 phương trình 4 ẩn - theo cột phương trình",
+      "columns": {
+        "phuong_trinh_1": {
+          "excel_column": "Phương trình 1",
+          "required": true,
+          "description": "Hệ số PT1: a11,a12,a13,a14,c1"
+        },
+        "phuong_trinh_2": {
+          "excel_column": "Phương trình 2",
+          "required": true,
+          "description": "Hệ số PT2: a21,a22,a23,a24,c2"
+        },
+        "phuong_trinh_3": {
+          "excel_column": "Phương trình 3",
+          "required": true,
+          "description": "Hệ số PT3: a31,a32,a33,a34,c3"
+        },
+        "phuong_trinh_4": {
+          "excel_column": "Phương trình 4",
+          "required": true,
+          "description": "Hệ số PT4: a41,a42,a43,a44,c4"
+        }
+      },
+      "required_columns": ["Phương trình 1", "Phương trình 2", "Phương trình 3", "Phương trình 4"],
+      "total_columns": 4,
+      "he_so_per_equation": 5,
+      "total_he_so": 20
+    }
+  },
+  "equation_mapping_by_he_so": {
+    "2_an": {
+      "description": "Ánh xạ cho hệ 2 phương trình 2 ẩn - theo từng hệ số riêng lẻ",
+      "columns": {
+        "a11": {
+          "excel_column": "A11",
+          "required": true,
+          "description": "Hệ số a11 của phương trình 1"
+        },
+        "a12": {
+          "excel_column": "A12",
+          "required": true,
+          "description": "Hệ số a12 của phương trình 1"
+        },
+        "c1": {
+          "excel_column": "C1",
+          "required": true,
+          "description": "Hệ số c1 (vế phải) của phương trình 1"
+        },
+        "a21": {
+          "excel_column": "A21",
+          "required": true,
+          "description": "Hệ số a21 của phương trình 2"
+        },
+        "a22": {
+          "excel_column": "A22",
+          "required": true,
+          "description": "Hệ số a22 của phương trình 2"
+        },
+        "c2": {
+          "excel_column": "C2",
+          "required": true,
+          "description": "Hệ số c2 (vế phải) của phương trình 2"
+        }
+      },
+      "required_columns": ["A11", "A12", "C1", "A21", "A22", "C2"],
+      "total_columns": 6
+    },
+    "3_an": {
+      "description": "Ánh xạ cho hệ 3 phương trình 3 ẩn - theo từng hệ số riêng lẻ",
+      "required_columns": ["A11", "A12", "A13", "C1", "A21", "A22", "A23", "C2", "A31", "A32", "A33", "C3"],
+      "total_columns": 12
+    },
+    "4_an": {
+      "description": "Ánh xạ cho hệ 4 phương trình 4 ẩn - theo từng hệ số riêng lẻ",
+      "required_columns": ["A11", "A12", "A13", "A14", "C1", "A21", "A22", "A23", "A24", "C2", "A31", "A32", "A33", "A34", "C3", "A41", "A42", "A43", "A44", "C4"],
+      "total_columns": 20
+    }
+  },
+  "metadata": {
+    "version": "1.0",
+    "description": "Ánh xạ dữ liệu Excel cho Equation Mode - ConvertKeylogApp",
+    "extracted_from": "TL/config/excel_mapping.json",
+    "last_updated": "2025-10-29"
+  }
+}

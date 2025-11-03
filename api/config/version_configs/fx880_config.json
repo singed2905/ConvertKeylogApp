@@ -1,0 +1,53 @@
+{
+  "version_info": {
+    "model": "fx880",
+    "name": "CASIO fx-880BTG",
+    "description": "Máy tính Casio fx-880BTG - Phiên bản nâng cao với bluetooth",
+    "manufacturer": "CASIO"
+  },
+  "equation_settings": {
+    "base_prefix": "wR$$||",
+    "supported_equations": {
+      "2_an": {
+        "prefix": "wR$$|||",
+        "max_coefficients": 6
+      },
+      "3_an": {
+        "prefix": "wR$$||R|",
+        "max_coefficients": 12
+      },
+      "4_an": {
+        "prefix": "wR$$||RR|",
+        "max_coefficients": 20
+      }
+    }
+  },
+  "geometry_settings": {
+    "coordinate_precision": 12,
+    "angle_unit": "radian",
+    "supported_dimensions": ["2D", "3D"],
+    "advanced_operations": true
+  },
+  "polynomial_settings": {
+    "max_degree": 6,
+    "precision": 15,
+    "complex_roots": true,
+    "symbolic_computation": true
+  },
+  "display_settings": {
+    "decimal_places": 12,
+    "scientific_notation": true,
+    "fraction_display": true,
+    "graph_display": true
+  },
+  "bluetooth_settings": {
+    "enabled": true,
+    "data_transfer": true,
+    "remote_control": false
+  },
+  "metadata": {
+    "version": "2.0",
+    "created_for": "ConvertKeylogApp",
+    "last_updated": "2025-10-29"
+  }
+}
