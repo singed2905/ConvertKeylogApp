@@ -12,6 +12,8 @@ from datetime import datetime
 import asyncio
 import tempfile
 import pandas as pd
+import math
+from typing import Any
 
 # Add parent directory to path to import services
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -24,6 +26,40 @@ excel_processor = None
 
 # Job storage (in production, use Redis or database)
 active_jobs = {}
+
+
+def sanitize_for_json(obj: Any) -> Any:
+    """
+    Recursively sanitize object to remove NaN, Infinity values for JSON serialization
+    """
+    if isinstance(obj, dict):
+        return {k: sanitize_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [sanitize_for_json(item) for item in obj]
+    elif isinstance(obj, float):
+        if math.isnan(obj):
+            return None
+        elif math.isinf(obj):
+            return None
+        else:
+            return obj
+    else:
+        return obj
+
+
+class SafeJSONResponse(JSONResponse):
+    """
+    Custom JSONResponse that handles NaN and Infinity values
+    """
+    def render(self, content: Any) -> bytes:
+        sanitized_content = sanitize_for_json(content)
+        return json.dumps(
+            sanitized_content,
+            ensure_ascii=False,
+            allow_nan=False,
+            indent=None,
+            separators=(",", ":"),
+        ).encode("utf-8")
 
 
 @asynccontextmanager
@@ -118,7 +154,7 @@ app.add_middleware(
 @app.get("/")
 async def root():
     """API root endpoint"""
-    return {
+    return SafeJSONResponse({
         "message": "ConvertKeylogApp API",
         "version": "1.0.0",
         "status": "running",
@@ -141,13 +177,13 @@ async def root():
                 "status": "GET /api/v1/system/status"
             }
         }
-    }
+    })
 
 
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
-    return {
+    return SafeJSONResponse({
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
         "services": {
@@ -156,25 +192,15 @@ async def health_check():
             "geometry": geometry_service is not None,
             "excel": excel_processor is not None
         }
-    }
+    })
 
 
 # ========== EQUATION MODE APIs ==========
 
 @app.post("/api/v1/equation/solve")
-async def solve_equation_system(request: dict) -> dict:
+async def solve_equation_system(request: dict) -> Any:
     """
     Solve equation system
-
-    Example:
-    {
-        "num_variables": 2,
-        "calculator_version": "fx799",
-        "equations": [
-            {"coefficients": ["2", "1", "8"]},
-            {"coefficients": ["1", "-1", "1"]}
-        ]
-    }
     """
     try:
         if not equation_service:
@@ -209,7 +235,7 @@ async def solve_equation_system(request: dict) -> dict:
 
         processing_time = (datetime.now() - start_time).total_seconds() * 1000
 
-        return {
+        return SafeJSONResponse({
             "success": True,
             "data": {
                 "solution_status": solutions_text,
@@ -221,7 +247,7 @@ async def solve_equation_system(request: dict) -> dict:
                 "workflow_success": success,
                 "status_message": status_msg
             }
-        }
+        })
 
     except HTTPException:
         raise
@@ -233,31 +259,9 @@ async def solve_equation_system(request: dict) -> dict:
 async def process_equation_batch(
         background_tasks: BackgroundTasks,
         request: dict
-) -> dict:
+) -> Any:
     """
     Process multiple equation systems in batch
-
-    Example:
-    {
-        "num_variables": 2,
-        "calculator_version": "fx799",
-        "batch_data": [
-            {
-                "id": "eq_001",
-                "equations": [
-                    {"coefficients": ["2", "1", "8"]},
-                    {"coefficients": ["1", "-1", "1"]}
-                ]
-            },
-            {
-                "id": "eq_002",
-                "equations": [
-                    {"coefficients": ["3", "4", "10"]},
-                    {"coefficients": ["1", "2", "5"]}
-                ]
-            }
-        ]
-    }
     """
     try:
         if not equation_service:
@@ -282,7 +286,7 @@ async def process_equation_batch(
         # Start background processing
         background_tasks.add_task(process_batch_equations, job_id, request)
 
-        return {
+        return SafeJSONResponse({
             "success": True,
             "data": {
                 "job_id": job_id,
@@ -290,14 +294,14 @@ async def process_equation_batch(
                 "total_items": len(request.get("batch_data", [])),
                 "estimated_time_seconds": len(request.get("batch_data", [])) * 0.5
             }
-        }
+        })
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to start batch processing: {str(e)}")
 
 
 @app.get("/api/v1/equation/status/{job_id}")
-async def get_equation_job_status(job_id: str) -> dict:
+async def get_equation_job_status(job_id: str) -> Any:
     """Get status of equation batch processing job"""
     try:
         if job_id not in active_jobs:
@@ -305,7 +309,7 @@ async def get_equation_job_status(job_id: str) -> dict:
 
         job_info = active_jobs[job_id]
 
-        return {
+        return SafeJSONResponse({
             "success": True,
             "data": {
                 "job_id": job_id,
@@ -319,7 +323,7 @@ async def get_equation_job_status(job_id: str) -> dict:
                 "created_at": job_info["created_at"],
                 "type": job_info.get("type", "unknown")
             }
-        }
+        })
 
     except HTTPException:
         raise
@@ -330,7 +334,7 @@ async def get_equation_job_status(job_id: str) -> dict:
 @app.get("/api/v1/equation/config")
 async def get_equation_config():
     """Get equation configuration"""
-    return {
+    return SafeJSONResponse({
         "success": True,
         "data": {
             "mode": "equation",
@@ -354,31 +358,15 @@ async def get_equation_config():
                 "solution_analysis": "rank_based"
             }
         }
-    }
+    })
 
 
 # ========== GEOMETRY MODE APIs ==========
 
 @app.post("/api/v1/geometry/encode")
-async def encode_geometry_problem(request: dict) -> dict:
+async def encode_geometry_problem(request: dict) -> Any:
     """
     Encode geometry problem
-
-    Example:
-    {
-        "operation": "Tương giao",
-        "calculator_version": "fx799",
-        "shape_a": {
-            "type": "Điểm",
-            "dimension": "3D",
-            "data": {"coordinates": "1,2,3"}
-        },
-        "shape_b": {
-            "type": "Điểm",
-            "dimension": "3D",
-            "data": {"coordinates": "4,5,6"}
-        }
-    }
     """
     try:
         if not geometry_service:
@@ -417,7 +405,7 @@ async def encode_geometry_problem(request: dict) -> dict:
 
         processing_time = (datetime.now() - start_time).total_seconds() * 1000
 
-        return {
+        return SafeJSONResponse({
             "success": True,
             "data": {
                 "encoded_result": encoded_result,
@@ -437,7 +425,7 @@ async def encode_geometry_problem(request: dict) -> dict:
                     }
                 }
             }
-        }
+        })
 
     except HTTPException:
         raise
@@ -449,30 +437,9 @@ async def encode_geometry_problem(request: dict) -> dict:
 async def process_geometry_batch(
         background_tasks: BackgroundTasks,
         request: dict
-) -> dict:
+) -> Any:
     """
     Process multiple geometry problems in batch
-
-    Example:
-    {
-        "operation": "Tương giao",
-        "calculator_version": "fx799",
-        "batch_data": [
-            {
-                "id": "geo_001",
-                "shape_a": {
-                    "type": "Điểm",
-                    "dimension": "2D",
-                    "data": {"coordinates": "1,2"}
-                },
-                "shape_b": {
-                    "type": "Điểm",
-                    "dimension": "2D",
-                    "data": {"coordinates": "3,4"}
-                }
-            }
-        ]
-    }
     """
     try:
         if not geometry_service:
@@ -497,7 +464,7 @@ async def process_geometry_batch(
         # Start background processing
         background_tasks.add_task(process_batch_geometry, job_id, request)
 
-        return {
+        return SafeJSONResponse({
             "success": True,
             "data": {
                 "job_id": job_id,
@@ -505,7 +472,7 @@ async def process_geometry_batch(
                 "total_items": len(request.get("batch_data", [])),
                 "estimated_time_seconds": len(request.get("batch_data", [])) * 0.8
             }
-        }
+        })
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to start batch processing: {str(e)}")
@@ -538,13 +505,13 @@ async def upload_geometry_excel(
             is_large, file_info = excel_processor.is_large_file(temp_path)
 
             if is_large:
-                return {
+                return SafeJSONResponse({
                     "success": True,
                     "file_info": file_info,
                     "message": "Large file detected - requires chunked processing",
                     "recommended_action": "use_chunked_processing",
                     "temp_file_id": os.path.basename(temp_path)
-                }
+                })
 
             # Get file info
             file_info = excel_processor.get_file_info(temp_path)
@@ -556,7 +523,7 @@ async def upload_geometry_excel(
             # Quality check
             quality_info = excel_processor.validate_data_quality(df, shape_a, shape_b)
 
-            return {
+            return SafeJSONResponse({
                 "success": True,
                 "file_info": file_info,
                 "structure_valid": is_valid,
@@ -564,7 +531,7 @@ async def upload_geometry_excel(
                 "quality_info": quality_info,
                 "sample_data": df.head(3).to_dict('records'),
                 "temp_file_id": os.path.basename(temp_path)
-            }
+            })
 
         except Exception as e:
             # Cleanup temp file on error
@@ -632,14 +599,14 @@ async def process_geometry_excel(
         # Start background processing
         background_tasks.add_task(process_excel_geometry_background, job_id)
 
-        return {
+        return SafeJSONResponse({
             "success": True,
             "data": {
                 "job_id": job_id,
                 "status": "queued",
                 "message": "Excel processing started"
             }
-        }
+        })
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Excel processing failed: {str(e)}")
@@ -648,7 +615,7 @@ async def process_geometry_excel(
 @app.get("/api/v1/geometry/config")
 async def get_geometry_config():
     """Get geometry configuration"""
-    return {
+    return SafeJSONResponse({
         "success": True,
         "data": {
             "shapes": ["Điểm", "Đường thẳng", "Mặt phẳng", "Đường tròn", "Mặt cầu"],
@@ -663,7 +630,7 @@ async def get_geometry_config():
                 "chunked_processing": True
             }
         }
-    }
+    })
 
 
 # ========== SYSTEM APIs ==========
@@ -671,7 +638,7 @@ async def get_geometry_config():
 @app.get("/api/v1/system/status")
 async def get_system_status():
     """Get system status"""
-    return {
+    return SafeJSONResponse({
         "success": True,
         "data": {
             "version": "2.2.0",
@@ -686,13 +653,13 @@ async def get_system_status():
                 "large_file_support": True
             }
         }
-    }
+    })
 
 
 @app.get("/api/v1/jobs")
 async def list_active_jobs():
     """List all active jobs"""
-    return {
+    return SafeJSONResponse({
         "success": True,
         "data": {
             "active_jobs": len(active_jobs),
@@ -707,7 +674,7 @@ async def list_active_jobs():
                 for job_id, job_info in active_jobs.items()
             ]
         }
-    }
+    })
 
 
 # ========== HELPER FUNCTIONS ==========
