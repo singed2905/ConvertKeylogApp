@@ -225,13 +225,11 @@ class PolynomialEquationView:
         try:
             if self.is_imported_mode:
                 self.frame_buttons_import.pack(fill="x", pady=10); self.frame_buttons_manual.pack_forget()
-                # Disable manual inputs
                 for e in self.coefficient_entries:
                     try: e.config(state='disabled')
                     except Exception: pass
             else:
                 self.frame_buttons_manual.pack(fill="x", pady=10); self.frame_buttons_import.pack_forget()
-                # Enable manual inputs
                 for e in self.coefficient_entries:
                     try: e.config(state='normal')
                     except Exception: pass
@@ -241,9 +239,7 @@ class PolynomialEquationView:
     def _quit_import_mode(self):
         self.is_imported_mode = False
         self.imported_file_path = ""
-        # Reset final result display
-        self.final_result_text.config(state='normal')
-        self.final_result_text.delete("1.0", tk.END)
+        self.final_result_text.config(state='normal'); self.final_result_text.delete("1.0", tk.END)
         service_status = "Service Ready" if self.polynomial_service else "Service Failed"; config_info = "Config loaded" if self.config else "Fallback config"
         self.final_result_text.insert("1.0", f"Polynomial Mode v2.1 - {service_status} | {config_info}")
         self.final_result_text.config(state='disabled')
@@ -266,6 +262,21 @@ class PolynomialEquationView:
                 messagebox.showerror("Lỗi Xử lý", status_msg); self.status_label.config(text=f"❌ {status_msg}", fg="#F44336")
         except Exception as e:
             messagebox.showerror("Lỗi", f"Lỗi xử lý polynomial: {str(e)}"); self.status_label.config(text="❌ Lỗi xử lý", fg="#F44336")
+
+    def _show_copy_button(self):
+        try:
+            self.btn_copy_result.pack(pady=5, before=self.frame_buttons_manual)
+        except Exception:
+            try:
+                self.btn_copy_result.pack(pady=5)
+            except Exception:
+                pass
+
+    def _hide_copy_button(self):
+        try:
+            self.btn_copy_result.pack_forget()
+        except Exception:
+            pass
 
     def _show_final_result(self, keylog: str):
         self.final_result_text.config(state='normal'); self.final_result_text.delete("1.0", tk.END); self.final_result_text.insert("1.0", keylog)
@@ -301,7 +312,6 @@ class PolynomialEquationView:
         self.imported_file_path = path
         self.is_imported_mode = True
         self._update_button_visibility()
-        # Show file name in final result area
         self.final_result_text.config(state='normal'); self.final_result_text.delete("1.0", tk.END); self.final_result_text.insert("1.0", f"Excel: {os.path.basename(path)}"); self.final_result_text.config(state='disabled')
         self.status_label.config(text=f"📁 Đã import: {os.path.basename(path)}. Nhấn '🔥 Xử lý File Excel' để chạy.")
 
