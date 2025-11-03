@@ -8,7 +8,7 @@ from services.polynomial.polynomial_excel_processor import PolynomialExcelProces
 class PolynomialExcelUI:
     """Helpers to integrate batch Excel processing into PolynomialEquationView"""
     
-    def __init.text__(self):
+    def __init__(self):
         pass
 
     @staticmethod
