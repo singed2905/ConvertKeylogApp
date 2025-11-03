@@ -35,23 +35,63 @@ async def lifespan(app: FastAPI):
         from services.polynomial.polynomial_service import PolynomialService
         from services.geometry.geometry_service import GeometryService
         from services.excel.excel_processor import ExcelProcessor
+        from utils.config_loader import config_loader
         
-        # Initialize services with minimal config
-        equation_service = EquationService({})
-        polynomial_service = PolynomialService({})
-        geometry_service = GeometryService({})
+        print("📂 Loading configuration files...")
+        
+        # Load proper configurations for each service
+        try:
+            equation_config = config_loader.get_mode_config("Equation Mode")
+            print("✅ Equation config loaded")
+        except Exception as e:
+            print(f"⚠️ Equation config failed: {e}, using fallback")
+            equation_config = {}
+            
+        try:
+            polynomial_config = config_loader.get_mode_config("Polynomial Equation Mode")
+            print("✅ Polynomial config loaded")
+        except Exception as e:
+            print(f"⚠️ Polynomial config failed: {e}, using fallback")
+            polynomial_config = {}
+            
+        try:
+            geometry_config = config_loader.get_mode_config("Geometry Mode")
+            print("✅ Geometry config loaded")
+        except Exception as e:
+            print(f"⚠️ Geometry config failed: {e}, using fallback")
+            geometry_config = {}
+        
+        # Initialize services with their respective configs
+        equation_service = EquationService(equation_config)
+        polynomial_service = PolynomialService(polynomial_config)
+        geometry_service = GeometryService(geometry_config)
         excel_processor = ExcelProcessor({})
         
-        print("\u2705 API services initialized successfully")
+        print("✅ API services initialized successfully with config files")
         
     except Exception as e:
-        print(f"\u274c Failed to initialize services: {e}")
-        print("API will start with limited functionality")
+        print(f"❌ Failed to initialize services: {e}")
+        print("🔄 Trying fallback initialization...")
+        try:
+            # Fallback without config
+            from services.equation.equation_service import EquationService
+            from services.polynomial.polynomial_service import PolynomialService
+            from services.geometry.geometry_service import GeometryService
+            from services.excel.excel_processor import ExcelProcessor
+            
+            equation_service = EquationService({})
+            polynomial_service = PolynomialService({})
+            geometry_service = GeometryService({})
+            excel_processor = ExcelProcessor({})
+            print("⚠️ API initialized with fallback config (limited functionality)")
+        except Exception as fallback_error:
+            print(f"💥 Complete initialization failure: {fallback_error}")
+            print("API will start with limited functionality")
     
     yield
     
     # Shutdown
-    print("\ud83d\udccb Shutting down API services")
+    print("📋 Shutting down API services")
 
 # Initialize FastAPI app with lifespan
 app = FastAPI(
