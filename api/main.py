@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any, Union
+from contextlib import asynccontextmanager
 import os
 import sys
 import json
@@ -13,17 +14,58 @@ import asyncio
 # Add parent directory to path to import services
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.equation.equation_service import EquationService
-from services.polynomial.polynomial_service import PolynomialService
-from services.geometry.geometry_service import GeometryService
-from services.excel.excel_processor import ExcelProcessor
-from utils.config_loader import config_loader
+# Global services instances
+equation_service = None
+polynomial_service = None
+geometry_service = None
+excel_processor = None
 
-# Initialize FastAPI app
+# Job storage (in production, use Redis or database)
+active_jobs = {}
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager for startup/shutdown events"""
+    # Startup
+    global equation_service, polynomial_service, geometry_service, excel_processor
+    
+    try:
+        # Import services
+        from services.equation.equation_service import EquationService
+        from services.polynomial.polynomial_service import PolynomialService
+        from services.geometry.geometry_service import GeometryService
+        from services.excel.excel_processor import ExcelProcessor
+        from utils.config_loader import config_loader
+        
+        # Load basic configurations for each service
+        equation_config = config_loader.get_mode_config("Equation Mode")
+        polynomial_config = config_loader.get_mode_config("Polynomial Equation Mode")
+        geometry_config = config_loader.get_mode_config("Geometry Mode")
+        
+        # Initialize services with their respective configs
+        equation_service = EquationService(equation_config)
+        polynomial_service = PolynomialService(polynomial_config)
+        geometry_service = GeometryService(geometry_config)
+        excel_processor = ExcelProcessor({})
+        
+        print("✅ API services initialized successfully")
+        
+    except Exception as e:
+        print(f"❌ Failed to initialize services: {e}")
+        # Don't raise to allow API to start with limited functionality
+        print("API will start with limited functionality")
+    
+    yield
+    
+    # Shutdown
+    print("📋 Shutting down API services")
+
+# Initialize FastAPI app with lifespan
 app = FastAPI(
     title="ConvertKeylogApp API",
     description="API for mathematical expression encoding to calculator keylog",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # Add CORS middleware
@@ -34,35 +76,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Global services instances
-equation_service = None
-polynomial_service = None
-geometry_service = None
-excel_processor = None
-
-# Job storage (in production, use Redis or database)
-active_jobs = {}
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize services on startup"""
-    global equation_service, polynomial_service, geometry_service, excel_processor
-    
-    try:
-        # Load configurations
-        config = config_loader.load_all_configs()
-        
-        # Initialize services
-        equation_service = EquationService(config)
-        polynomial_service = PolynomialService(config)
-        geometry_service = GeometryService(config)
-        excel_processor = ExcelProcessor(config)
-        
-        print("✅ API services initialized successfully")
-    except Exception as e:
-        print(f"❌ Failed to initialize services: {e}")
-        raise
 
 @app.get("/")
 async def root():
@@ -93,6 +106,22 @@ async def health_check():
             "excel": excel_processor is not None
         }
     }
+
+# Import and include routers
+try:
+    from api.routers.equation import router as equation_router
+    from api.routers.polynomial import router as polynomial_router
+    from api.routers.geometry import router as geometry_router
+    from api.routers.system import router as system_router
+    
+    app.include_router(equation_router)
+    app.include_router(polynomial_router)
+    app.include_router(geometry_router)
+    app.include_router(system_router)
+    
+except ImportError as e:
+    print(f"⚠️ Warning: Could not import some routers: {e}")
+    print("Some endpoints may not be available")
 
 if __name__ == "__main__":
     import uvicorn
