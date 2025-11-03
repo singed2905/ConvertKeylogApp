@@ -5,6 +5,7 @@ import os
 
 from .polynomial_service import PolynomialService
 from .polynomial_excel_config_loader import get_required_columns_for_degree
+from .roots_formatting import simplify_roots_text
 
 class PolynomialExcelProcessor:
     def __init__(self, degree: int, default_version: str = "fx799"):
@@ -17,13 +18,11 @@ class PolynomialExcelProcessor:
         self.service.set_version(default_version)
 
     def _resolve_input_sheet(self, xl: pd.ExcelFile) -> str:
-        # Accept common variants of 'Input'
         candidates = ["Input", "input", "INPUT", "Sheet1", "Data", "Sheet"]
         sheets_lower = {s.lower(): s for s in xl.sheet_names}
         for name in candidates:
             if name.lower() in sheets_lower:
                 return sheets_lower[name.lower()]
-        # Fallback to first sheet
         return xl.sheet_names[0]
 
     def read_input(self, file_path: str) -> pd.DataFrame:
@@ -54,7 +53,7 @@ class PolynomialExcelProcessor:
                 success, status_msg, roots_display, final_keylog = self.service.process_complete_workflow(coeffs)
                 if success:
                     df.at[idx, "keylog"] = final_keylog
-                    df.at[idx, "roots"] = (roots_display or "").replace("\n", " | ")
+                    df.at[idx, "roots"] = simplify_roots_text(roots_display)
                     df.at[idx, "real_roots_count"] = len(self.service.get_real_roots_only())
                     df.at[idx, "status"] = "ok"; df.at[idx, "message"] = status_msg or ""
                 else:
@@ -72,3 +71,4 @@ class PolynomialExcelProcessor:
             for k,v in meta.items(): md[k] = [v]
             pd.DataFrame(md).to_excel(writer, sheet_name='Metadata', index=False)
         return output_path
+}
