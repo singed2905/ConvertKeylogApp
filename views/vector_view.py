@@ -1,48 +1,48 @@
 # Vector View - Giao diện Vector Mode cho ConvertKeylogApp
 # Tích hợp với VectorService hoàn chỉnh và fixed values system
-# Hỗ trợ 2 kiểu tính: Số thực với Vector và Vector với Vector
+# Style đồng bộ với các mode trước (Equation/Polynomial)
 
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
-import json
 import os
 from datetime import datetime
-from services.vector import VectorService, VectorServiceError, VectorValidationError
+from services.vector import VectorService
 
 class VectorView:
-    """Giao diện Vector Mode với VectorService integration"""
+    """Giao diện Vector Mode với VectorService integration và UI style đồng bộ"""
     
     def __init__(self, parent):
         self.parent = parent
         self.root = tk.Toplevel(parent)
-        self.root.title("ConvertKeylogApp - Vector Mode v1.0")
-        self.root.geometry("900x700")
+        self.root.title("Vector Mode v1.0 - ConvertKeylogApp")
+        self.root.geometry("980x780")
+        self.root.configure(bg="#F0F8FF")
         self.root.resizable(True, True)
+        self.root.minsize(860, 600)
         
-        # Variables
+        # State/UI variables
         self.calc_type_var = tk.StringVar(value="scalar_vector")
         self.dimension_var = tk.StringVar(value="2")
         self.operation_var = tk.StringVar()
         self.version_var = tk.StringVar(value="fx799")
         
-        # Data storage
         self.current_result = ""
         self.has_result = False
         
-        # Initialize VectorService
+        # Service
         try:
             self.vector_service = VectorService()
-            self.service_status = "Service Ready"
+            self.service_ready = True
         except Exception as e:
+            print(f"VectorService init error: {e}")
             self.vector_service = None
-            self.service_status = f"Service Error: {str(e)}"
-            print(f"Warning: Could not initialize VectorService: {e}")
+            self.service_ready = False
         
-        # Operation mappings (updated with VectorService operations)
+        # Ops map (label -> code)
         self.operations_map = {
             "scalar_vector": {
                 "Nhân scalar": "multiply",
-                "Chia scalar": "divide", 
+                "Chia scalar": "divide",
                 "Cộng scalar": "add",
                 "Trừ scalar": "subtract"
             },
@@ -56,498 +56,358 @@ class VectorView:
             }
         }
         
-        self.setup_ui()
-        self.update_operation_dropdown()
+        # Build UI
+        self._setup_ui()
+        self._update_operation_dropdown()
         
-    def setup_ui(self):
-        """Thiết lập giao diện chính"""
-        # Main container
-        main_frame = ttk.Frame(self.root, padding="10")
-        main_frame.pack(fill=tk.BOTH, expand=True)
+    # ===================== UI =====================
+    def _setup_ui(self):
+        main = tk.Frame(self.root, bg="#F0F8FF")
+        main.pack(fill="both", expand=True, padx=15, pady=10)
         
-        # Header
-        self.create_header(main_frame)
-        
-        # Service Status
-        self.create_service_status(main_frame)
-        
-        # Control Panel
-        self.create_control_panel(main_frame)
-        
-        # Input Section
-        self.create_input_section(main_frame)
-        
-        # Results Section
-        self.create_results_section(main_frame)
-        
-        # Action Buttons
-        self.create_action_buttons(main_frame)
-        
-        # Excel Section
-        self.create_excel_section(main_frame)
-        
-        # Status Bar
-        self.create_status_bar()
-        
-    def create_header(self, parent):
-        """Tạo header với title và thông tin"""
-        header_frame = ttk.LabelFrame(parent, text="Vector Mode - Tính toán Vector và Keylog", padding="10")
-        header_frame.pack(fill=tk.X, pady=(0, 10))
-        
-        # Title
-        title_label = ttk.Label(header_frame, text="🔢 Vector Calculator & Keylog Generator", 
-                               font=("Arial", 14, "bold"))
-        title_label.pack()
-        
-        # Description
-        desc_label = ttk.Label(header_frame, 
-                              text="Hỗ trợ tính toán vector 2D/3D với số thực hoặc vector khác, tự động sinh keylog TL",
-                              font=("Arial", 9))
-        desc_label.pack(pady=(5, 0))
-        
-    def create_service_status(self, parent):
-        """Hiển thị trạng thái VectorService"""
-        status_frame = ttk.Frame(parent)
-        status_frame.pack(fill=tk.X, pady=(0, 10))
-        
-        status_color = "green" if self.vector_service else "red"
-        status_text = f"📊 Service Status: {self.service_status}"
-        if self.vector_service:
-            service_info = self.vector_service.get_service_info()
-            status_text += f" | Fixed Values: {'Loaded' if service_info['fixed_values_loaded'] else 'Default'}"
-        
-        ttk.Label(status_frame, text=status_text, foreground=status_color, 
-                 font=("Arial", 9, "italic")).pack()
-        
-    def create_control_panel(self, parent):
-        """Tạo panel điều khiển chính"""
-        control_frame = ttk.LabelFrame(parent, text="⚙️ Cấu hình tính toán", padding="10")
-        control_frame.pack(fill=tk.X, pady=(0, 10))
-        
-        # Row 1: Calculation Type và Dimension
-        row1_frame = ttk.Frame(control_frame)
-        row1_frame.pack(fill=tk.X, pady=(0, 10))
-        
-        # Calculation Type
-        ttk.Label(row1_frame, text="Kiểu tính:").pack(side=tk.LEFT)
-        calc_type_combo = ttk.Combobox(row1_frame, textvariable=self.calc_type_var, 
-                                      values=["scalar_vector", "vector_vector"],
-                                      state="readonly", width=15)
-        calc_type_combo.pack(side=tk.LEFT, padx=(5, 20))
-        calc_type_combo.bind("<<ComboboxSelected>>", self.on_calc_type_changed)
-        
-        # Dimension
-        ttk.Label(row1_frame, text="Kích thước:").pack(side=tk.LEFT)
-        dimension_combo = ttk.Combobox(row1_frame, textvariable=self.dimension_var,
-                                      values=["2", "3"], state="readonly", width=5)
-        dimension_combo.pack(side=tk.LEFT, padx=(5, 20))
-        dimension_combo.bind("<<ComboboxSelected>>", self.on_dimension_changed)
-        
-        # Version
-        ttk.Label(row1_frame, text="Phiên bản:").pack(side=tk.LEFT)
-        version_combo = ttk.Combobox(row1_frame, textvariable=self.version_var,
-                                    values=["fx799", "fx991", "fx570"], state="readonly", width=10)
-        version_combo.pack(side=tk.LEFT, padx=(5, 0))
-        version_combo.bind("<<ComboboxSelected>>", self.on_version_changed)
-        
-        # Row 2: Operation
-        row2_frame = ttk.Frame(control_frame)
-        row2_frame.pack(fill=tk.X)
-        
-        ttk.Label(row2_frame, text="Phép toán:").pack(side=tk.LEFT)
-        self.operation_combo = ttk.Combobox(row2_frame, textvariable=self.operation_var,
-                                           state="readonly", width=20)
-        self.operation_combo.pack(side=tk.LEFT, padx=(5, 0))
-        
-    def create_input_section(self, parent):
-        """Tạo section nhập liệu"""
-        input_frame = ttk.LabelFrame(parent, text="📝 Nhập dữ liệu", padding="10")
-        input_frame.pack(fill=tk.X, pady=(0, 10))
-        
-        # Scalar input (ẩn/hiện theo calc_type)
-        self.scalar_frame = ttk.Frame(input_frame)
-        self.scalar_frame.pack(fill=tk.X, pady=(0, 10))
-        
-        ttk.Label(self.scalar_frame, text="Số thực:", width=12).pack(side=tk.LEFT)
-        self.scalar_entry = ttk.Entry(self.scalar_frame, width=20, font=("Consolas", 10))
-        self.scalar_entry.pack(side=tk.LEFT, padx=(5, 10))
-        
-        # Example label for scalar
-        self.scalar_example = ttk.Label(self.scalar_frame, text="Ví dụ: 3.14 hoặc sqrt(2)", 
-                                       foreground="gray", font=("Arial", 8))
-        self.scalar_example.pack(side=tk.LEFT, padx=(10, 0))
-        
-        # Vector A input
-        vector_a_frame = ttk.Frame(input_frame)
-        vector_a_frame.pack(fill=tk.X, pady=(0, 10))
-        
-        ttk.Label(vector_a_frame, text="Vector A:", width=12).pack(side=tk.LEFT)
-        self.vector_a_entry = ttk.Entry(vector_a_frame, width=20, font=("Consolas", 10))
-        self.vector_a_entry.pack(side=tk.LEFT, padx=(5, 10))
-        
-        self.vector_a_example = ttk.Label(vector_a_frame, text="Ví dụ: 1,2 (2D) hoặc 1,2,3 (3D)",
-                                         foreground="gray", font=("Arial", 8))
-        self.vector_a_example.pack(side=tk.LEFT, padx=(10, 0))
-        
-        # Vector B input (ẩn/hiện theo calc_type)
-        self.vector_b_frame = ttk.Frame(input_frame)
-        self.vector_b_frame.pack(fill=tk.X)
-        
-        ttk.Label(self.vector_b_frame, text="Vector B:", width=12).pack(side=tk.LEFT)
-        self.vector_b_entry = ttk.Entry(self.vector_b_frame, width=20, font=("Consolas", 10))
-        self.vector_b_entry.pack(side=tk.LEFT, padx=(5, 10))
-        
-        self.vector_b_example = ttk.Label(self.vector_b_frame, text="Ví dụ: 4,5 (2D) hoặc 4,5,6 (3D)",
-                                         foreground="gray", font=("Arial", 8))
-        self.vector_b_example.pack(side=tk.LEFT, padx=(10, 0))
-        
-    def create_results_section(self, parent):
-        """Tạo section hiển thị kết quả"""
-        results_frame = ttk.LabelFrame(parent, text="📊 Kết quả", padding="10")
-        results_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
-        
-        # Calculation Result
-        calc_frame = ttk.Frame(results_frame)
-        calc_frame.pack(fill=tk.X, pady=(0, 10))
-        
-        ttk.Label(calc_frame, text="Kết quả tính toán:", font=("Arial", 10, "bold")).pack(anchor=tk.W)
-        self.calc_result_text = tk.Text(calc_frame, height=3, width=80, font=("Consolas", 10),
-                                       wrap=tk.WORD, state=tk.DISABLED)
-        self.calc_result_text.pack(fill=tk.X, pady=(5, 0))
-        
-        # Encoded Values with Fixed Values Info
-        encoded_frame = ttk.Frame(results_frame)
-        encoded_frame.pack(fill=tk.X, pady=(0, 10))
-        
-        ttk.Label(encoded_frame, text="Giá trị mã hóa + Fixed Values:", font=("Arial", 10, "bold")).pack(anchor=tk.W)
-        self.encoded_text = tk.Text(encoded_frame, height=4, width=80, font=("Consolas", 10),
-                                   wrap=tk.WORD, state=tk.DISABLED)
-        self.encoded_text.pack(fill=tk.X, pady=(5, 0))
-        
-        # Final Keylog
-        keylog_frame = ttk.Frame(results_frame)
-        keylog_frame.pack(fill=tk.X)
-        
-        ttk.Label(keylog_frame, text="Keylog cuối cùng:", font=("Arial", 10, "bold")).pack(anchor=tk.W)
-        self.keylog_text = tk.Text(keylog_frame, height=2, width=80, font=("Consolas", 12, "bold"),
-                                  wrap=tk.WORD, state=tk.DISABLED, bg="#f0f8ff")
-        self.keylog_text.pack(fill=tk.X, pady=(5, 0))
-        
-    def create_action_buttons(self, parent):
-        """Tạo các nút hành động"""
-        action_frame = ttk.Frame(parent)
-        action_frame.pack(fill=tk.X, pady=(0, 10))
-        
-        # Main action button
-        self.process_button = ttk.Button(action_frame, text="🚀 Tính toán & Mã hóa", 
-                                        command=self.process_calculation,
-                                        style="Accent.TButton")
-        self.process_button.pack(side=tk.LEFT, padx=(0, 10))
-        
-        # Copy button  
-        self.copy_button = ttk.Button(action_frame, text="📋 Copy Keylog",
-                                     command=self.copy_result, state=tk.DISABLED)
-        self.copy_button.pack(side=tk.LEFT, padx=(0, 10))
-        
-        # Clear button
-        clear_button = ttk.Button(action_frame, text="🧹 Xóa tất cả",
-                                 command=self.clear_all)
-        clear_button.pack(side=tk.LEFT, padx=(0, 10))
-        
-        # Export button
-        self.export_button = ttk.Button(action_frame, text="💾 Xuất Excel",
-                                       command=self.export_single_result, state=tk.DISABLED)
-        self.export_button.pack(side=tk.RIGHT)
-        
-    def create_excel_section(self, parent):
-        """Tạo section xử lý Excel"""
-        excel_frame = ttk.LabelFrame(parent, text="📁 Xử lý Excel", padding="10")
-        excel_frame.pack(fill=tk.X, pady=(0, 10))
-        
-        # File info
-        file_frame = ttk.Frame(excel_frame)
-        file_frame.pack(fill=tk.X, pady=(0, 10))
-        
-        self.file_label = ttk.Label(file_frame, text="Chưa chọn file", foreground="gray")
-        self.file_label.pack(side=tk.LEFT)
-        
-        # Excel buttons
-        excel_buttons_frame = ttk.Frame(excel_frame)
-        excel_buttons_frame.pack(fill=tk.X)
-        
-        ttk.Button(excel_buttons_frame, text="📝 Tạo Template", 
-                  command=self.create_template).pack(side=tk.LEFT, padx=(0, 10))
-        
-        ttk.Button(excel_buttons_frame, text="📁 Import Excel",
-                  command=self.import_excel).pack(side=tk.LEFT, padx=(0, 10))
-        
-        self.process_excel_button = ttk.Button(excel_buttons_frame, text="🔥 Xử lý File Excel",
-                                              command=self.process_excel_file, state=tk.DISABLED)
-        self.process_excel_button.pack(side=tk.LEFT)
-        
-    def create_status_bar(self):
-        """Tạo thanh trạng thái"""
-        self.status_bar = ttk.Label(self.root, text="Sẵn sàng - Vector Mode v1.0 with VectorService", 
-                                   relief=tk.SUNKEN, padding="5")
-        self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
-        
-    # ========== EVENT HANDLERS ==========
+        self._create_header(main)
+        self._create_control_panel(main)
+        self._create_guide_section(main)
+        self._create_input_section(main)
+        self._create_results_section(main)
+        self._create_buttons(main)
+        self._create_status_bar(main)
     
-    def on_calc_type_changed(self, event=None):
-        """Xử lý khi thay đổi kiểu tính"""
-        calc_type = self.calc_type_var.get()
+    def _create_header(self, parent):
+        header = tk.Frame(parent, bg="#1E3A8A", height=80)
+        header.pack(fill="x", pady=(0, 12))
+        header.pack_propagate(False)
         
-        if calc_type == "scalar_vector":
-            self.scalar_frame.pack(fill=tk.X, pady=(0, 10), before=self.vector_a_entry.master)
-            self.vector_b_frame.pack_forget()
+        bar = tk.Frame(header, bg="#1E3A8A")
+        bar.pack(expand=True, fill="both")
+        
+        icon = tk.Label(bar, text="🔢", font=("Arial", 24), bg="#1E3A8A", fg="white")
+        icon.pack(side="left", padx=(20, 10), pady=20)
+        
+        title = tk.Label(bar, text="VECTOR MODE v1.0", font=("Arial", 18, "bold"), bg="#1E3A8A", fg="white")
+        title.pack(side="left", pady=20)
+        
+        status = "✅ Ready" if self.service_ready else "⚠️ Error"
+        subtitle = tk.Label(bar, text=f"Service: {status} • Encoding với fixed values", font=("Arial", 11), bg="#1E3A8A", fg="#B3D9FF")
+        subtitle.pack(side="right", padx=(0, 20), pady=(25, 15))
+    
+    def _create_control_panel(self, parent):
+        panel = tk.LabelFrame(parent, text="⚙️ THIẾT LẬP VECTOR", font=("Arial", 12, "bold"), bg="#FFFFFF", fg="#1E3A8A", bd=2, relief="groove")
+        panel.pack(fill="x", pady=10)
+        
+        r1 = tk.Frame(panel, bg="#FFFFFF")
+        r1.pack(fill="x", padx=20, pady=(12, 10))
+        
+        # Kiểu tính
+        tk.Label(r1, text="Kiểu tính:", font=("Arial", 11, "bold"), bg="#FFFFFF", fg="#333", width=15, anchor="w").pack(side="left")
+        cb_calc = ttk.Combobox(r1, textvariable=self.calc_type_var, values=["scalar_vector", "vector_vector"], state="readonly", width=20, font=("Arial", 11))
+        cb_calc.pack(side="left", padx=10)
+        cb_calc.bind("<<ComboboxSelected>>", self._on_calc_type_changed)
+        
+        # Kích thước
+        tk.Label(r1, text="Kích thước:", font=("Arial", 11, "bold"), bg="#FFFFFF", fg="#333", width=15, anchor="w").pack(side="left", padx=(20,0))
+        cb_dim = ttk.Combobox(r1, textvariable=self.dimension_var, values=["2", "3"], state="readonly", width=6, font=("Arial", 11))
+        cb_dim.pack(side="left", padx=10)
+        cb_dim.bind("<<ComboboxSelected>>", self._on_dimension_changed)
+        
+        # Phiên bản
+        tk.Label(r1, text="Phiên bản:", font=("Arial", 11, "bold"), bg="#FFFFFF", fg="#333", width=15, anchor="w").pack(side="left", padx=(20,0))
+        cb_ver = ttk.Combobox(r1, textvariable=self.version_var, values=["fx799", "fx991", "fx570"], state="readonly", width=10, font=("Arial", 11))
+        cb_ver.pack(side="left", padx=10)
+        cb_ver.bind("<<ComboboxSelected>>", self._on_version_changed)
+        
+        r2 = tk.Frame(panel, bg="#FFFFFF")
+        r2.pack(fill="x", padx=20, pady=(0, 14))
+        tk.Label(r2, text="Phép toán:", font=("Arial", 11, "bold"), bg="#FFFFFF", fg="#333", width=15, anchor="w").pack(side="left")
+        self.operation_combo = ttk.Combobox(r2, textvariable=self.operation_var, state="readonly", width=28, font=("Arial", 11))
+        self.operation_combo.pack(side="left", padx=10)
+    
+    def _create_guide_section(self, parent):
+        guide = tk.LabelFrame(parent, text="💡 HƯỚNG DẪN NHẬP LIỆU", font=("Arial", 10, "bold"), bg="#E8F4FD", fg="#1565C0", bd=1)
+        guide.pack(fill="x", pady=6)
+        text = (
+            "• Scalar: 3.14, sqrt(2), pi/2, sin(pi/6)\n"
+            "• Vector: 1,2 (2D) hoặc 1,2,3 (3D)\n"
+            "• Vector-Vector: Cross chỉ hỗ trợ 3D\n"
+            "• Kết quả keylog có dạng: prefix + vectorA + C + {chuỗi xử lý} + =\n"
+            "  (chuỗi xử lý gồm: scalar (nếu có) + mã phép toán + fixed value)"
+        )
+        tk.Label(guide, text=text, font=("Arial", 9), bg="#E8F4FD", fg="#333", justify="left", anchor="w").pack(side="left", padx=15, pady=8)
+    
+    def _create_input_section(self, parent):
+        self.input_frame = tk.LabelFrame(parent, text="📝 NHẬP DỮ LIỆU", font=("Arial", 12, "bold"), bg="#FFFFFF", fg="#1E3A8A", bd=2, relief="groove")
+        self.input_frame.pack(fill="x", pady=10)
+        
+        # Scalar (ẩn/hiện theo calc_type)
+        self.scalar_row = tk.Frame(self.input_frame, bg="#FFFFFF")
+        self.scalar_row.pack(fill="x", padx=20, pady=6)
+        tk.Label(self.scalar_row, text="Số thực:", font=("Arial", 10, "bold"), bg="#FFFFFF", fg="#1E3A8A", width=18, anchor="w").pack(side="left")
+        self.scalar_entry = tk.Entry(self.scalar_row, width=28, font=("Arial", 10), bd=2, relief="groove")
+        self.scalar_entry.pack(side="left", padx=10)
+        tk.Label(self.scalar_row, text="Ví dụ: 3.14 hoặc sqrt(2)", font=("Arial", 9, "italic"), bg="#FFFFFF", fg="#666").pack(side="left", padx=10)
+        
+        # Vector A
+        row_a = tk.Frame(self.input_frame, bg="#FFFFFF")
+        row_a.pack(fill="x", padx=20, pady=6)
+        tk.Label(row_a, text="Vector A:", font=("Arial", 10, "bold"), bg="#FFFFFF", fg="#1E3A8A", width=18, anchor="w").pack(side="left")
+        self.vector_a_entry = tk.Entry(row_a, width=28, font=("Arial", 10), bd=2, relief="groove")
+        self.vector_a_entry.pack(side="left", padx=10)
+        self.vector_a_example = tk.Label(row_a, text="Ví dụ: 1,2 (2D) hoặc 1,2,3 (3D)", font=("Arial", 9, "italic"), bg="#FFFFFF", fg="#666")
+        self.vector_a_example.pack(side="left", padx=10)
+        
+        # Vector B (ẩn/hiện theo calc_type)
+        self.row_b = tk.Frame(self.input_frame, bg="#FFFFFF")
+        self.row_b.pack(fill="x", padx=20, pady=6)
+        tk.Label(self.row_b, text="Vector B:", font=("Arial", 10, "bold"), bg="#FFFFFF", fg="#1E3A8A", width=18, anchor="w").pack(side="left")
+        self.vector_b_entry = tk.Entry(self.row_b, width=28, font=("Arial", 10), bd=2, relief="groove")
+        self.vector_b_entry.pack(side="left", padx=10)
+        self.vector_b_example = tk.Label(self.row_b, text="Ví dụ: 4,5 (2D) hoặc 4,5,6 (3D)", font=("Arial", 9, "italic"), bg="#FFFFFF", fg="#666")
+        self.vector_b_example.pack(side="left", padx=10)
+    
+    def _create_results_section(self, parent):
+        # Kết quả tính toán
+        self.roots_frame = tk.LabelFrame(parent, text="🎯 KẾT QUẢ TÍNH TOÁN", font=("Arial", 12, "bold"), bg="#FFFFFF", fg="#D35400", bd=2, relief="groove")
+        self.roots_frame.pack(fill="x", pady=10)
+        
+        t1c = tk.Frame(self.roots_frame, bg="#FFFFFF")
+        t1c.pack(fill="x", padx=15, pady=10)
+        
+        self.calc_result_text = tk.Text(t1c, width=90, height=5, font=("Courier New", 10), wrap=tk.WORD, bg="#FFF9E6", fg="#D35400")
+        self.calc_result_text.pack(fill="x")
+        self.calc_result_text.insert("1.0", "Chưa có kết quả")
+        self.calc_result_text.config(state='disabled')
+        
+        # Encoded + fixed values
+        self.encoded_frame = tk.LabelFrame(parent, text="🔗 GIÁ TRỊ MÃ HÓA + FIXED VALUES", font=("Arial", 12, "bold"), bg="#FFFFFF", fg="#1565C0", bd=2, relief="groove")
+        self.encoded_frame.pack(fill="x", pady=10)
+        
+        t2c = tk.Frame(self.encoded_frame, bg="#FFFFFF")
+        t2c.pack(fill="x", padx=15, pady=10)
+        
+        self.encoded_text = tk.Text(t2c, width=90, height=5, font=("Courier New", 10), wrap=tk.WORD, bg="#E8F4FD", fg="#1565C0")
+        self.encoded_text.pack(fill="x")
+        self.encoded_text.insert("1.0", "Chưa có dữ liệu mã hóa")
+        self.encoded_text.config(state='disabled')
+        
+        # Keylog cuối
+        self.final_frame = tk.LabelFrame(parent, text="📦 KEYLOG CUỐI (CHO MÁY TÍNH)", font=("Arial", 12, "bold"), bg="#FFFFFF", fg="#2E7D32", bd=2, relief="groove")
+        self.final_frame.pack(fill="x", pady=10)
+        
+        t3c = tk.Frame(self.final_frame, bg="#FFFFFF")
+        t3c.pack(fill="x", padx=15, pady=10)
+        
+        self.keylog_text = tk.Text(t3c, width=90, height=3, font=("Courier New", 11, "bold"), wrap=tk.WORD, bg="#F1F8E9", fg="#2E7D32")
+        self.keylog_text.pack(fill="x")
+        self.keylog_text.insert("1.0", "")
+        self.keylog_text.config(state='disabled')
+    
+    def _create_buttons(self, parent):
+        bar = tk.Frame(parent, bg="#F0F8FF")
+        bar.pack(fill="x", pady=12)
+        
+        self.btn_process = tk.Button(bar, text="🚀 Tính toán & Mã hóa", command=self._process, bg="#2196F3", fg="white", font=("Arial", 10, "bold"), width=18, height=2)
+        self.btn_process.pack(side="left", padx=8)
+        
+        self.btn_copy = tk.Button(bar, text="📋 Copy Keylog", command=self._copy, bg="#9C27B0", fg="white", font=("Arial", 10, "bold"), width=16, height=2, state='disabled')
+        self.btn_copy.pack(side="left", padx=8)
+        
+        self.btn_clear = tk.Button(bar, text="🧹 Xóa tất cả", command=self._clear, bg="#607D8B", fg="white", font=("Arial", 10, "bold"), width=14, height=2)
+        self.btn_clear.pack(side="left", padx=8)
+        
+        self.btn_export = tk.Button(bar, text="💾 Xuất Excel", command=self._export, bg="#4CAF50", fg="white", font=("Arial", 10, "bold"), width=14, height=2, state='disabled')
+        self.btn_export.pack(side="right", padx=8)
+    
+    def _create_status_bar(self, parent):
+        self.status_label = tk.Label(self.root, text="🟢 Sẵn sàng - Vector Mode v1.0", font=("Arial", 10, "bold"), bg="#F0F8FF", fg="#2E7D32", relief="sunken", bd=1, anchor="w", pady=4)
+        self.status_label.pack(side="bottom", fill="x")
+    
+    # ===================== EVENTS =====================
+    def _on_calc_type_changed(self, event=None):
+        t = self.calc_type_var.get()
+        if t == "scalar_vector":
+            self.scalar_row.pack(fill="x", padx=20, pady=6)
+            self.row_b.pack_forget()
         else:
-            self.scalar_frame.pack_forget()
-            self.vector_b_frame.pack(fill=tk.X)
-            
-        self.update_operation_dropdown()
-        self.update_service_config()
-        self.update_status("Đã chuyển sang kiểu: " + ("Số thực với Vector" if calc_type == "scalar_vector" else "Vector với Vector"))
-        
-    def on_dimension_changed(self, event=None):
-        """Xử lý khi thay đổi kích thước"""
-        dimension = self.dimension_var.get()
-        
-        if dimension == "2":
+            self.scalar_row.pack_forget()
+            self.row_b.pack(fill="x", padx=20, pady=6)
+        self._update_operation_dropdown()
+        self._sync_service_config()
+        self._set_status("Đã chuyển kiểu tính")
+    
+    def _on_dimension_changed(self, event=None):
+        d = self.dimension_var.get()
+        if d == "2":
             self.vector_a_example.config(text="Ví dụ: 1,2 (2D)")
             self.vector_b_example.config(text="Ví dụ: 4,5 (2D)")
         else:
             self.vector_a_example.config(text="Ví dụ: 1,2,3 (3D)")
             self.vector_b_example.config(text="Ví dụ: 4,5,6 (3D)")
-            
-        # Update operation list (cross product only available in 3D)
-        self.update_operation_dropdown()
-        self.update_service_config()
-        self.update_status(f"Đã chuyển sang {dimension}D")
-        
-    def on_version_changed(self, event=None):
-        """Xử lý khi thay đổi phiên bản"""
-        self.update_service_config()
-        version = self.version_var.get()
-        self.update_status(f"Đã chọn phiên bản: {version}")
-        
-    def update_operation_dropdown(self):
-        """Cập nhật dropdown phép toán"""
-        calc_type = self.calc_type_var.get()
-        dimension = self.dimension_var.get()
-        
-        operations = list(self.operations_map[calc_type].keys())
-        
-        # Remove cross product for 2D
-        if calc_type == "vector_vector" and dimension == "2":
-            operations = [op for op in operations if op != "Tích có hướng"]
-            
-        self.operation_combo['values'] = operations
-        if operations:
-            self.operation_var.set(operations[0])
+        self._update_operation_dropdown()
+        self._sync_service_config()
+        self._set_status(f"Đã chuyển sang {d}D")
     
-    def update_service_config(self):
-        """Cập nhật cấu hình VectorService"""
+    def _on_version_changed(self, event=None):
+        self._sync_service_config()
+        self._set_status(f"Đã chọn phiên bản: {self.version_var.get()}")
+    
+    def _update_operation_dropdown(self):
+        t = self.calc_type_var.get()
+        d = self.dimension_var.get()
+        ops = list(self.operations_map[t].keys())
+        if t == "vector_vector" and d == "2":
+            ops = [o for o in ops if o != "Tích có hướng"]
+        self.operation_combo['values'] = ops
+        if ops:
+            self.operation_var.set(ops[0])
+    
+    def _sync_service_config(self):
         if not self.vector_service:
             return
-            
         try:
-            calc_type = self.calc_type_var.get()
-            dimension = int(self.dimension_var.get())
-            version = self.version_var.get()
-            
-            self.vector_service.set_calculation_type(calc_type)
-            self.vector_service.set_dimension(dimension)
-            self.vector_service.set_version(version)
-            
+            self.vector_service.set_calculation_type(self.calc_type_var.get())
+            self.vector_service.set_dimension(int(self.dimension_var.get()))
+            self.vector_service.set_version(self.version_var.get())
         except Exception as e:
-            print(f"Error updating service config: {e}")
+            print(f"Service config error: {e}")
     
-    # ========== MAIN PROCESSING ==========
-    
-    def process_calculation(self):
-        """Xử lý tính toán chính với VectorService"""
-        try:
-            if not self.vector_service:
-                messagebox.showerror("Lỗi", "VectorService không sẵn sàng!")
-                return
-                
-            # Validate inputs
-            if not self.validate_inputs():
-                return
-                
-            # Update service config
-            self.update_service_config()
-            
-            # Set operation
-            operation_name = self.operation_var.get()
-            operation_code = self.operations_map[self.calc_type_var.get()][operation_name]
-            self.vector_service.set_operation(operation_code)
-            
-            # Process inputs
-            calc_type = self.calc_type_var.get()
-            
-            if calc_type == "scalar_vector":
-                scalar_input = self.scalar_entry.get().strip()
-                if not self.vector_service.process_scalar_input(scalar_input):
-                    messagebox.showerror("Lỗi", "Không thể xử lý scalar input")
-                    return
-                    
-            vector_a_input = self.vector_a_entry.get().strip()
-            if not self.vector_service.process_vector_A(vector_a_input):
-                messagebox.showerror("Lỗi", "Không thể xử lý Vector A")
-                return
-                
-            if calc_type == "vector_vector":
-                vector_b_input = self.vector_b_entry.get().strip()
-                if not self.vector_service.process_vector_B(vector_b_input):
-                    messagebox.showerror("Lỗi", "Không thể xử lý Vector B")
-                    return
-            
-            # Process complete workflow
-            success, message, result = self.vector_service.process_complete_workflow()
-            
-            if success:
-                # Display results
-                self.display_results(result)
-                
-                # Enable buttons
-                self.copy_button.config(state=tk.NORMAL)
-                self.export_button.config(state=tk.DISABLED)  # Will enable after Excel integration
-                
-                self.has_result = True
-                self.update_status("Tính toán thành công!")
-            else:
-                messagebox.showerror("Lỗi", f"Lỗi tính toán: {message}")
-                self.update_status("Lỗi tính toán")
-                
-        except Exception as e:
-            messagebox.showerror("Lỗi", f"Lỗi tính toán: {str(e)}")
-            self.update_status("Lỗi tính toán")
-    
-    def validate_inputs(self):
-        """Kiểm tra tính hợp lệ của inputs"""
-        calc_type = self.calc_type_var.get()
+    # ===================== PROCESS =====================
+    def _process(self):
+        if not self.vector_service:
+            messagebox.showerror("Lỗi", "VectorService không sẵn sàng")
+            return
         
-        # Check vector A
+        if not self._validate_inputs():
+            return
+        
+        self._sync_service_config()
+        op_name = self.operation_var.get()
+        op_code = self.operations_map[self.calc_type_var.get()][op_name]
+        self.vector_service.set_operation(op_code)
+        
+        if self.calc_type_var.get() == "scalar_vector":
+            if not self.vector_service.process_scalar_input(self.scalar_entry.get().strip()):
+                messagebox.showerror("Lỗi", "Không thể xử lý số thực")
+                return
+        
+        if not self.vector_service.process_vector_A(self.vector_a_entry.get().strip()):
+            messagebox.showerror("Lỗi", "Không thể xử lý Vector A")
+            return
+        
+        if self.calc_type_var.get() == "vector_vector":
+            if not self.vector_service.process_vector_B(self.vector_b_entry.get().strip()):
+                messagebox.showerror("Lỗi", "Không thể xử lý Vector B")
+                return
+        
+        success, msg, result = self.vector_service.process_complete_workflow()
+        if not success:
+            messagebox.showerror("Lỗi", msg)
+            self._set_status("❌ Lỗi xử lý")
+            return
+        
+        # Show results
+        self._render_results(result)
+        self.btn_copy.config(state='normal')
+        self.btn_export.config(state='disabled')
+        self.has_result = True
+        self._set_status("✅ Tính toán & mã hóa thành công")
+    
+    def _validate_inputs(self):
+        t = self.calc_type_var.get()
         if not self.vector_a_entry.get().strip():
             messagebox.showerror("Lỗi", "Vui lòng nhập Vector A")
             return False
-            
-        # Check scalar for scalar_vector mode
-        if calc_type == "scalar_vector" and not self.scalar_entry.get().strip():
+        if t == "scalar_vector" and not self.scalar_entry.get().strip():
             messagebox.showerror("Lỗi", "Vui lòng nhập số thực")
             return False
-            
-        # Check vector B for vector_vector mode
-        if calc_type == "vector_vector" and not self.vector_b_entry.get().strip():
+        if t == "vector_vector" and not self.vector_b_entry.get().strip():
             messagebox.showerror("Lỗi", "Vui lòng nhập Vector B")
             return False
-            
-        # Check operation
         if not self.operation_var.get():
             messagebox.showerror("Lỗi", "Vui lòng chọn phép toán")
             return False
-            
         return True
-        
-    def display_results(self, result):
-        """Hiển thị kết quả từ VectorService"""
-        # Clear previous results
-        self.calc_result_text.config(state=tk.NORMAL)
-        self.calc_result_text.delete(1.0, tk.END)
-        self.calc_result_text.insert(tk.END, result['calculation_display'])
-        self.calc_result_text.config(state=tk.DISABLED)
-        
-        # Encoded values with fixed values info
-        encoded_text = ""
-        if result['encoded_scalar']:
-            encoded_text += f"Scalar encoded: {result['encoded_scalar']}\n"
-        if result['encoded_vector_A']:
-            encoded_text += f"Vector A encoded: {' = '.join(result['encoded_vector_A'])}\n"
-        if result['encoded_vector_B']:
-            encoded_text += f"Vector B encoded: {' = '.join(result['encoded_vector_B'])}\n"
-        
-        # Fixed value info
-        fixed_value_info = result['fixed_value']
-        encoded_text += f"Fixed value: {fixed_value_info['fixed_value']} ({fixed_value_info['description']})\n"
-            
-        self.encoded_text.config(state=tk.NORMAL)
-        self.encoded_text.delete(1.0, tk.END)
-        self.encoded_text.insert(tk.END, encoded_text.strip())
-        self.encoded_text.config(state=tk.DISABLED)
-        
-        # Final keylog
-        self.current_result = result['final_keylog']
-        self.keylog_text.config(state=tk.NORMAL)
-        self.keylog_text.delete(1.0, tk.END)
-        self.keylog_text.insert(tk.END, self.current_result)
-        self.keylog_text.config(state=tk.DISABLED)
-        
-    # ========== ACTION METHODS ==========
     
-    def copy_result(self):
-        """Copy keylog to clipboard"""
-        if self.current_result:
-            self.root.clipboard_clear()
-            self.root.clipboard_append(self.current_result)
-            self.update_status("Đã copy keylog vào clipboard!")
-            messagebox.showinfo("Thành công", "Đã copy keylog vào clipboard!")
-        else:
+    def _render_results(self, result):
+        # Calculation
+        self.calc_result_text.config(state='normal')
+        self.calc_result_text.delete("1.0", tk.END)
+        self.calc_result_text.insert("1.0", result['calculation_display'])
+        self.calc_result_text.config(state='disabled')
+        
+        # Encoded + fixed
+        encoded = []
+        if result.get('encoded_scalar'):
+            encoded.append(f"Scalar: {result['encoded_scalar']}")
+        if result.get('encoded_vector_A'):
+            encoded.append(f"Vector A: {' = '.join(result['encoded_vector_A'])}")
+        if result.get('encoded_vector_B'):
+            encoded.append(f"Vector B: {' = '.join(result['encoded_vector_B'])}")
+        fv = result['fixed_value']
+        encoded.append(f"Fixed value: {fv['fixed_value']} ({fv['description']})")
+        
+        self.encoded_text.config(state='normal')
+        self.encoded_text.delete("1.0", tk.END)
+        self.encoded_text.insert("1.0", "\n".join(encoded))
+        self.encoded_text.config(state='disabled')
+        
+        # Keylog
+        self.current_result = result['final_keylog']
+        self.keylog_text.config(state='normal')
+        self.keylog_text.delete("1.0", tk.END)
+        try:
+            self.keylog_text.config(font=("Flexio Fx799VN", 11, "bold"))
+        except Exception:
+            self.keylog_text.config(font=("Courier New", 11, "bold"))
+        self.keylog_text.insert("1.0", self.current_result)
+        self.keylog_text.config(state='disabled')
+    
+    # ===================== ACTIONS =====================
+    def _copy(self):
+        if not self.current_result:
             messagebox.showwarning("Cảnh báo", "Chưa có kết quả để copy")
-            
-    def clear_all(self):
-        """Xóa tất cả dữ liệu"""
+            return
+        self.root.clipboard_clear()
+        self.root.clipboard_append(self.current_result)
+        messagebox.showinfo("Thành công", "Đã copy keylog vào clipboard!")
+        self._set_status("Đã copy keylog")
+    
+    def _clear(self):
         self.scalar_entry.delete(0, tk.END)
         self.vector_a_entry.delete(0, tk.END)
         self.vector_b_entry.delete(0, tk.END)
         
-        self.calc_result_text.config(state=tk.NORMAL)
-        self.calc_result_text.delete(1.0, tk.END)
-        self.calc_result_text.config(state=tk.DISABLED)
+        self.calc_result_text.config(state='normal')
+        self.calc_result_text.delete("1.0", tk.END)
+        self.calc_result_text.insert("1.0", "Chưa có kết quả")
+        self.calc_result_text.config(state='disabled')
         
-        self.encoded_text.config(state=tk.NORMAL)
-        self.encoded_text.delete(1.0, tk.END)
-        self.encoded_text.config(state=tk.DISABLED)
+        self.encoded_text.config(state='normal')
+        self.encoded_text.delete("1.0", tk.END)
+        self.encoded_text.insert("1.0", "Chưa có dữ liệu mã hóa")
+        self.encoded_text.config(state='disabled')
         
-        self.keylog_text.config(state=tk.NORMAL)
-        self.keylog_text.delete(1.0, tk.END)
-        self.keylog_text.config(state=tk.DISABLED)
+        self.keylog_text.config(state='normal')
+        self.keylog_text.delete("1.0", tk.END)
+        self.keylog_text.config(state='disabled')
         
-        # Reset service state
         if self.vector_service:
             self.vector_service.reset_state()
         
         self.current_result = ""
         self.has_result = False
-        self.copy_button.config(state=tk.DISABLED)
-        self.export_button.config(state=tk.DISABLED)
-        
-        self.update_status("Đã xóa tất cả dữ liệu")
-        
-    def export_single_result(self):
-        """Xuất kết quả hiện tại ra Excel (placeholder)"""
-        messagebox.showinfo("Thông báo", "Chức năng Export Excel sẽ được bổ sung khi VectorExcelProcessor hoàn thành")
-        
-    def create_template(self):
-        """Tạo template Excel (placeholder)"""
-        messagebox.showinfo("Thông báo", "Chức năng tạo Template sẽ được bổ sung")
-            
-    def import_excel(self):
-        """Import file Excel (placeholder)"""
-        messagebox.showinfo("Thông báo", "Chức năng Import Excel sẽ được bổ sung")
-            
-    def process_excel_file(self):
-        """Xử lý file Excel batch (placeholder)"""
-        messagebox.showinfo("Thông báo", "Chức năng xử lý Excel batch sẽ được bổ sung")
-            
-    def update_status(self, message):
-        """Cập nhật thanh trạng thái"""
-        self.status_bar.config(text=message)
+        self.btn_copy.config(state='disabled')
+        self.btn_export.config(state='disabled')
+        self._set_status("Đã xóa tất cả dữ liệu")
+    
+    def _export(self):
+        messagebox.showinfo("Thông báo", "Export Excel sẽ bổ sung sau khi hoàn tất VectorExcelProcessor")
+    
+    # ===================== UTIL =====================
+    def _set_status(self, text):
+        self.status_label.config(text=text)
 
 
-# ========== MAIN RUNNER (For testing) ==========
 if __name__ == "__main__":
-    root = tk.Tk()
-    root.withdraw()  # Hide main window
-    app = VectorView(root)
+    root = tk.Tk(); root.withdraw()
+    VectorView(root)
     root.mainloop()
