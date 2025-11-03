@@ -1,0 +1,82 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "description": "Vector keylog prefixes and operation codes for various calculator versions",
+    "last_updated": "2025-11-03",
+    "supported_dimensions": [2, 3],
+    "supported_calculation_types": ["scalar_vector", "vector_vector"]
+  },
+  "global_defaults": {
+    "scalar_vector": "wv",
+    "vector_vector": "wv"
+  },
+  "versions": {
+    "fx799": {
+      "base_prefix": "wv",
+      "description": "Casio fx-799VN vector mode",
+      "scalar_vector_operations": {
+        "multiply": "qV1",
+        "divide": "qV2",
+        "add": "qV3",
+        "subtract": "qV4"
+      },
+      "vector_vector_operations": {
+        "dot_product": "qV5",
+        "cross_product": "qV6",
+        "add": "qV7",
+        "subtract": "qV8",
+        "angle": "qV9",
+        "distance": "qV10"
+      },
+      "examples": {
+        "scalar_multiply": "wv3=1=2=CqV1=",
+        "dot_product": "wv1=2=C3=4=CqV5=",
+        "cross_product_3d": "wv1=2=3=C4=5=6=CqV6="
+      }
+    },
+    "fx991": {
+      "base_prefix": "VEC",
+      "description": "Casio fx-991 vector notation",
+      "scalar_vector_operations": {
+        "multiply": "VMUL",
+        "divide": "VDIV",
+        "add": "VADD",
+        "subtract": "VSUB"
+      },
+      "vector_vector_operations": {
+        "dot_product": "VDOT",
+        "cross_product": "VCROSS",
+        "add": "VADD",
+        "subtract": "VSUB",
+        "angle": "VANGLE",
+        "distance": "VDIST"
+      }
+    },
+    "fx570": {
+      "base_prefix": "V",
+      "description": "Casio fx-570 compact vector mode",
+      "scalar_vector_operations": {
+        "multiply": "V1",
+        "divide": "V2",
+        "add": "V3",
+        "subtract": "V4"
+      },
+      "vector_vector_operations": {
+        "dot_product": "V5",
+        "cross_product": "V6",
+        "add": "V7",
+        "subtract": "V8",
+        "angle": "V9",
+        "distance": "V10"
+      }
+    }
+  },
+  "formatting_rules": {
+    "component_separator": "=",
+    "vector_delimiter": "C",
+    "operation_marker": "C",
+    "end_marker": "=",
+    "decimal_precision": 6,
+    "zero_representation": "0"
+  }
+}
