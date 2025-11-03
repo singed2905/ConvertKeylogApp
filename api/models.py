@@ -150,41 +150,6 @@ class BatchResponse(BaseModel):
     data: Optional[Dict[str, Any]] = None
     error: Optional[Dict[str, Any]] = None
 
-# ========== EXCEL PROCESSING MODELS ==========
-
-class ExcelUploadResponse(BaseModel):
-    """Response from Excel upload"""
-    success: bool
-    data: Optional[Dict[str, Any]] = None
-    error: Optional[Dict[str, Any]] = None
-
-class ExcelProcessRequest(BaseModel):
-    """Request to process Excel file"""
-    file_id: str = Field(..., description="Uploaded file ID")
-    mode: str = Field(..., description="Processing mode")
-    parameters: Dict[str, Any] = Field(..., description="Processing parameters")
-    options: Optional[Dict[str, Any]] = Field(None, description="Processing options")
-
-class JobStatusResponse(BaseModel):
-    """Job status response"""
-    success: bool
-    data: Optional[Dict[str, Any]] = None
-    error: Optional[Dict[str, Any]] = None
-
-# ========== SYSTEM MODELS ==========
-
-class SystemStatusResponse(BaseModel):
-    """System status response"""
-    success: bool
-    data: Optional[Dict[str, Any]] = None
-    error: Optional[Dict[str, Any]] = None
-
-class ConfigResponse(BaseModel):
-    """Configuration response"""
-    success: bool
-    data: Optional[Dict[str, Any]] = None
-    error: Optional[Dict[str, Any]] = None
-
 # ========== ERROR MODELS ==========
 
 class ErrorDetail(BaseModel):
