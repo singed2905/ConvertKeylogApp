@@ -7,12 +7,11 @@ openpyxl>=3.0.0
 # GUI framework
 tk  # Built into Python, but listed for clarity
 
-# Plotting and visualization - NEW for coordinate display
-matplotlib>=3.5.0
-numpy>=1.20.0  # Required for matplotlib and pandas
-
 # System monitoring for crash protection
 psutil>=5.8.0
+
+# Optional: Performance enhancements
+numpy>=1.20.0  # pandas dependency, but explicit for performance
 
 # Development and testing
 pytest>=7.0.0  # For running tests
