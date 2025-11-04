@@ -71,4 +71,3 @@ class PolynomialExcelProcessor:
             for k,v in meta.items(): md[k] = [v]
             pd.DataFrame(md).to_excel(writer, sheet_name='Metadata', index=False)
         return output_path
-}
