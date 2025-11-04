@@ -6,11 +6,22 @@ import os
 from datetime import datetime
 import psutil
 
+# NEW: Import matplotlib for coordinate plotting
+try:
+    import matplotlib.pyplot as plt
+    from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+    from mpl_toolkits.mplot3d import Axes3D
+    import numpy as np
+    MATPLOTLIB_AVAILABLE = True
+except ImportError:
+    MATPLOTLIB_AVAILABLE = False
+    print("Warning: matplotlib not available. Coordinate plotting disabled.")
+
 class GeometryView:
     def __init__(self, window, config=None):
         self.window = window
         self.window.title("Geometry Mode - Anti-Crash Excel! 💪")
-        self.window.geometry("900x900")
+        self.window.geometry("900x1100")  # Increased height for plot
         self.window.configure(bg="#F8F9FA")
 
         # Lưu config được truyền vào
@@ -28,6 +39,12 @@ class GeometryView:
         self.processing_cancelled = False
         self.is_large_file = False  # Track if current file is large
         self.has_result = False  # Track if manual result is available
+        
+        # NEW: Plotting state
+        self.plot_visible = False
+        self.fig = None
+        self.canvas = None
+        self.toolbar = None
         
         # Biến và trạng thái
         self._initialize_variables()
@@ -110,6 +127,8 @@ class GeometryView:
             self._hide_action_buttons()
             # Ẩn copy button khi clear dữ liệu
             self._hide_copy_button()
+            # NEW: Hide plot when no data
+            self._hide_coordinate_plot()
     
     def _check_manual_data(self):
         """Check if manual data has been entered"""
@@ -285,8 +304,216 @@ class GeometryView:
         self._setup_all_input_frames()  # Tạo tất cả frame
         self._setup_control_frame()
         
+        # NEW: Setup coordinate plotting frame (initially hidden)
+        if MATPLOTLIB_AVAILABLE:
+            self._create_coordinate_plot_frame()
+        
         # Hiển thông báo ban đầu
         self._show_ready_message()
+
+    # NEW: Coordinate plotting methods
+    def _create_coordinate_plot_frame(self):
+        """Tạo frame hiển thị đồ thị tọa độ (matplotlib embedded)"""
+        if not MATPLOTLIB_AVAILABLE:
+            return
+        
+        self.frame_plot = tk.LabelFrame(
+            self.main_container, text="📊 Hiển thị trên hệ tọa độ",
+            bg="#FFFFFF", fg="#1B5299", font=("Arial", 10, "bold")
+        )
+        # Position below copy button (row=11)
+        self.frame_plot.grid(row=11, column=0, columnspan=4, padx=10, pady=10, sticky="we")
+        
+        # Create matplotlib figure
+        self.fig = plt.Figure(figsize=(10, 6), dpi=100, facecolor='white')
+        self.canvas = FigureCanvasTkAgg(self.fig, self.frame_plot)
+        self.canvas.get_tk_widget().pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Add toolbar for zoom/pan
+        toolbar_frame = tk.Frame(self.frame_plot, bg="#FFFFFF")
+        toolbar_frame.pack(fill="x", padx=5, pady=2)
+        self.toolbar = NavigationToolbar2Tk(self.canvas, toolbar_frame)
+        self.toolbar.update()
+        
+        # Initially hide the entire frame
+        self.frame_plot.grid_remove()
+        self.plot_visible = False
+    
+    def _show_coordinate_plot(self):
+        """Show coordinate plot frame and update plot"""
+        if not MATPLOTLIB_AVAILABLE or self.imported_data:
+            return
+        
+        if not self.plot_visible:
+            self.frame_plot.grid()
+            self.plot_visible = True
+        
+        # Update the plot with current data
+        self._update_coordinate_plot()
+    
+    def _hide_coordinate_plot(self):
+        """Hide coordinate plot frame"""
+        if not MATPLOTLIB_AVAILABLE:
+            return
+        
+        if self.plot_visible:
+            self.frame_plot.grid_remove()
+            self.plot_visible = False
+    
+    def _update_coordinate_plot(self):
+        """Update coordinate plot with current input data"""
+        if not MATPLOTLIB_AVAILABLE or not self.plot_visible or self.imported_data:
+            return
+        
+        try:
+            # Clear previous plot
+            self.fig.clear()
+            
+            # Get current input data
+            data_a = self._get_input_data_A()
+            data_b = self._get_input_data_B()
+            
+            # Determine if we need 2D or 3D plot
+            is_3d = (self.kich_thuoc_A_var.get() == "3" or self.kich_thuoc_B_var.get() == "3")
+            
+            if is_3d:
+                ax = self.fig.add_subplot(111, projection='3d')
+                self._plot_3d_data(ax, data_a, data_b)
+            else:
+                ax = self.fig.add_subplot(111)
+                self._plot_2d_data(ax, data_a, data_b)
+            
+            # Refresh canvas
+            self.canvas.draw()
+            
+        except Exception as e:
+            print(f"Plot update error: {e}")
+    
+    def _plot_2d_data(self, ax, data_a, data_b):
+        """Plot 2D coordinate data"""
+        ax.set_title(f"Hệ tọa độ Oxy - {self.pheptoan_var.get()}", fontsize=12, fontweight='bold')
+        ax.set_xlabel("X", fontsize=10)
+        ax.set_ylabel("Y", fontsize=10)
+        ax.grid(True, alpha=0.3)
+        
+        # Plot Group A
+        self._plot_group_2d(ax, data_a, "A", "blue", self.dropdown1_var.get())
+        
+        # Plot Group B (if needed)
+        if self.pheptoan_var.get() not in ["Diện tích", "Thể tích"]:
+            self._plot_group_2d(ax, data_b, "B", "red", self.dropdown2_var.get())
+        
+        ax.legend()
+        ax.axis('equal')
+    
+    def _plot_3d_data(self, ax, data_a, data_b):
+        """Plot 3D coordinate data"""
+        ax.set_title(f"Hệ tọa độ Oxyz - {self.pheptoan_var.get()}", fontsize=12, fontweight='bold')
+        ax.set_xlabel("X", fontsize=10)
+        ax.set_ylabel("Y", fontsize=10)
+        ax.set_zlabel("Z", fontsize=10)
+        
+        # Plot Group A
+        self._plot_group_3d(ax, data_a, "A", "blue", self.dropdown1_var.get())
+        
+        # Plot Group B (if needed)
+        if self.pheptoan_var.get() not in ["Diện tích", "Thể tích"]:
+            self._plot_group_3d(ax, data_b, "B", "red", self.dropdown2_var.get())
+        
+        ax.legend()
+    
+    def _plot_group_2d(self, ax, data, group_name, color, shape_type):
+        """Plot a single group in 2D"""
+        try:
+            if shape_type == "Điểm" and data.get('point_input'):
+                coords = [float(x.strip()) for x in data['point_input'].split(',')]
+                if len(coords) >= 2:
+                    ax.scatter(coords[0], coords[1], c=color, s=100, alpha=0.8, label=f'Điểm {group_name}')
+                    ax.annotate(f'{group_name}({coords[0]}, {coords[1]})', 
+                               (coords[0], coords[1]), xytext=(5, 5), textcoords='offset points',
+                               fontsize=9, color=color, fontweight='bold')
+            
+            elif shape_type == "Đường tròn" and data.get('circle_center') and data.get('circle_radius'):
+                center = [float(x.strip()) for x in data['circle_center'].split(',')]
+                radius = float(data['circle_radius'])
+                if len(center) >= 2:
+                    circle = plt.Circle((center[0], center[1]), radius, fill=False, color=color, linewidth=2, label=f'Đường tròn {group_name}')
+                    ax.add_patch(circle)
+                    ax.scatter(center[0], center[1], c=color, s=50, marker='+')
+                    ax.annotate(f'Tâm {group_name}({center[0]}, {center[1]})', 
+                               (center[0], center[1]), xytext=(5, 5), textcoords='offset points',
+                               fontsize=8, color=color)
+            
+            elif shape_type == "Đường thẳng" and data.get('line_A1') and data.get('line_X1'):
+                point = [float(x.strip()) for x in data['line_A1'].split(',')]
+                vector = [float(x.strip()) for x in data['line_X1'].split(',')]
+                if len(point) >= 2 and len(vector) >= 2:
+                    # Plot line segment
+                    t_range = np.linspace(-5, 5, 100)
+                    x_line = point[0] + t_range * vector[0]
+                    y_line = point[1] + t_range * vector[1]
+                    ax.plot(x_line, y_line, color=color, linewidth=2, label=f'Đường thẳng {group_name}')
+                    ax.scatter(point[0], point[1], c=color, s=80, marker='s')
+                    ax.annotate(f'{group_name}({point[0]}, {point[1]})', 
+                               (point[0], point[1]), xytext=(5, 5), textcoords='offset points',
+                               fontsize=9, color=color, fontweight='bold')
+                    
+        except Exception as e:
+            print(f"Error plotting 2D group {group_name}: {e}")
+    
+    def _plot_group_3d(self, ax, data, group_name, color, shape_type):
+        """Plot a single group in 3D"""
+        try:
+            if shape_type == "Điểm" and data.get('point_input'):
+                coords = [float(x.strip()) for x in data['point_input'].split(',')]
+                if len(coords) >= 3:
+                    ax.scatter(coords[0], coords[1], coords[2], c=color, s=100, alpha=0.8, label=f'Điểm {group_name}')
+                    ax.text(coords[0], coords[1], coords[2], f'  {group_name}({coords[0]}, {coords[1]}, {coords[2]})',
+                           fontsize=9, color=color, fontweight='bold')
+            
+            elif shape_type == "Mặt cầu" and data.get('sphere_center') and data.get('sphere_radius'):
+                center = [float(x.strip()) for x in data['sphere_center'].split(',')]
+                radius = float(data['sphere_radius'])
+                if len(center) >= 3:
+                    # Create sphere wireframe
+                    u = np.linspace(0, 2 * np.pi, 20)
+                    v = np.linspace(0, np.pi, 20)
+                    x_sphere = center[0] + radius * np.outer(np.cos(u), np.sin(v))
+                    y_sphere = center[1] + radius * np.outer(np.sin(u), np.sin(v))
+                    z_sphere = center[2] + radius * np.outer(np.ones(np.size(u)), np.cos(v))
+                    ax.plot_wireframe(x_sphere, y_sphere, z_sphere, color=color, alpha=0.3, label=f'Mặt cầu {group_name}')
+                    ax.scatter(center[0], center[1], center[2], c=color, s=80, marker='+')
+                    ax.text(center[0], center[1], center[2], f'  Tâm {group_name}({center[0]}, {center[1]}, {center[2]})',
+                           fontsize=8, color=color)
+            
+            elif shape_type == "Đường thẳng" and data.get('line_A1') and data.get('line_X1'):
+                point = [float(x.strip()) for x in data['line_A1'].split(',')]
+                vector = [float(x.strip()) for x in data['line_X1'].split(',')]
+                if len(point) >= 3 and len(vector) >= 3:
+                    # Plot 3D line segment
+                    t_range = np.linspace(-3, 3, 100)
+                    x_line = point[0] + t_range * vector[0]
+                    y_line = point[1] + t_range * vector[1]
+                    z_line = point[2] + t_range * vector[2]
+                    ax.plot(x_line, y_line, z_line, color=color, linewidth=2, label=f'Đường thẳng {group_name}')
+                    ax.scatter(point[0], point[1], point[2], c=color, s=80, marker='s')
+                    ax.text(point[0], point[1], point[2], f'  {group_name}({point[0]}, {point[1]}, {point[2]})',
+                           fontsize=9, color=color, fontweight='bold')
+            
+            elif shape_type == "Mặt phẳng" and all(data.get(f'plane_{coef}') for coef in ['a', 'b', 'c', 'd']):
+                a = float(data['plane_a'])
+                b = float(data['plane_b']) 
+                c = float(data['plane_c'])
+                d = float(data['plane_d'])
+                
+                # Create plane mesh
+                xx, yy = np.meshgrid(np.linspace(-5, 5, 10), np.linspace(-5, 5, 10))
+                if c != 0:
+                    zz = (-a * xx - b * yy - d) / c
+                    ax.plot_surface(xx, yy, zz, alpha=0.3, color=color, label=f'Mặt phẳng {group_name}')
+                
+        except Exception as e:
+            print(f"Error plotting 3D group {group_name}: {e}")
 
     def _create_header(self):
         """Tạo header với memory monitoring"""
@@ -360,7 +587,8 @@ class GeometryView:
         
         # Service status indicator
         status_text = "Service: ✅ Ready" if self.geometry_service else "Service: ⚠️ Error"
-        tk.Label(center_section, text=status_text, font=("Arial", 8),
+        plot_status = "📊 Plot: ✅ Ready" if MATPLOTLIB_AVAILABLE else "📊 Plot: ⚠️ Disabled"
+        tk.Label(center_section, text=f"{status_text} | {plot_status}", font=("Arial", 8),
                 bg=HEADER_COLORS["primary"], fg=HEADER_COLORS["text"]).pack(side="bottom")
         
         # Start memory monitoring
@@ -707,6 +935,11 @@ class GeometryView:
             data_A = self._get_input_data_A()
             result = self.geometry_service.thuc_thi_A(data_A)
             self._update_result_display(f"Nhóm A đã xử lý: {result}")
+            
+            # NEW: Show coordinate plot after processing
+            if MATPLOTLIB_AVAILABLE and not self.imported_data:
+                self._show_coordinate_plot()
+                
         except Exception as e:
             messagebox.showerror("Lỗi", f"Lỗi xử lý nhóm A: {str(e)}")
     
@@ -720,6 +953,11 @@ class GeometryView:
             data_B = self._get_input_data_B()
             result = self.geometry_service.thuc_thi_B(data_B)
             self._update_result_display(f"Nhóm B đã xử lý: {result}")
+            
+            # NEW: Show coordinate plot after processing
+            if MATPLOTLIB_AVAILABLE and not self.imported_data:
+                self._show_coordinate_plot()
+                
         except Exception as e:
             messagebox.showerror("Lỗi", f"Lỗi xử lý nhóm B: {str(e)}")
     
@@ -754,6 +992,10 @@ class GeometryView:
             
             # Hiện nút copy để sao chép kết quả
             self._show_copy_button()
+            
+            # NEW: Show coordinate plot after processing (only for manual input)
+            if MATPLOTLIB_AVAILABLE and not self.imported_data:
+                self._show_coordinate_plot()
             
         except Exception as e:
             messagebox.showerror("Lỗi", f"Lỗi thực thi: {str(e)}")
@@ -833,6 +1075,9 @@ class GeometryView:
             
             # Ẩn nút copy vì đang ở import mode
             self._hide_copy_button()
+            
+            # NEW: Hide coordinate plot in import mode
+            self._hide_coordinate_plot()
             
             # Cập nhật status đơn giản (chỉ tên file)
             file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
@@ -1064,6 +1309,9 @@ class GeometryView:
                 
                 self._show_single_line_result("")
                 self.excel_status_label.config(text="📊 Excel: ✅ Ready")
+                
+                # NEW: Can show coordinate plot again in manual mode
+                self._hide_coordinate_plot()
         
         except Exception as e:
             messagebox.showerror("Lỗi", f"Lỗi thoát chế độ import: {str(e)}")
@@ -1111,7 +1359,7 @@ class GeometryView:
     def _show_ready_message(self):
         """Hiển thông báo sẵn sàng"""
         if self.geometry_service:
-            message = " "
+            message = "🎯 Geometry Mode sẵn sàng! Nhập dữ liệu và chọn 'Thực thi tất cả' để xem kết quả và đồ thị tọa độ."
         else:
             message = "⚠️ GeometryService không khởi tạo được.\nVui lòng kiểm tra cài đặt!"
         
