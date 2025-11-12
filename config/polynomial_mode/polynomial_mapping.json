@@ -1,6 +1,18 @@
 {
   "latex_to_calculator_mappings": [
     {
+      "find": "\\\\int_\\\\(([^)]+)\\\\)\\\\\\^\\\\(([^)]+)\\\\)([^d]+)d[a-z]",
+      "replace": "y \\3,\\1,\\2)",
+      "type": "regex",
+      "description": "Tích phân ngoặc tròn: \\int_(a)^(b) f(x) dx → y f(x),a,b)"
+    },
+    {
+      "find": "\\\\int_\\\\{([^}]+)\\\\}\\\\\\^\\\\{([^}]+)\\\\}([^d]+)d[a-z]",
+      "replace": "y \\3,\\1,\\2)",
+      "type": "regex",
+      "description": "Tích phân ngoặc nhọn: \\int_{a}^{b} f(x) dx → y f(x),a,b)"
+    },
+    {
       "find": "\\frac\\{([^{}]+)\\}\\{([^{}]+)\\}",
       "replace": "$1a$2",
       "type": "regex",
@@ -100,19 +112,18 @@
       "find": "\\left(",
       "replace": "(",
       "type": "literal",
-      "description": "Thay \\left{ → ("
+      "description": "Thay \\left( → ("
     },
     {
       "find": "\\right)",
       "replace": ")",
       "type": "literal",
-      "description": "Thay \\right} → )"
+      "description": "Thay \\right) → )"
     }
-
   ],
   "metadata": {
-    "version": "1.3",
-    "description": "JSON fix: escapes đủ dấu \\, chuyển hàm số sang literal, không còn lỗi Invalid \\escape khi parse Python.",
+    "version": "1.4",
+    "description": "Thêm hỗ trợ tích phân: \\int_(a)^(b) f(x) dx → y f(x),a,b) với regex escaping đúng.",
     "last_updated": "2025-11-12"
   }
 }
