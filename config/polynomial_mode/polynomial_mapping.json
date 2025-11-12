@@ -1,7 +1,7 @@
 {
   "latex_to_calculator_mappings": [
     {
-      "find": "\\\\frac\\{([^{}]+)\\}\\{([^{}]+)\\}",
+      "find": "\\frac\{([^{}]+)\}\\{([^{}]+)\}",
       "replace": "$1a$2",
       "type": "regex",
       "description": "Chuyển phân số \\frac{x}{y} thành dạng x a y"
@@ -25,91 +25,91 @@
       "description": "Dấu chia (/) thành 'P'"
     },
     {
-      "find": "\\\\sqrt\\{",
-      "replace": "s",
+      "find": "\\sqrt\{",
+      "replace": "s(",
       "type": "regex",
-      "description": "Hàm sqrt{ có dấu \\\\ → s"
+      "description": "Hàm sqrt{ có dấu \\ → s("
     },
     {
-      "find": "sqrt\\{",
-      "replace": "s",
+      "find": "sqrt\{",
+      "replace": "s(",
       "type": "regex",
-      "description": "Hàm sqrt{ không dấu \\\\ → s"
+      "description": "Hàm sqrt{ không dấu \\ → s("
     },
     {
-      "find": "\\\\sqrt\\(",
-      "replace": "s",
+      "find": "\\sqrt\(",
+      "replace": "s(",
       "type": "regex",
-      "description": "Hàm sqrt( có dấu \\\\ → s"
+      "description": "Hàm sqrt( có dấu \\ → s("
     },
     {
-      "find": "sqrt\\(",
-      "replace": "s",
+      "find": "sqrt\(",
+      "replace": "s(",
       "type": "regex",
-      "description": "Hàm sqrt( không dấu \\\\ → s"
+      "description": "Hàm sqrt( không dấu \\ → s("
     },
     {
-      "find": "\\\\sin\\(",
+      "find": "\\sin\(",
       "replace": "j(",
       "type": "regex",
-      "description": "Hàm sin(x) có dấu \\\\ → j(x)"
+      "description": "Hàm sin(x) có dấu \\ → j(x)"
     },
     {
-      "find": "sin\\(",
+      "find": "sin\(",
       "replace": "j(",
       "type": "regex",
-      "description": "Hàm sin(x) không dấu \\\\ → j(x)"
+      "description": "Hàm sin(x) không dấu \\ → j(x)"
     },
     {
-      "find": "\\\\cos\\(",
+      "find": "\\cos\(",
       "replace": "k(",
       "type": "regex",
-      "description": "Hàm cos(x) có dấu \\\\ → k(x)"
+      "description": "Hàm cos(x) có dấu \\ → k(x)"
     },
     {
-      "find": "cos\\(",
+      "find": "cos\(",
       "replace": "k(",
       "type": "regex",
-      "description": "Hàm cos(x) không dấu \\\\ → k(x)"
+      "description": "Hàm cos(x) không dấu \\ → k(x)"
     },
     {
-      "find": "\\\\tan\\(",
+      "find": "\\tan\(",
       "replace": "l(",
       "type": "regex",
-      "description": "Hàm tan(x) có dấu \\\\ → l(x)"
+      "description": "Hàm tan(x) có dấu \\ → l(x)"
     },
     {
-      "find": "tan\\(",
+      "find": "tan\(",
       "replace": "l(",
       "type": "regex",
-      "description": "Hàm tan(x) không dấu \\\\ → l(x)"
+      "description": "Hàm tan(x) không dấu \\ → l(x)"
     },
     {
-      "find": "\\\\ln\\(",
+      "find": "\\ln\(",
       "replace": "h(",
       "type": "regex",
-      "description": "Hàm ln(x) có dấu \\\\ → h(x)"
+      "description": "Hàm ln(x) có dấu \\ → h(x)"
     },
     {
-      "find": "ln\\(",
+      "find": "ln\(",
       "replace": "h(",
       "type": "regex",
-      "description": "Hàm ln(x) không dấu \\\\ → h("
+      "description": "Hàm ln(x) không dấu \\ → h("
     },
     {
-      "find": "\\}",
+      "find": "\}",
       "replace": ")",
       "type": "regex",
       "description": "Ngoặc nhọn đóng } thành )"
     },
     {
-      "find": "\\{",
+      "find": "\{",
       "replace": "(",
       "type": "regex",
       "description": "Ngoặc nhọn mở { thành ("
     },
     {
-      "find": "\\^",
+      "find": "\^",
       "replace": "^",
       "type": "regex",
       "description": "Dấu mũ ^ giữ nguyên"
@@ -121,35 +121,33 @@
       "description": "Dấu chỉ số dưới _ giữ nguyên"
     },
     {
-  "find": "\\\\left\\[",
-  "replace": "(",
-  "type": "regex",
-  "description": "Thay \\left[ → ("
-},
-{
-  "find": "\\\\right\\]",
-  "replace": ")",
-  "type": "regex",
-  "description": "Thay \\right] → )"
-},
-{
-  "find": "\\\\left\\{",
-  "replace": "(",
-  "type": "regex",
-  "description": "Thay \\left\\{ → ("
-},
-{
-  "find": "\\\\right\\}",
-  "replace": ")",
-  "type": "regex",
-  "description": "Thay \\right\\} → )"
-}
-
+      "find": "\\left\[",
+      "replace": "(",
+      "type": "regex",
+      "description": "Thay \\left[ → ("
+    },
+    {
+      "find": "\\right\]",
+      "replace": ")",
+      "type": "regex",
+      "description": "Thay \\right] → )"
+    },
+    {
+      "find": "\\left\{",
+      "replace": "(",
+      "type": "regex",
+      "description": "Thay \\left\{ → ("
+    },
+    {
+      "find": "\\right\}",
+      "replace": ")",
+      "type": "regex",
+      "description": "Thay \\right\} → )"
+    }
   ],
   "metadata": {
-    "version": "1.0",
-    "description": "Mapping LaTeX sang dạng máy tính cho Polynomial Mode - ConvertKeylogApp",
-    "extracted_from": "TL/config/mapping.json",
-    "last_updated": "2025-10-29"
+    "version": "1.1",
+    "description": "Cập nhật mapping LaTeX sang dạng máy tính cho Polynomial Geometry Mode - sửa rule \\sqrt{ → s( cho đúng keylog.",
+    "last_updated": "2025-11-12"
   }
 }
