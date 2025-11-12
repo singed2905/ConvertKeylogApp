@@ -18,12 +18,6 @@
       "type": "regex",
       "description": "Chuyển phân số \\frac{x}{y} thành dạng x a y"
     },
-     {
-      "find": "\frac\\{([^{}]+)\\}\\{([^{}]+)\\}",
-      "replace": "$1a$2",
-      "type": "regex",
-      "description": "Chuyển phân số \\frac{x}{y} thành dạng x a y"
-    },
     {
       "find": "-",
       "replace": "p",
@@ -44,13 +38,25 @@
     },
     {
       "find": "\\sqrt{",
-      "replace": "s(",
+      "replace": "s",
       "type": "literal",
       "description": "Hàm sqrt{ có dấu \\ → s("
     },
     {
       "find": "sqrt{",
-      "replace": "s(",
+      "replace": "s",
+      "type": "literal",
+      "description": "Hàm sqrt{ không dấu \\ → s("
+    },
+    {
+      "find": "\\sqrt(",
+      "replace": "s",
+      "type": "literal",
+      "description": "Hàm sqrt{ có dấu \\ → s("
+    },
+    {
+      "find": "sqrt(",
+      "replace": "s",
       "type": "literal",
       "description": "Hàm sqrt{ không dấu \\ → s("
     },

@@ -26,40 +26,87 @@ class LargeFileProcessor:
         self.fast_mode = True
 
     def _clean_cell_value(self, value) -> str:
-        """
-        Clean cell value - loại bỏ [], "", ''
-        Input: ["35.196152423", "0", "0"]
-        Output: 35.196152423,0,0
-        """
+
         if pd.isna(value) or not value:
             return ""
 
         value_str = str(value).strip()
 
-        # Loại bỏ dấu [] nếu có
-        if value_str.startswith('[') and value_str.endswith(']'):
-            value_str = value_str[1:-1]
+        # ===== CASE 1: KHÔNG PHẢI ARRAY FORMAT [...] =====
+        if not (value_str.startswith('[') and value_str.endswith(']')):
+            # Loại bỏ quotes nếu bao quanh toàn bộ
+            if (value_str.startswith('"') and value_str.endswith('"')) or \
+                    (value_str.startswith("'") and value_str.endswith("'")):
+                value_str = value_str[1:-1]
 
-        # Split và clean từng element
-        if ',' in value_str:
-            elements = value_str.split(',')
-            cleaned_elements = []
+            # ⭐ NORMALIZE BACKSLASHES: \\\\ → \\
+            value_str = value_str.replace('\\\\', '\\')
 
-            for elem in elements:
-                elem = elem.strip()
-                elem = elem.strip('"')
-                elem = elem.strip("'")
-                elem = elem.strip()
+            return value_str.strip()
 
-                if elem:
-                    cleaned_elements.append(elem)
+        # ===== CASE 2: ARRAY FORMAT [..., ..., ...] =====
+        # Loại bỏ dấu [] ngoài cùng
+        value_str = value_str[1:-1]
 
-            return ','.join(cleaned_elements)
+        # Split bằng dấu phẩy, CHỈ split ở level cao nhất (ngoài quotes)
+        elements = []
+        current_element = []
+        in_quotes = False
+        quote_char = None
+        i = 0
 
-        # Nếu không có dấu phay, chỉ loại bỏ quotes
-        value_str = value_str.strip('"').strip("'").strip()
-        value_str = value_str.replace('\\\\', '\\')
-        return value_str
+        while i < len(value_str):
+            char = value_str[i]
+
+            # Xử lý quotes
+            if char in ('"', "'"):
+                # Kiểm tra xem có phải escaped quote không
+                if i > 0 and value_str[i - 1] == '\\':
+                    current_element.append(char)
+                else:
+                    if not in_quotes:
+                        in_quotes = True
+                        quote_char = char
+                    elif char == quote_char:
+                        in_quotes = False
+                        quote_char = None
+                    else:
+                        current_element.append(char)
+
+            # Split tại dấu phẩy ngoài quotes
+            elif char == ',' and not in_quotes:
+                elem_str = ''.join(current_element).strip()
+                elements.append(elem_str)
+                current_element = []
+
+            else:
+                current_element.append(char)
+
+            i += 1
+
+        # Thêm element cuối cùng
+        if current_element:
+            elem_str = ''.join(current_element).strip()
+            elements.append(elem_str)
+
+        # ===== CLEAN TỪNG ELEMENT =====
+        cleaned_elements = []
+        for elem in elements:
+            elem = elem.strip()
+
+            # Loại bỏ quotes bao ngoài
+            if len(elem) >= 2:
+                if (elem[0] == '"' and elem[-1] == '"') or \
+                        (elem[0] == "'" and elem[-1] == "'"):
+                    elem = elem[1:-1]
+
+            # ⭐ NORMALIZE BACKSLASHES: \\\\ → \\
+            elem = elem.replace('\\\\', '\\')
+
+            if elem:
+                cleaned_elements.append(elem)
+
+        return ','.join(cleaned_elements)
 
     def get_memory_usage(self) -> float:
         try:

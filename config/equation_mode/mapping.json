@@ -1,6 +1,18 @@
 {
     "mappings": [
-       {
+    {
+      "find": "\\\\int_\\\\(([^)]+)\\\\)\\\\\\^\\\\(([^)]+)\\\\)([^d]+)d[a-z]",
+      "replace": "y \\3,\\1,\\2)",
+      "type": "regex",
+      "description": "Tích phân ngoặc tròn: \\int_(a)^(b) f(x) dx → y f(x),a,b)"
+    },
+    {
+      "find": "\\\\int_\\\\{([^}]+)\\\\}\\\\\\^\\\\{([^}]+)\\\\}([^d]+)d[a-z]",
+      "replace": "y \\3,\\1,\\2)",
+      "type": "regex",
+      "description": "Tích phân ngoặc nhọn: \\int_{a}^{b} f(x) dx → y f(x),a,b)"
+    },
+    {
       "find": "\\frac\\{([^{}]+)\\}\\{([^{}]+)\\}",
       "replace": "$1a$2",
       "type": "regex",
@@ -26,13 +38,25 @@
     },
     {
       "find": "\\sqrt{",
-      "replace": "s(",
+      "replace": "s",
       "type": "literal",
       "description": "Hàm sqrt{ có dấu \\ → s("
     },
     {
       "find": "sqrt{",
-      "replace": "s(",
+      "replace": "s",
+      "type": "literal",
+      "description": "Hàm sqrt{ không dấu \\ → s("
+    },
+    {
+      "find": "\\sqrt(",
+      "replace": "s",
+      "type": "literal",
+      "description": "Hàm sqrt{ có dấu \\ → s("
+    },
+    {
+      "find": "sqrt(",
+      "replace": "s",
       "type": "literal",
       "description": "Hàm sqrt{ không dấu \\ → s("
     },
@@ -73,13 +97,7 @@
       "description": "Ngoặc nhọn mở { thành ("
     },
     {
-      "find": "^{",
-      "replace": "^",
-      "type": "literal",
-      "description": "Dấu mũ ^ giữ nguyên"
-    },
-      {
-      "find": "^(",
+      "find": "^",
       "replace": "^",
       "type": "literal",
       "description": "Dấu mũ ^ giữ nguyên"
@@ -106,13 +124,13 @@
       "find": "\\left(",
       "replace": "(",
       "type": "literal",
-      "description": "Thay \\left{ → ("
+      "description": "Thay \\left( → ("
     },
     {
       "find": "\\right)",
       "replace": ")",
       "type": "literal",
-      "description": "Thay \\right} → )"
+      "description": "Thay \\right) → )"
     }
     ]
 }
