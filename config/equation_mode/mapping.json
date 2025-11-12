@@ -73,7 +73,13 @@
       "description": "Ngoặc nhọn mở { thành ("
     },
     {
-      "find": "^",
+      "find": "^{",
+      "replace": "^",
+      "type": "literal",
+      "description": "Dấu mũ ^ giữ nguyên"
+    },
+      {
+      "find": "^(",
       "replace": "^",
       "type": "literal",
       "description": "Dấu mũ ^ giữ nguyên"

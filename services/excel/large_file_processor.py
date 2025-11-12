@@ -7,14 +7,15 @@ from datetime import datetime
 import threading
 import time
 
+
 class LargeFileProcessor:
     """
-    OPTIMIZED HIGH-SPEED processor for large Excel files - Phương án A
-    Features: Single-workbook streaming, 400+ rows/sec, TL-matching performance
+    OPTIMIZED HIGH-SPEED processor for large Excel files với PRE-VALIDATION
+    Features: Single-workbook streaming, 400+ rows/sec, validation trước chunking
     Smart keylog column (strict): only 'keylog'. If absent, create 'keylog'.
     Font styling for keylog column: Flexio Fx799VN, 11pt, bold, black.
     """
-    
+
     def __init__(self, config: Dict = None):
         self.config = config or {}
         self.processing_cancelled = False
@@ -23,7 +24,6 @@ class LargeFileProcessor:
         self.max_rows_allowed = 250_000
         self.fast_mode = True
 
-    # Thêm vào class LargeFileProcessor
     def _clean_cell_value(self, value):
         """Clean cell value - same logic as ExcelProcessor"""
         if pd.isna(value) or not value:
@@ -46,21 +46,21 @@ class LargeFileProcessor:
             return process.memory_info().rss / 1024 / 1024
         except:
             return 0.0
-    
+
     def check_memory_limit(self) -> bool:
         return self.get_memory_usage() > self.max_memory_mb
-    
+
     def emergency_memory_cleanup(self):
         self.emergency_cleanup = True
         gc.collect()
-        
+
     def _enforce_row_limit(self, total_rows: int):
         if total_rows > self.max_rows_allowed:
             raise Exception(
                 f"File có {total_rows:,} dòng, vượt quá giới hạn tối đa {self.max_rows_allowed:,} dòng.\n"
                 f"Vui lòng chia nhỏ file hoặc lọc bớt dữ liệu trước khi import."
             )
-    
+
     def estimate_optimal_chunksize(self, file_path: str) -> int:
         try:
             file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
@@ -74,7 +74,7 @@ class LargeFileProcessor:
                 return 10000
         except Exception:
             return 5000
-    
+
     def _get_actual_total_rows(self, file_path: str) -> int:
         try:
             import openpyxl
@@ -87,7 +87,7 @@ class LargeFileProcessor:
         except Exception as e:
             print(f"⚠️ Could not get actual rows: {e}")
             return 0
-    
+
     def _detect_keylog_column_strict(self, file_path: str) -> Tuple[bool, str, int]:
         """Strict detection: only 'keylog' (case-insensitive). Returns (has_keylog, 'keylog', index or -1)."""
         try:
@@ -98,14 +98,295 @@ class LargeFileProcessor:
             wb.close()
             for i, cell in enumerate(header_row):
                 if cell is not None and str(cell).strip().lower() == 'keylog':
-                    print(f"🔍 Found strict keylog column at position {i+1}")
+                    print(f"🔍 Found strict keylog column at position {i + 1}")
                     return True, 'keylog', i
             print("📝 No strict 'keylog' column found. Will create new: 'keylog'")
             return False, 'keylog', -1
         except Exception as e:
             print(f"⚠️ Strict keylog detection failed: {e}")
             return False, 'keylog', -1
-    
+
+    # ========== VALIDATION METHODS - NEW ==========
+
+    def _validate_first_row_before_chunking(self, file_path: str,
+                                            shape_a: str, shape_b: str) -> Dict:
+        """
+        ✅ VALIDATE DÒNG ĐẦU TIÊN TRƯỚC KHI BẮT ĐẦU CHUNKING
+        Returns: {'valid': bool, 'issues': List[str], 'warnings': List[str], 'sample_data': Dict}
+        """
+        result = {
+            'valid': True,
+            'issues': [],
+            'warnings': [],
+            'sample_data': {}
+        }
+
+        try:
+            import openpyxl
+
+            print("🔍 Pre-validation: Checking first row...")
+
+            # Đọc CHỈ header và dòng đầu tiên
+            wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
+            ws = wb.active
+
+            # Header
+            header_iter = ws.iter_rows(min_row=1, max_row=1, values_only=True)
+            header_row = next(header_iter)
+            columns = [str(cell).strip() if cell else "" for cell in header_row]
+
+            # Dòng đầu tiên
+            data_iter = ws.iter_rows(min_row=2, max_row=2, values_only=True)
+            first_data_row = next(data_iter, None)
+
+            wb.close()
+
+            if not first_data_row:
+                result['valid'] = False
+                result['issues'].append("❌ File không có dòng dữ liệu")
+                print("   ❌ No data rows found")
+                return result
+
+            # Kiểm tra cấu trúc columns
+            is_valid_structure, missing_cols = self._check_required_columns(
+                columns, shape_a, shape_b
+            )
+
+            if not is_valid_structure:
+                result['valid'] = False
+                result['issues'].append(
+                    f"❌ Thiếu các cột bắt buộc: {', '.join(missing_cols)}"
+                )
+                print(f"   ❌ Structure check FAILED: {missing_cols}")
+                return result
+
+            print(f"   ✅ Structure check OK")
+
+            # Tạo pandas Series để validate data
+            first_row = pd.Series(first_data_row, index=columns)
+
+            # Validate Group A
+            data_a = self._extract_shape_data_from_row(first_row, shape_a, 'A')
+            has_data_a = any(str(v).strip() for v in data_a.values() if v)
+
+            if not has_data_a:
+                result['valid'] = False
+                result['issues'].append(f"❌ Dòng 1 - Nhóm A ({shape_a}): Không có dữ liệu")
+                print(f"   ❌ Data A check FAILED: No data")
+                return result
+
+            # Validate chi tiết dữ liệu A
+            issues_a = self._validate_shape_data_detailed(data_a, shape_a, "Nhóm A")
+            if issues_a:
+                result['valid'] = False
+                result['issues'].extend(issues_a)
+                print(f"   ❌ Data A check FAILED: {issues_a}")
+                return result
+
+            result['sample_data']['group_a'] = data_a
+            print(f"   ✅ Data A check OK: {data_a}")
+
+            # Validate Group B nếu có
+            if shape_b:
+                data_b = self._extract_shape_data_from_row(first_row, shape_b, 'B')
+                has_data_b = any(str(v).strip() for v in data_b.values() if v)
+
+                if not has_data_b:
+                    result['valid'] = False
+                    result['issues'].append(f"❌ Dòng 1 - Nhóm B ({shape_b}): Không có dữ liệu")
+                    print(f"   ❌ Data B check FAILED: No data")
+                    return result
+
+                issues_b = self._validate_shape_data_detailed(data_b, shape_b, "Nhóm B")
+                if issues_b:
+                    result['valid'] = False
+                    result['issues'].extend(issues_b)
+                    print(f"   ❌ Data B check FAILED: {issues_b}")
+                    return result
+
+                result['sample_data']['group_b'] = data_b
+                print(f"   ✅ Data B check OK: {data_b}")
+
+            print("✅ Pre-validation PASSED - Ready for chunking")
+
+            return result
+
+        except Exception as e:
+            result['valid'] = False
+            result['issues'].append(f"❌ Lỗi validation: {str(e)}")
+            print(f"   ❌ Validation ERROR: {e}")
+            return result
+
+    def _check_required_columns(self, columns: List[str], shape_a: str,
+                                shape_b: str = None) -> Tuple[bool, List[str]]:
+        """Kiểm tra các cột bắt buộc có tồn tại không"""
+        missing_columns = []
+
+        # Check Group A
+        required_a = self._get_required_columns(shape_a, 'A')
+        for col in required_a:
+            if col not in columns:
+                missing_columns.append(f"Nhóm A - {col}")
+
+        # Check Group B
+        if shape_b:
+            required_b = self._get_required_columns(shape_b, 'B')
+            for col in required_b:
+                if col not in columns:
+                    missing_columns.append(f"Nhóm B - {col}")
+
+        return len(missing_columns) == 0, missing_columns
+
+    def _extract_shape_data_from_row(self, row: pd.Series, shape_type: str,
+                                     group: str) -> Dict:
+        """Extract data từ row cho shape cụ thể"""
+        data_dict = {}
+
+        if not shape_type:
+            return data_dict
+
+        if group == 'A':
+            if shape_type == "Điểm":
+                data_dict['point_input'] = str(row.get('data_A', '')).strip()
+            elif shape_type == "Đường thẳng":
+                data_dict['line_A1'] = str(row.get('d_P_data_A', '')).strip()
+                data_dict['line_X1'] = str(row.get('d_V_data_A', '')).strip()
+            elif shape_type == "Mặt phẳng":
+                data_dict['plane_a'] = str(row.get('P1_a', '')).strip()
+                data_dict['plane_b'] = str(row.get('P1_b', '')).strip()
+                data_dict['plane_c'] = str(row.get('P1_c', '')).strip()
+                data_dict['plane_d'] = str(row.get('P1_d', '')).strip()
+            elif shape_type == "Đường tròn":
+                data_dict['circle_center'] = str(row.get('C_data_I1', '')).strip()
+                data_dict['circle_radius'] = str(row.get('C_data_R1', '')).strip()
+            elif shape_type == "Mặt cầu":
+                data_dict['sphere_center'] = str(row.get('S_data_I1', '')).strip()
+                data_dict['sphere_radius'] = str(row.get('S_data_R1', '')).strip()
+        else:  # Group B
+            if shape_type == "Điểm":
+                data_dict['point_input'] = str(row.get('data_B', '')).strip()
+            elif shape_type == "Đường thẳng":
+                data_dict['line_A2'] = str(row.get('d_P_data_B', '')).strip()
+                data_dict['line_X2'] = str(row.get('d_V_data_B', '')).strip()
+            elif shape_type == "Mặt phẳng":
+                data_dict['plane_a'] = str(row.get('P2_a', '')).strip()
+                data_dict['plane_b'] = str(row.get('P2_b', '')).strip()
+                data_dict['plane_c'] = str(row.get('P2_c', '')).strip()
+                data_dict['plane_d'] = str(row.get('P2_d', '')).strip()
+            elif shape_type == "Đường tròn":
+                data_dict['circle_center'] = str(row.get('C_data_I2', '')).strip()
+                data_dict['circle_radius'] = str(row.get('C_data_R2', '')).strip()
+            elif shape_type == "Mặt cầu":
+                data_dict['sphere_center'] = str(row.get('S_data_I2', '')).strip()
+                data_dict['sphere_radius'] = str(row.get('S_data_R2', '')).strip()
+
+        return data_dict
+
+    def _validate_shape_data_detailed(self, data: Dict, shape: str,
+                                      group_name: str) -> List[str]:
+        """Validate chi tiết data của 1 shape"""
+        issues = []
+
+        if shape == "Điểm":
+            point_input = data.get('point_input', '').strip()
+            if not point_input:
+                issues.append(f"❌ {group_name}: Tọa độ điểm trống")
+            else:
+                coords = point_input.split(',')
+                if len(coords) < 2:
+                    issues.append(
+                        f"❌ {group_name}: Điểm cần ít nhất 2 tọa độ, "
+                        f"nhận được: '{point_input}'"
+                    )
+
+        elif shape == "Đường thẳng":
+            line_A = data.get('line_A1') or data.get('line_A2', '')
+            line_X = data.get('line_X1') or data.get('line_X2', '')
+
+            if not line_A.strip():
+                issues.append(f"❌ {group_name}: Điểm trên đường thẳng trống")
+            else:
+                coords_A = line_A.split(',')
+                if len(coords_A) != 3:
+                    issues.append(
+                        f"❌ {group_name}: Điểm đường thẳng cần 3 tọa độ, "
+                        f"nhận được: '{line_A}'"
+                    )
+
+            if not line_X.strip():
+                issues.append(f"❌ {group_name}: Vector phương trống")
+            else:
+                coords_X = line_X.split(',')
+                if len(coords_X) != 3:
+                    issues.append(
+                        f"❌ {group_name}: Vector phương cần 3 tọa độ, "
+                        f"nhận được: '{line_X}'"
+                    )
+
+        elif shape == "Mặt phẳng":
+            coeffs = [
+                data.get('plane_a', '').strip(),
+                data.get('plane_b', '').strip(),
+                data.get('plane_c', '').strip(),
+                data.get('plane_d', '').strip()
+            ]
+
+            valid_coeffs = [c for c in coeffs if c]
+            if len(valid_coeffs) == 0:
+                issues.append(f"❌ {group_name}: Tất cả hệ số mặt phẳng đều trống")
+
+        elif shape == "Đường tròn":
+            center = data.get('circle_center', '').strip()
+            radius = data.get('circle_radius', '').strip()
+
+            if not center:
+                issues.append(f"❌ {group_name}: Tâm đường tròn trống")
+            else:
+                coords = center.split(',')
+                if len(coords) != 2:
+                    issues.append(
+                        f"❌ {group_name}: Tâm đường tròn cần 2 tọa độ, "
+                        f"nhận được: '{center}'"
+                    )
+
+            if not radius:
+                issues.append(f"❌ {group_name}: Bán kính đường tròn trống")
+            else:
+                try:
+                    r_value = float(radius)
+                    if r_value <= 0:
+                        issues.append(f"❌ {group_name}: Bán kính phải > 0")
+                except:
+                    pass
+
+        elif shape == "Mặt cầu":
+            center = data.get('sphere_center', '').strip()
+            radius = data.get('sphere_radius', '').strip()
+
+            if not center:
+                issues.append(f"❌ {group_name}: Tâm mặt cầu trống")
+            else:
+                coords = center.split(',')
+                if len(coords) != 3:
+                    issues.append(
+                        f"❌ {group_name}: Tâm mặt cầu cần 3 tọa độ, "
+                        f"nhận được: '{center}'"
+                    )
+
+            if not radius:
+                issues.append(f"❌ {group_name}: Bán kính mặt cầu trống")
+            else:
+                try:
+                    r_value = float(radius)
+                    if r_value <= 0:
+                        issues.append(f"❌ {group_name}: Bán kính phải > 0")
+                except:
+                    pass
+
+        return issues
+
+    # ========== END VALIDATION METHODS ==========
+
     def read_excel_streaming_single_workbook(self, file_path: str, chunksize: int = None) -> Iterator[pd.DataFrame]:
         if chunksize is None:
             chunksize = self.estimate_optimal_chunksize(file_path)
@@ -154,10 +435,10 @@ class LargeFileProcessor:
             print(f"✅ Single-workbook streaming completed: {chunk_count} chunks")
         except Exception as e:
             raise Exception(f"Lỗi streaming single-workbook: {str(e)}")
-    
+
     def process_large_excel_fast(self, file_path: str, shape_a: str, shape_b: str,
-                                operation: str, dimension_a: str, dimension_b: str,
-                                output_path: str, progress_callback: Callable = None) -> Tuple[int, int, str]:
+                                 operation: str, dimension_a: str, dimension_b: str,
+                                 output_path: str, progress_callback: Callable = None) -> Tuple[int, int, str]:
         self.processing_cancelled = False
         success_count = 0
         error_count = 0
@@ -231,7 +512,8 @@ class LargeFileProcessor:
                         speed_display = f"🔥 Speed: {avg_speed:.0f} rows/sec (avg) | {chunk_speed:.0f} rows/sec (current)"
                     else:
                         speed_display = f"🔥 Speed: {avg_speed:.0f} rows/sec (avg)"
-                    print(f"{speed_display} | Progress: {processed_display:,}/{total_rows:,} ({progress_percent:.1f}%) | ETA: {eta_str}")
+                    print(
+                        f"{speed_display} | Progress: {processed_display:,}/{total_rows:,} ({progress_percent:.1f}%) | ETA: {eta_str}")
                     last_speed_check = current_time
                 if chunk_count % 5 == 0 and self.check_memory_limit():
                     print(f"⚠️ Memory: {self.get_memory_usage():.1f}MB - Quick cleanup")
@@ -240,8 +522,8 @@ class LargeFileProcessor:
             if results_buffer:
                 self._write_results_buffer_fast(temp_results_file, results_buffer)
             print("🔧 Creating final Excel file with strict keylog + Flexio font...")
-            final_output = self._create_excel_with_smart_keylog(file_path, temp_results_file, output_path, 
-                                                               has_keylog, keylog_col_name, keylog_col_index)
+            final_output = self._create_excel_with_smart_keylog(file_path, temp_results_file, output_path,
+                                                                has_keylog, keylog_col_name, keylog_col_index)
             total_time = time.time() - start_time
             final_speed = processed_count / total_time if total_time > 0 else 0
             print(f"🏁 PHƯƠNG ÁN A COMPLETED!")
@@ -258,18 +540,18 @@ class LargeFileProcessor:
                     print(f"🧹 Cleaned up temp file: {os.path.basename(temp_results_file)}")
             except Exception as cleanup_err:
                 print(f"⚠️ Could not remove temp file: {cleanup_err}")
-    
-    def _create_excel_with_smart_keylog(self, original_file: str, temp_results_file: str, 
-                                       output_path: str, has_keylog: bool, keylog_col_name: str, 
-                                       keylog_col_index: int) -> str:
+
+    def _create_excel_with_smart_keylog(self, original_file: str, temp_results_file: str,
+                                        output_path: str, has_keylog: bool, keylog_col_name: str,
+                                        keylog_col_index: int) -> str:
         try:
             from openpyxl.styles import Font
             print(f"⚡ SMART KEYLOG Excel creation (strict 'keylog' + Flexio font)...")
             all_results = self._read_temp_results_fast(temp_results_file)
-            # Always use 'keylog' as the column name
             keylog_col_name = 'keylog'
             if has_keylog:
-                print(f"📝 Using existing 'keylog' column (position {keylog_col_index + 1 if keylog_col_index>=0 else '?'} )")
+                print(
+                    f"📝 Using existing 'keylog' column (position {keylog_col_index + 1 if keylog_col_index >= 0 else '?'} )")
             else:
                 print(f"📝 Creating new 'keylog' column")
             try:
@@ -278,8 +560,6 @@ class LargeFileProcessor:
                 if len(results_to_add) < len(original_df):
                     results_to_add.extend([''] * (len(original_df) - len(results_to_add)))
                 if 'keylog' in [c.strip().lower() for c in original_df.columns]:
-                    # Update by exact name (case-insensitive match)
-                    # Find exact column name to preserve original casing if any
                     exact_name = next((c for c in original_df.columns if c.strip().lower() == 'keylog'), 'keylog')
                     original_df[exact_name] = results_to_add
                     applied_name = exact_name
@@ -289,7 +569,6 @@ class LargeFileProcessor:
                 with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
                     original_df.to_excel(writer, sheet_name='Results', index=False)
                     worksheet = writer.sheets['Results']
-                    # Apply Flexio Fx799VN 11 bold black to keylog column
                     header_cells = next(worksheet.iter_rows(min_row=1, max_row=1))
                     keylog_col_idx = None
                     for idx, cell in enumerate(header_cells, start=1):
@@ -301,7 +580,6 @@ class LargeFileProcessor:
                         max_row = worksheet.max_row
                         for row in range(1, max_row + 1):
                             worksheet.cell(row=row, column=keylog_col_idx).font = keylog_font
-                    # Minimal auto-width for readability
                     for column in worksheet.columns:
                         max_length = 0
                         column_letter = column[0].column_letter
@@ -316,13 +594,13 @@ class LargeFileProcessor:
                 return output_path
             except Exception as pandas_error:
                 print(f"⚠️ Pandas method failed: {pandas_error}")
-                return self._create_excel_openpyxl_smart_keylog(original_file, all_results, output_path, 
-                                                               has_keylog, 'keylog', keylog_col_index)
+                return self._create_excel_openpyxl_smart_keylog(original_file, all_results, output_path,
+                                                                has_keylog, 'keylog', keylog_col_index)
         except Exception as e:
             raise Exception(f"Lỗi tạo Excel SMART KEYLOG: {str(e)}")
-    
+
     def _create_excel_openpyxl_smart_keylog(self, original_file: str, results: List[str], output_path: str,
-                                           has_keylog: bool, keylog_col_name: str, keylog_col_index: int) -> str:
+                                            has_keylog: bool, keylog_col_name: str, keylog_col_index: int) -> str:
         try:
             import openpyxl
             from openpyxl.styles import Font
@@ -334,25 +612,21 @@ class LargeFileProcessor:
             output_ws.title = "Results"
             header_row = next(source_ws.iter_rows(min_row=1, max_row=1, values_only=True))
             header_list = list(header_row)
-            # Determine if 'keylog' exists in header (strict)
             target_col_index = None
             for i, cell in enumerate(header_list):
                 if cell is not None and str(cell).strip().lower() == 'keylog':
                     target_col_index = i
                     break
             if target_col_index is None:
-                # Create new keylog column at the end
                 final_header = header_list + ['keylog']
                 target_col_index = len(header_list)
                 print(f"📝 Will create new column 'keylog' at position {target_col_index + 1}")
             else:
                 final_header = header_list
                 print(f"📝 Will update existing column 'keylog' at position {target_col_index + 1}")
-            # Write header
             for col_idx, header_cell in enumerate(final_header):
                 cell_value = str(header_cell) if header_cell is not None else ""
                 output_ws.cell(row=1, column=col_idx + 1, value=cell_value)
-            # Write data rows with 'keylog'
             row_count = 2
             result_idx = 0
             for data_row in source_ws.iter_rows(min_row=2, values_only=True):
@@ -369,7 +643,6 @@ class LargeFileProcessor:
                 result_idx += 1
                 if row_count % 5000 == 0:
                     gc.collect()
-            # Apply Flexio font to keylog column
             keylog_font = Font(name="Flexio Fx799VN", size=11, bold=True, color="000000")
             col = target_col_index + 1
             max_row = output_ws.max_row
@@ -382,7 +655,7 @@ class LargeFileProcessor:
             return output_path
         except Exception as e:
             raise Exception(f"Lỗi openpyxl smart keylog fallback: {str(e)}")
-    
+
     def _extract_shape_data_fast(self, row: pd.Series, shape_type: str, group: str) -> Dict:
         data_dict = {}
         if not shape_type:
@@ -422,7 +695,7 @@ class LargeFileProcessor:
                 data_dict['sphere_center'] = str(row.get('S_data_I2', '')).strip()
                 data_dict['sphere_radius'] = str(row.get('S_data_R2', '')).strip()
         return data_dict
-    
+
     def _write_results_buffer_fast(self, temp_file: str, results: List[str]):
         try:
             mode = 'a' if os.path.exists(temp_file) else 'w'
@@ -430,30 +703,64 @@ class LargeFileProcessor:
                 f.write('\n'.join(results) + '\n')
         except Exception as e:
             print(f"⚠️ Warning: Fast buffer write failed: {e}")
-    
+
     def _read_temp_results_fast(self, temp_file: str) -> List[str]:
         try:
             with open(temp_file, 'r', encoding='utf-8', buffering=16384) as f:
                 return f.read().strip().split('\n')
         except Exception:
             return []
-    
+
     def _create_excel_direct_fast(self, original_file: str, temp_results_file: str, output_path: str) -> str:
-        # Redirect to smart keylog creator with strict behavior
         return self._create_excel_with_smart_keylog(original_file, temp_results_file, output_path,
-                                                   *self._detect_keylog_column_strict(original_file))
-    
+                                                    *self._detect_keylog_column_strict(original_file))
+
     def _create_excel_openpyxl_fast(self, original_file: str, results: List[str], output_path: str) -> str:
         has_keylog, keylog_col_name, keylog_col_index = self._detect_keylog_column_strict(original_file)
         return self._create_excel_openpyxl_smart_keylog(original_file, results, output_path,
-                                                       has_keylog, keylog_col_name, keylog_col_index)
-    
+                                                        has_keylog, keylog_col_name, keylog_col_index)
+
     def process_large_excel_safe(self, file_path: str, shape_a: str, shape_b: str,
-                                operation: str, dimension_a: str, dimension_b: str,
-                                output_path: str, progress_callback: Callable = None) -> Tuple[int, int, str]:
-        return self.process_large_excel_fast(file_path, shape_a, shape_b, operation, 
-                                           dimension_a, dimension_b, output_path, progress_callback)
-    
+                                 operation: str, dimension_a: str, dimension_b: str,
+                                 output_path: str, progress_callback: Callable = None) -> Tuple[int, int, str]:
+        """
+        MAIN ENTRY POINT với PRE-VALIDATION
+        """
+
+        print(f"🔥 Switching to LARGE FILE MODE for: {os.path.basename(file_path)}")
+
+        # ===== VALIDATION TRƯỚC KHI CHUNKING =====
+        validation_result = self._validate_first_row_before_chunking(
+            file_path, shape_a, shape_b
+        )
+
+        if not validation_result['valid']:
+            # Tạo error message chi tiết
+            error_msg = "❌ Validation failed! Cannot process file.\n\n"
+            error_msg += "Issues found:\n"
+            for issue in validation_result['issues']:
+                error_msg += f"  • {issue}\n"
+
+            if validation_result['warnings']:
+                error_msg += "\nWarnings:\n"
+                for warning in validation_result['warnings']:
+                    error_msg += f"  • {warning}\n"
+
+            if validation_result['sample_data']:
+                error_msg += "\n📊 Sample data from row 1:\n"
+                for group, data in validation_result['sample_data'].items():
+                    error_msg += f"\n{group}:\n"
+                    for key, val in data.items():
+                        error_msg += f"  {key}: '{val}'\n"
+
+            raise ValueError(error_msg)
+
+        print("✅ Validation passed - Starting chunked processing...")
+
+        # ===== TIẾP TỤC XỬ LÝ =====
+        return self.process_large_excel_fast(file_path, shape_a, shape_b, operation,
+                                             dimension_a, dimension_b, output_path, progress_callback)
+
     def validate_large_file_structure(self, file_path: str, shape_a: str, shape_b: str = None) -> Dict[str, Any]:
         try:
             actual_rows = self._get_actual_total_rows(file_path)
@@ -477,12 +784,12 @@ class LargeFileProcessor:
                 'recommended_chunk_size': self.estimate_optimal_chunksize(file_path),
                 'max_rows_allowed': self.max_rows_allowed,
                 'over_row_limit': over_limit,
-                'validation_method': 'phương_án_A_strict_keylog',
+                'validation_method': 'phương_án_A_strict_keylog_with_prevalidation',
                 'warning': f'File vượt quá giới hạn {self.max_rows_allowed:,} dòng' if over_limit else ''
             }
         except Exception as e:
             return {'valid': False, 'error': f'Lỗi kiểm tra file: {str(e)}'}
-    
+
     def _get_required_columns(self, shape: str, group: str) -> List[str]:
         if not shape:
             return []
@@ -503,7 +810,7 @@ class LargeFileProcessor:
                 "Mặt cầu": ["S_data_I2", "S_data_R2"]
             }
         return mapping.get(shape, [])
-    
+
     def get_processing_statistics(self) -> Dict[str, Any]:
         return {
             'memory_usage_mb': self.get_memory_usage(),
@@ -513,7 +820,8 @@ class LargeFileProcessor:
             'processing_cancelled': self.processing_cancelled,
             'recommended_max_chunksize': 5000 if self.get_memory_usage() > 800 else 7000,
             'max_rows_allowed': self.max_rows_allowed,
-            'processing_method': 'phương_án_A_strict_keylog_flexio',
+            'processing_method': 'phương_án_A_with_prevalidation',
             'target_speed_rows_per_sec': 400,
-            'optimizations': ['single_workbook_open', 'strict_keylog', 'flexio_font', 'large_chunks', 'minimal_gc', 'batch_io']
+            'optimizations': ['single_workbook_open', 'strict_keylog', 'flexio_font',
+                              'large_chunks', 'minimal_gc', 'batch_io', 'pre_validation']
         }
