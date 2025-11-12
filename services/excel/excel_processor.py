@@ -18,7 +18,48 @@ class ExcelProcessor:
         self.large_file_processor = LargeFileProcessor(config)  # NEW: Large file handler
         self.large_file_threshold_mb = 20  # Files > 20MB use large file processor
         self.large_file_threshold_rows = 50000  # Files > 50k rows use large file processor
-    
+
+    def _clean_cell_value(self, value: str) -> str:
+        """
+        Clean cell value by removing brackets and quotes
+        Example: ["35.196152423", "0", "0"] -> 35.196152423,0,0
+        """
+        if pd.isna(value) or not value:
+            return ""
+
+        value_str = str(value).strip()
+
+        # Check if value contains brackets and quotes (array format)
+        if value_str.startswith('[') and value_str.endswith(']'):
+            # Remove outer brackets
+            value_str = value_str[1:-1]
+
+            # Split by comma and clean each element
+            elements = value_str.split(',')
+            cleaned_elements = []
+
+            for elem in elements:
+                # Remove quotes and whitespace
+                elem = elem.strip().strip('"').strip("'").strip()
+                if elem:  # Only add non-empty elements
+                    cleaned_elements.append(elem)
+
+            # Join back with comma
+            return ','.join(cleaned_elements)
+
+        return value_str
+
+    def _clean_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Clean all cells in DataFrame to remove brackets and quotes
+        """
+        df_cleaned = df.copy()
+
+        # Apply cleaning to all columns
+        for col in df_cleaned.columns:
+            df_cleaned[col] = df_cleaned[col].apply(self._clean_cell_value)
+
+        return df_cleaned
     def _load_mapping(self) -> Dict:
         """Load Excel mapping configuration from config or fallback"""
         try:
@@ -145,13 +186,13 @@ class ExcelProcessor:
             
         except Exception as e:
             return False, {'error': f'Không thể phân tích file: {str(e)}'}
-    
+
     def read_excel_data(self, file_path: str) -> pd.DataFrame:
         """Read Excel file and normalize data - with large file detection"""
         try:
             # Check if this is a large file
             is_large, file_info = self.is_large_file(file_path)
-            
+
             if is_large:
                 raise Exception(
                     f"File quá lớn cho phương thức thông thường!\n"
@@ -159,14 +200,18 @@ class ExcelProcessor:
                     f"Dòng ước tính: {file_info.get('estimated_rows', 0):,}\n\n"
                     f"Vui lòng sử dụng chế độ xử lý file lớn."
                 )
-            
+
             df = pd.read_excel(file_path)
             # Normalize column names (remove extra spaces)
             df.columns = df.columns.str.strip()
+
+            # NEW: Clean data - remove brackets and quotes
+            df = self._clean_dataframe(df)
+
             return df
         except Exception as e:
             raise Exception(f"Không thể đọc file Excel: {str(e)}")
-    
+
     def validate_excel_structure(self, df: pd.DataFrame, shape_a: str, shape_b: str = None) -> Tuple[bool, List[str]]:
         """Validate Excel structure against selected shapes"""
         missing_columns = []
@@ -190,7 +235,7 @@ class ExcelProcessor:
     def validate_large_file_structure(self, file_path: str, shape_a: str, shape_b: str = None) -> Dict[str, Any]:
         """Validate large file structure without loading entire file"""
         return self.large_file_processor.validate_large_file_structure(file_path, shape_a, shape_b)
-    
+
     def extract_shape_data(self, row: pd.Series, shape_type: str, group: str) -> Dict:
         """Extract data for specific shape from Excel row"""
         if group == 'A':
@@ -207,12 +252,14 @@ class ExcelProcessor:
                 if pd.isna(value):
                     data_dict[field] = ""
                 else:
-                    data_dict[field] = str(value).strip()
+                    # Apply cleaning to individual cell (extra safety)
+                    cleaned_value = self._clean_cell_value(value)
+                    data_dict[field] = cleaned_value
             else:
                 data_dict[field] = ""
 
         return data_dict
-    
+
     def process_large_excel_file(self, file_path: str, shape_a: str, shape_b: str,
                                 operation: str, dimension_a: str, dimension_b: str,
                                 output_path: str, progress_callback: callable = None) -> Tuple[int, int, str]:

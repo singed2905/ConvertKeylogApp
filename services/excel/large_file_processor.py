@@ -22,7 +22,24 @@ class LargeFileProcessor:
         self.emergency_cleanup = False
         self.max_rows_allowed = 250_000
         self.fast_mode = True
-        
+
+    # Thêm vào class LargeFileProcessor
+    def _clean_cell_value(self, value):
+        """Clean cell value - same logic as ExcelProcessor"""
+        if pd.isna(value) or not value:
+            return ""
+
+        value_str = str(value).strip()
+
+        if value_str.startswith('[') and value_str.endswith(']'):
+            value_str = value_str[1:-1]
+            elements = value_str.split(',')
+            cleaned_elements = [elem.strip().strip('"').strip("'").strip()
+                                for elem in elements if elem.strip()]
+            return ','.join(cleaned_elements)
+
+        return value_str
+
     def get_memory_usage(self) -> float:
         try:
             process = psutil.Process()
