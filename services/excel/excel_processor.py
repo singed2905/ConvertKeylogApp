@@ -257,5 +257,3 @@ class ExcelProcessor:
             else:
                 data_dict[field] = ""
         return data_dict
-
-    # Giữ nguyên các hàm xuất, tạo template, kiểm tra chất lượng, format worksheet, các phân tích large file ...
