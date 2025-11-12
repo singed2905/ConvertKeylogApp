@@ -1,6 +1,6 @@
 {
   "latex_to_calculator_mappings": [
-      {
+    {
       "find": "\\\\int_\\\\(([^)]+)\\\\)\\\\\\^\\\\(([^)]+)\\\\)([^d]+)d[a-z]",
       "replace": "y \\3,\\1,\\2)",
       "type": "regex",
