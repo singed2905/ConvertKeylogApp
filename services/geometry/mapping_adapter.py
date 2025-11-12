@@ -45,42 +45,54 @@ class GeometryMappingAdapter:
     def _get_default_mappings(self) -> List[Dict[str, Any]]:
         """Fallback mappings matching TL behavior"""
         return [
-            {"find": r"\\\\frac\\{([^{}]+)\\}\\{([^{}]+)\\}", "replace": r"\1a\2", "type": "regex", "description": "Fraction conversion"},
-            {"find": r"\\-", "replace": "p", "type": "regex", "description": "Negative sign"},
-            {"find": r"\\*", "replace": "O", "type": "regex", "description": "Multiplication"},
-            {"find": r"\\/", "replace": "P", "type": "regex", "description": "Division"},
-            {"find": r"\\\\sqrt\\{", "replace": "s", "type": "regex", "description": "Square root"},
-            {"find": r"sqrt\\{", "replace": "s", "type": "regex", "description": "Square root no backslash"},
-            {"find": r"\\\\sin\\(", "replace": "j(", "type": "regex", "description": "Sine function"},
-            {"find": r"sin\\(", "replace": "j(", "type": "regex", "description": "Sine function no backslash"},
-            {"find": r"\\\\cos\\(", "replace": "k(", "type": "regex", "description": "Cosine function"},
-            {"find": r"cos\\(", "replace": "k(", "type": "regex", "description": "Cosine function no backslash"},
-            {"find": r"\\\\tan\\(", "replace": "l(", "type": "regex", "description": "Tangent function"},
-            {"find": r"tan\\(", "replace": "l(", "type": "regex", "description": "Tangent function no backslash"},
-            {"find": r"\\\\ln\\(", "replace": "h(", "type": "regex", "description": "Natural log function"},
-            {"find": r"ln\\(", "replace": "h(", "type": "regex", "description": "Natural log function no backslash"},
-            {"find": r"\\}", "replace": ")", "type": "regex", "description": "Close brace to parenthesis"},
-            {"find": r"\\{", "replace": "(", "type": "regex", "description": "Open brace to parenthesis"},
-            {"find": r"\\^", "replace": "^", "type": "regex", "description": "Power operator"},
+            {"find": r"\\frac\{([^{}]+)\}\{([^{}]+)\}", "replace": r"\1a\2", "type": "regex", "description": "Fraction conversion"},
+            {"find": r"\-", "replace": "p", "type": "regex", "description": "Negative sign"},
+            {"find": r"\*", "replace": "O", "type": "regex", "description": "Multiplication"},
+            {"find": r"\/", "replace": "P", "type": "regex", "description": "Division"},
+            {"find": r"\\sqrt\{", "replace": "s", "type": "regex", "description": "Square root"},
+            {"find": r"sqrt\{", "replace": "s", "type": "regex", "description": "Square root no backslash"},
+            {"find": r"\\sin\(", "replace": "j(", "type": "regex", "description": "Sine function"},
+            {"find": r"sin\(", "replace": "j(", "type": "regex", "description": "Sine function no backslash"},
+            {"find": r"\\cos\(", "replace": "k(", "type": "regex", "description": "Cosine function"},
+            {"find": r"cos\(", "replace": "k(", "type": "regex", "description": "Cosine function no backslash"},
+            {"find": r"\\tan\(", "replace": "l(", "type": "regex", "description": "Tangent function"},
+            {"find": r"tan\(", "replace": "l(", "type": "regex", "description": "Tangent function no backslash"},
+            {"find": r"\\ln\(", "replace": "h(", "type": "regex", "description": "Natural log function"},
+            {"find": r"ln\(", "replace": "h(", "type": "regex", "description": "Natural log function no backslash"},
+            {"find": r"\}", "replace": ")", "type": "regex", "description": "Close brace to parenthesis"},
+            {"find": r"\{", "replace": "(", "type": "regex", "description": "Open brace to parenthesis"},
+            {"find": r"\^", "replace": "^", "type": "regex", "description": "Power operator"},
             {"find": "_", "replace": "_", "type": "regex", "description": "Subscript operator"}
         ]
+    
+    def preprocess_integral(self, input_string: str) -> str:
+        """Xử lý tích phân trước khi mapping"""
+        # format \int_(a)^(b)f(x)dx hoặc \int_{a}^{b}f(x)dx
+        input_string = input_string.replace(" ", "")
+        pattern1 = r"\\int_\(([^)]+)\)\^\(([^)]+)\)([^d]+)d[a-z]"
+        pattern2 = r"\\int_\{([^}]+)\}\^\{([^}]+)\}([^d]+)d[a-z]"
+        match1 = re.search(pattern1, input_string)
+        if match1:
+            lower = match1.group(1)
+            upper = match1.group(2)
+            func = match1.group(3).strip()
+            return f"y {func},{lower},{upper})"
+        match2 = re.search(pattern2, input_string)
+        if match2:
+            lower = match2.group(1)
+            upper = match2.group(2)
+            func = match2.group(3).strip()
+            return f"y {func},{lower},{upper})"
+        return input_string
     
     def encode_string(self, input_string: str) -> str:
         """Encode a string using the mapping rules (matching TL MappingManager behavior)"""
         input_string = input_string.replace(" ", "")
         if not input_string:
             return ""
-
+        input_string = self.preprocess_integral(input_string)
         result = input_string
-        complex_fraction_pattern = r"\\frac\{((?:\{.*?\}|[^{}])+)\}\{((?:\{.*?\}|[^{}])+)\}"
-
-        def process_complex_fraction(match):
-            num = match.group(1)
-            den = match.group(2)
-            num_processed = self._process_nested_content(num)
-            den_processed = self._process_nested_content(den)
-            return f"{num_processed}a{den_processed}"
-
+        complex_fraction_pattern = r"\frac\{((?:\{.*?\}|[^{}])+\})\{((?:\{.*?\}|[^{}])+)", "type": "regex", "description": "Fraction conversion"},
         # Process complex fractions
         changed = True
         max_iterations = 20
@@ -89,17 +101,14 @@ class GeometryMappingAdapter:
             changed = new_result != result
             result = new_result
             max_iterations -= 1
-
         # Apply other mappings
         for rule in self.mappings:
             find = rule.get("find", "")
             replace = rule.get("replace", "")
             rule_type = rule.get("type", "literal")
             description = rule.get("description", "")
-
             if "frac" in description.lower():
                 continue
-
             if rule_type == "regex":
                 try:
                     result = re.sub(find, replace, result)
@@ -108,9 +117,7 @@ class GeometryMappingAdapter:
                     continue
             else:
                 result = result.replace(find, replace)
-
         return result
-
     def _process_nested_content(self, content: str) -> str:
         """Process nested content with mappings"""
         result = content
@@ -119,10 +126,8 @@ class GeometryMappingAdapter:
             replace = rule.get("replace", "")
             rule_type = rule.get("type", "literal")
             description = rule.get("description", "")
-
             if "frac" in description.lower():
                 continue
-
             if rule_type == "regex":
                 try:
                     result = re.sub(find, replace, result)
@@ -130,9 +135,7 @@ class GeometryMappingAdapter:
                     continue
             else:
                 result = result.replace(find, replace)
-
         return result
-    
     def get_excel_column_mapping(self, shape: str, group: str) -> Dict[str, str]:
         """Get Excel column mapping for a specific shape and group"""
         try:
@@ -143,9 +146,7 @@ class GeometryMappingAdapter:
                 return {key: col_info['excel_column'] for key, col_info in columns.items()}
         except Exception as e:
             print(f"Error getting Excel mapping for {shape} group {group}: {e}")
-        
         return self._get_default_excel_mapping(shape, group)
-    
     def _get_default_excel_mapping(self, shape: str, group: str) -> Dict[str, str]:
         """Fallback Excel mapping"""
         if shape == "Điểm":
@@ -166,5 +167,4 @@ class GeometryMappingAdapter:
         elif shape == "Mặt cầu":
             suffix = '1' if group == 'A' else '2' 
             return {'sphere_center': f'S_data_I{suffix}', 'sphere_radius': f'S_data_R{suffix}'}
-        
         return {}
