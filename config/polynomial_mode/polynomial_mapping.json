@@ -1,7 +1,7 @@
 {
   "latex_to_calculator_mappings": [
     {
-      "find": "\\frac\{([^{}]+)\}\\{([^{}]+)\}",
+      "find": "\\frac\\{([^{}]+)\\}\\{([^{}]+)\\}",
       "replace": "$1a$2",
       "type": "regex",
       "description": "Chuyển phân số \\frac{x}{y} thành dạng x a y"
@@ -110,8 +110,8 @@
     }
   ],
   "metadata": {
-    "version": "1.2",
-    "description": "Cập nhật mapping LaTeX sang dạng máy tính: chuyển các rule kiểu hàm số sang literal để tránh lỗi regex.",
+    "version": "1.3",
+    "description": "JSON fix: escapes đủ dấu \\, chuyển hàm số sang literal, không còn lỗi Invalid \\escape khi parse Python.",
     "last_updated": "2025-11-12"
   }
 }
