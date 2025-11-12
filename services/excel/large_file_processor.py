@@ -14,6 +14,7 @@ class LargeFileProcessor:
     Features: Single-workbook streaming, 400+ rows/sec, validation trước chunking
     Smart keylog column (strict): only 'keylog'. If absent, create 'keylog'.
     Font styling for keylog column: Flexio Fx799VN, 11pt, bold, black.
+    Data cleaning: Loại bỏ [], "", '' từ cell values
     """
 
     def __init__(self, config: Dict = None):
@@ -24,20 +25,40 @@ class LargeFileProcessor:
         self.max_rows_allowed = 250_000
         self.fast_mode = True
 
-    def _clean_cell_value(self, value):
-        """Clean cell value - same logic as ExcelProcessor"""
+    def _clean_cell_value(self, value) -> str:
+        """
+        Clean cell value - loại bỏ [], "", ''
+        Input: ["35.196152423", "0", "0"]
+        Output: 35.196152423,0,0
+        """
         if pd.isna(value) or not value:
             return ""
 
         value_str = str(value).strip()
 
+        # Loại bỏ dấu [] nếu có
         if value_str.startswith('[') and value_str.endswith(']'):
             value_str = value_str[1:-1]
+
+        # Split và clean từng element
+        if ',' in value_str:
             elements = value_str.split(',')
-            cleaned_elements = [elem.strip().strip('"').strip("'").strip()
-                                for elem in elements if elem.strip()]
+            cleaned_elements = []
+
+            for elem in elements:
+                elem = elem.strip()
+                elem = elem.strip('"')
+                elem = elem.strip("'")
+                elem = elem.strip()
+
+                if elem:
+                    cleaned_elements.append(elem)
+
             return ','.join(cleaned_elements)
 
+        # Nếu không có dấu phay, chỉ loại bỏ quotes
+        value_str = value_str.strip('"').strip("'").strip()
+        value_str = value_str.replace('\\\\', '\\')
         return value_str
 
     def get_memory_usage(self) -> float:
@@ -106,7 +127,7 @@ class LargeFileProcessor:
             print(f"⚠️ Strict keylog detection failed: {e}")
             return False, 'keylog', -1
 
-    # ========== VALIDATION METHODS - NEW ==========
+    # ========== VALIDATION METHODS ==========
 
     def _validate_first_row_before_chunking(self, file_path: str,
                                             shape_a: str, shape_b: str) -> Dict:
@@ -239,7 +260,7 @@ class LargeFileProcessor:
 
     def _extract_shape_data_from_row(self, row: pd.Series, shape_type: str,
                                      group: str) -> Dict:
-        """Extract data từ row cho shape cụ thể"""
+        """Extract data từ row cho shape cụ thể với CLEANING"""
         data_dict = {}
 
         if not shape_type:
@@ -247,38 +268,44 @@ class LargeFileProcessor:
 
         if group == 'A':
             if shape_type == "Điểm":
-                data_dict['point_input'] = str(row.get('data_A', '')).strip()
+                raw_value = row.get('data_A', '')
+                data_dict['point_input'] = self._clean_cell_value(raw_value)
             elif shape_type == "Đường thẳng":
-                data_dict['line_A1'] = str(row.get('d_P_data_A', '')).strip()
-                data_dict['line_X1'] = str(row.get('d_V_data_A', '')).strip()
+                raw_A = row.get('d_P_data_A', '')
+                raw_X = row.get('d_V_data_A', '')
+                data_dict['line_A1'] = self._clean_cell_value(raw_A)
+                data_dict['line_X1'] = self._clean_cell_value(raw_X)
             elif shape_type == "Mặt phẳng":
-                data_dict['plane_a'] = str(row.get('P1_a', '')).strip()
-                data_dict['plane_b'] = str(row.get('P1_b', '')).strip()
-                data_dict['plane_c'] = str(row.get('P1_c', '')).strip()
-                data_dict['plane_d'] = str(row.get('P1_d', '')).strip()
+                data_dict['plane_a'] = self._clean_cell_value(row.get('P1_a', ''))
+                data_dict['plane_b'] = self._clean_cell_value(row.get('P1_b', ''))
+                data_dict['plane_c'] = self._clean_cell_value(row.get('P1_c', ''))
+                data_dict['plane_d'] = self._clean_cell_value(row.get('P1_d', ''))
             elif shape_type == "Đường tròn":
-                data_dict['circle_center'] = str(row.get('C_data_I1', '')).strip()
-                data_dict['circle_radius'] = str(row.get('C_data_R1', '')).strip()
+                data_dict['circle_center'] = self._clean_cell_value(row.get('C_data_I1', ''))
+                data_dict['circle_radius'] = self._clean_cell_value(row.get('C_data_R1', ''))
             elif shape_type == "Mặt cầu":
-                data_dict['sphere_center'] = str(row.get('S_data_I1', '')).strip()
-                data_dict['sphere_radius'] = str(row.get('S_data_R1', '')).strip()
+                data_dict['sphere_center'] = self._clean_cell_value(row.get('S_data_I1', ''))
+                data_dict['sphere_radius'] = self._clean_cell_value(row.get('S_data_R1', ''))
         else:  # Group B
             if shape_type == "Điểm":
-                data_dict['point_input'] = str(row.get('data_B', '')).strip()
+                raw_value = row.get('data_B', '')
+                data_dict['point_input'] = self._clean_cell_value(raw_value)
             elif shape_type == "Đường thẳng":
-                data_dict['line_A2'] = str(row.get('d_P_data_B', '')).strip()
-                data_dict['line_X2'] = str(row.get('d_V_data_B', '')).strip()
+                raw_A = row.get('d_P_data_B', '')
+                raw_X = row.get('d_V_data_B', '')
+                data_dict['line_A2'] = self._clean_cell_value(raw_A)
+                data_dict['line_X2'] = self._clean_cell_value(raw_X)
             elif shape_type == "Mặt phẳng":
-                data_dict['plane_a'] = str(row.get('P2_a', '')).strip()
-                data_dict['plane_b'] = str(row.get('P2_b', '')).strip()
-                data_dict['plane_c'] = str(row.get('P2_c', '')).strip()
-                data_dict['plane_d'] = str(row.get('P2_d', '')).strip()
+                data_dict['plane_a'] = self._clean_cell_value(row.get('P2_a', ''))
+                data_dict['plane_b'] = self._clean_cell_value(row.get('P2_b', ''))
+                data_dict['plane_c'] = self._clean_cell_value(row.get('P2_c', ''))
+                data_dict['plane_d'] = self._clean_cell_value(row.get('P2_d', ''))
             elif shape_type == "Đường tròn":
-                data_dict['circle_center'] = str(row.get('C_data_I2', '')).strip()
-                data_dict['circle_radius'] = str(row.get('C_data_R2', '')).strip()
+                data_dict['circle_center'] = self._clean_cell_value(row.get('C_data_I2', ''))
+                data_dict['circle_radius'] = self._clean_cell_value(row.get('C_data_R2', ''))
             elif shape_type == "Mặt cầu":
-                data_dict['sphere_center'] = str(row.get('S_data_I2', '')).strip()
-                data_dict['sphere_radius'] = str(row.get('S_data_R2', '')).strip()
+                data_dict['sphere_center'] = self._clean_cell_value(row.get('S_data_I2', ''))
+                data_dict['sphere_radius'] = self._clean_cell_value(row.get('S_data_R2', ''))
 
         return data_dict
 
@@ -657,44 +684,8 @@ class LargeFileProcessor:
             raise Exception(f"Lỗi openpyxl smart keylog fallback: {str(e)}")
 
     def _extract_shape_data_fast(self, row: pd.Series, shape_type: str, group: str) -> Dict:
-        data_dict = {}
-        if not shape_type:
-            return data_dict
-        if group == 'A':
-            if shape_type == "Điểm":
-                data_dict['point_input'] = str(row.get('data_A', '')).strip()
-            elif shape_type == "Đường thẳng":
-                data_dict['line_A1'] = str(row.get('d_P_data_A', '')).strip()
-                data_dict['line_X1'] = str(row.get('d_V_data_A', '')).strip()
-            elif shape_type == "Mặt phẳng":
-                data_dict['plane_a'] = str(row.get('P1_a', '')).strip()
-                data_dict['plane_b'] = str(row.get('P1_b', '')).strip()
-                data_dict['plane_c'] = str(row.get('P1_c', '')).strip()
-                data_dict['plane_d'] = str(row.get('P1_d', '')).strip()
-            elif shape_type == "Đường tròn":
-                data_dict['circle_center'] = str(row.get('C_data_I1', '')).strip()
-                data_dict['circle_radius'] = str(row.get('C_data_R1', '')).strip()
-            elif shape_type == "Mặt cầu":
-                data_dict['sphere_center'] = str(row.get('S_data_I1', '')).strip()
-                data_dict['sphere_radius'] = str(row.get('S_data_R1', '')).strip()
-        else:
-            if shape_type == "Điểm":
-                data_dict['point_input'] = str(row.get('data_B', '')).strip()
-            elif shape_type == "Đường thẳng":
-                data_dict['line_A2'] = str(row.get('d_P_data_B', '')).strip()
-                data_dict['line_X2'] = str(row.get('d_V_data_B', '')).strip()
-            elif shape_type == "Mặt phẳng":
-                data_dict['plane_a'] = str(row.get('P2_a', '')).strip()
-                data_dict['plane_b'] = str(row.get('P2_b', '')).strip()
-                data_dict['plane_c'] = str(row.get('P2_c', '')).strip()
-                data_dict['plane_d'] = str(row.get('P2_d', '')).strip()
-            elif shape_type == "Đường tròn":
-                data_dict['circle_center'] = str(row.get('C_data_I2', '')).strip()
-                data_dict['circle_radius'] = str(row.get('C_data_R2', '')).strip()
-            elif shape_type == "Mặt cầu":
-                data_dict['sphere_center'] = str(row.get('S_data_I2', '')).strip()
-                data_dict['sphere_radius'] = str(row.get('S_data_R2', '')).strip()
-        return data_dict
+        """Extract data với CLEANING"""
+        return self._extract_shape_data_from_row(row, shape_type, group)
 
     def _write_results_buffer_fast(self, temp_file: str, results: List[str]):
         try:
@@ -711,21 +702,10 @@ class LargeFileProcessor:
         except Exception:
             return []
 
-    def _create_excel_direct_fast(self, original_file: str, temp_results_file: str, output_path: str) -> str:
-        return self._create_excel_with_smart_keylog(original_file, temp_results_file, output_path,
-                                                    *self._detect_keylog_column_strict(original_file))
-
-    def _create_excel_openpyxl_fast(self, original_file: str, results: List[str], output_path: str) -> str:
-        has_keylog, keylog_col_name, keylog_col_index = self._detect_keylog_column_strict(original_file)
-        return self._create_excel_openpyxl_smart_keylog(original_file, results, output_path,
-                                                        has_keylog, keylog_col_name, keylog_col_index)
-
     def process_large_excel_safe(self, file_path: str, shape_a: str, shape_b: str,
                                  operation: str, dimension_a: str, dimension_b: str,
                                  output_path: str, progress_callback: Callable = None) -> Tuple[int, int, str]:
-        """
-        MAIN ENTRY POINT với PRE-VALIDATION
-        """
+        """MAIN ENTRY POINT với PRE-VALIDATION"""
 
         print(f"🔥 Switching to LARGE FILE MODE for: {os.path.basename(file_path)}")
 
@@ -735,7 +715,6 @@ class LargeFileProcessor:
         )
 
         if not validation_result['valid']:
-            # Tạo error message chi tiết
             error_msg = "❌ Validation failed! Cannot process file.\n\n"
             error_msg += "Issues found:\n"
             for issue in validation_result['issues']:
@@ -784,7 +763,7 @@ class LargeFileProcessor:
                 'recommended_chunk_size': self.estimate_optimal_chunksize(file_path),
                 'max_rows_allowed': self.max_rows_allowed,
                 'over_row_limit': over_limit,
-                'validation_method': 'phương_án_A_strict_keylog_with_prevalidation',
+                'validation_method': 'phương_án_A_with_prevalidation_and_cleaning',
                 'warning': f'File vượt quá giới hạn {self.max_rows_allowed:,} dòng' if over_limit else ''
             }
         except Exception as e:
@@ -820,8 +799,8 @@ class LargeFileProcessor:
             'processing_cancelled': self.processing_cancelled,
             'recommended_max_chunksize': 5000 if self.get_memory_usage() > 800 else 7000,
             'max_rows_allowed': self.max_rows_allowed,
-            'processing_method': 'phương_án_A_with_prevalidation',
+            'processing_method': 'phương_án_A_with_prevalidation_and_cleaning',
             'target_speed_rows_per_sec': 400,
             'optimizations': ['single_workbook_open', 'strict_keylog', 'flexio_font',
-                              'large_chunks', 'minimal_gc', 'batch_io', 'pre_validation']
+                              'large_chunks', 'minimal_gc', 'batch_io', 'pre_validation', 'data_cleaning']
         }

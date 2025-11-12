@@ -11,7 +11,7 @@ from .large_file_processor import LargeFileProcessor
 
 
 class ExcelProcessor:
-    """Excel Processor for ConvertKeylogApp - Enhanced with large file support and first row validation"""
+    """Excel Processor for ConvertKeylogApp - Enhanced with validation and cleaning"""
 
     def __init__(self, config: Dict = None):
         self.config = config or {}
@@ -44,9 +44,7 @@ class ExcelProcessor:
             "group_a_mapping": {
                 "Điểm": {
                     "required_columns": ["data_A"],
-                    "columns": {
-                        "point_input": {"excel_column": "data_A"}
-                    }
+                    "columns": {"point_input": {"excel_column": "data_A"}}
                 },
                 "Đường thẳng": {
                     "required_columns": ["d_P_data_A", "d_V_data_A"],
@@ -82,9 +80,7 @@ class ExcelProcessor:
             "group_b_mapping": {
                 "Điểm": {
                     "required_columns": ["data_B"],
-                    "columns": {
-                        "point_input": {"excel_column": "data_B"}
-                    }
+                    "columns": {"point_input": {"excel_column": "data_B"}}
                 },
                 "Đường thẳng": {
                     "required_columns": ["d_P_data_B", "d_V_data_B"],
@@ -119,6 +115,42 @@ class ExcelProcessor:
             }
         }
 
+    def _clean_cell_value(self, value) -> str:
+
+        if pd.isna(value) or not value:
+            return ""
+
+        value_str = str(value).strip()
+
+        # Loại bỏ dấu [] nếu có
+        if value_str.startswith('[') and value_str.endswith(']'):
+            value_str = value_str[1:-1]
+
+        # Split và clean từng element
+        if ',' in value_str:
+            elements = value_str.split(',')
+            cleaned_elements = []
+
+            for elem in elements:
+                # Loại bỏ khoảng trắng
+                elem = elem.strip()
+                # Loại bỏ dấu nháy kép ""
+                elem = elem.strip('"')
+                # Loại bỏ dấu nháy đơn ''
+                elem = elem.strip("'")
+                # Loại bỏ khoảng trắng lần nữa
+                elem = elem.strip()
+
+                if elem:  # Chỉ thêm nếu không rỗng
+                    cleaned_elements.append(elem)
+
+            return ','.join(cleaned_elements)
+
+        # Nếu không có dấu phay, chỉ loại bỏ quotes
+        value_str = value_str.strip('"').strip("'").strip()
+        value_str = value_str.replace('\\\\', '\\')
+        return value_str
+
     def is_large_file(self, file_path: str) -> Tuple[bool, Dict[str, Any]]:
         """Check if file is too large for normal processing"""
         try:
@@ -146,16 +178,6 @@ class ExcelProcessor:
                                 shape_b: str = None) -> Dict[str, Any]:
         """
         Validate dòng dữ liệu đầu tiên trước khi batch processing
-
-        Returns:
-            {
-                'valid': bool,
-                'has_structure': bool,
-                'has_data': bool,
-                'issues': List[str],
-                'warnings': List[str],
-                'sample_data': Dict
-            }
         """
         result = {
             'valid': True,
@@ -167,7 +189,6 @@ class ExcelProcessor:
         }
 
         try:
-            # Kiểm tra file có quá lớn không
             is_large, file_info = self.is_large_file(file_path)
 
             if is_large:
@@ -175,11 +196,9 @@ class ExcelProcessor:
                     file_path, shape_a, shape_b, file_info
                 )
 
-            # Đọc file bình thường
             df = pd.read_excel(file_path)
             df.columns = df.columns.str.strip()
 
-            # Validate cấu trúc (header)
             is_valid_structure, missing_cols = self.validate_excel_structure(
                 df, shape_a, shape_b
             )
@@ -193,20 +212,16 @@ class ExcelProcessor:
                 )
                 return result
 
-            # Kiểm tra có ít nhất 1 dòng data không
             if len(df) == 0:
                 result['valid'] = False
                 result['issues'].append("❌ File Excel không có dữ liệu (chỉ có header)")
                 return result
 
-            # Validate dòng đầu tiên
             first_row = df.iloc[0]
 
-            # Extract data từ dòng 1
             data_a = self.extract_shape_data(first_row, shape_a, 'A')
             data_b = self.extract_shape_data(first_row, shape_b, 'B') if shape_b else {}
 
-            # Validate data Group A
             has_data_a = any(str(v).strip() for v in data_a.values())
             issues_a = self._validate_shape_data_detailed(data_a, shape_a, "Nhóm A")
 
@@ -217,7 +232,6 @@ class ExcelProcessor:
             elif issues_a:
                 result['issues'].extend(issues_a)
 
-            # Validate data Group B (nếu có)
             if shape_b:
                 has_data_b = any(str(v).strip() for v in data_b.values())
                 issues_b = self._validate_shape_data_detailed(data_b, shape_b, "Nhóm B")
@@ -229,17 +243,14 @@ class ExcelProcessor:
                 elif issues_b:
                     result['issues'].extend(issues_b)
 
-            # Tổng hợp kết quả
             result['has_data'] = has_data_a and (not shape_b or has_data_b)
             result['valid'] = result['has_structure'] and result['has_data'] and len(result['issues']) == 0
 
-            # Thêm sample data để preview
             result['sample_data'] = {
                 'group_a': data_a,
                 'group_b': data_b if shape_b else None
             }
 
-            # Thêm warnings
             if len(df) < 5:
                 result['warnings'].append(
                     f"⚠️ File chỉ có {len(df)} dòng dữ liệu"
@@ -268,11 +279,9 @@ class ExcelProcessor:
             wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
             ws = wb.active
 
-            # Header
             header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True))
             columns = [str(cell).strip() if cell else "" for cell in header_row]
 
-            # Dòng 1
             first_data_row = next(ws.iter_rows(min_row=2, max_row=2, values_only=True), None)
 
             wb.close()
@@ -282,10 +291,8 @@ class ExcelProcessor:
                 result['issues'].append("❌ File không có dòng dữ liệu")
                 return result
 
-            # Tạo pandas Series từ dòng đầu
             first_row = pd.Series(first_data_row, index=columns)
 
-            # Check structure
             is_valid_structure, missing_cols = self._check_columns_exist(
                 columns, shape_a, shape_b
             )
@@ -299,7 +306,6 @@ class ExcelProcessor:
                 )
                 return result
 
-            # Validate data
             data_a = self.extract_shape_data(first_row, shape_a, 'A')
             data_b = self.extract_shape_data(first_row, shape_b, 'B') if shape_b else {}
 
@@ -363,7 +369,6 @@ class ExcelProcessor:
 
         if shape == "Điểm":
             point_input = data.get('point_input', '').strip()
-
             if not point_input:
                 issues.append(f"❌ {group_name}: Tọa độ điểm trống")
             else:
@@ -373,13 +378,6 @@ class ExcelProcessor:
                         f"❌ {group_name}: Điểm cần ít nhất 2 tọa độ, "
                         f"nhận được: '{point_input}'"
                     )
-                else:
-                    for i, coord in enumerate(coords):
-                        if not self._is_valid_number_or_expression(coord.strip()):
-                            issues.append(
-                                f"❌ {group_name}: Tọa độ {i + 1} không hợp lệ: '{coord}'"
-                            )
-                            break
 
         elif shape == "Đường thẳng":
             line_A = data.get('line_A1') or data.get('line_A2', '')
@@ -414,21 +412,8 @@ class ExcelProcessor:
             ]
 
             valid_coeffs = [c for c in coeffs if c]
-
             if len(valid_coeffs) == 0:
                 issues.append(f"❌ {group_name}: Tất cả hệ số mặt phẳng đều trống")
-            elif len(valid_coeffs) < 4:
-                issues.append(
-                    f"⚠️ {group_name}: Chỉ có {len(valid_coeffs)}/4 hệ số "
-                    f"(a, b, c, d). Có thể gây lỗi tính toán."
-                )
-
-            coeff_names = ['a', 'b', 'c', 'd']
-            for i, coeff in enumerate(coeffs):
-                if coeff and not self._is_valid_number_or_expression(coeff):
-                    issues.append(
-                        f"❌ {group_name}: Hệ số {coeff_names[i]} không hợp lệ: '{coeff}'"
-                    )
 
         elif shape == "Đường tròn":
             center = data.get('circle_center', '').strip()
@@ -446,13 +431,11 @@ class ExcelProcessor:
 
             if not radius:
                 issues.append(f"❌ {group_name}: Bán kính đường tròn trống")
-            elif not self._is_valid_number_or_expression(radius):
-                issues.append(f"❌ {group_name}: Bán kính không hợp lệ: '{radius}'")
             else:
                 try:
                     r_value = float(radius)
                     if r_value <= 0:
-                        issues.append(f"❌ {group_name}: Bán kính phải > 0, nhận được: {r_value}")
+                        issues.append(f"❌ {group_name}: Bán kính phải > 0")
                 except:
                     pass
 
@@ -472,39 +455,15 @@ class ExcelProcessor:
 
             if not radius:
                 issues.append(f"❌ {group_name}: Bán kính mặt cầu trống")
-            elif not self._is_valid_number_or_expression(radius):
-                issues.append(f"❌ {group_name}: Bán kính không hợp lệ: '{radius}'")
             else:
                 try:
                     r_value = float(radius)
                     if r_value <= 0:
-                        issues.append(f"❌ {group_name}: Bán kính phải > 0, nhận được: {r_value}")
+                        issues.append(f"❌ {group_name}: Bán kính phải > 0")
                 except:
                     pass
 
         return issues
-
-    def _is_valid_number_or_expression(self, value: str) -> bool:
-        """Kiểm tra value có phải số hoặc biểu thức toán hợp lệ"""
-        if not value or not value.strip():
-            return False
-
-        value = value.strip()
-
-        try:
-            float(value)
-            return True
-        except:
-            pass
-
-        math_chars = set('0123456789+-*/().sqrtsincotan π')
-        clean_value = value.lower().replace(' ', '')
-
-        for char in clean_value:
-            if char not in math_chars and not char.isalpha():
-                return False
-
-        return True
 
     def read_excel_data(self, file_path: str) -> pd.DataFrame:
         """Read Excel file and normalize data"""
@@ -543,12 +502,8 @@ class ExcelProcessor:
 
         return len(missing_columns) == 0, missing_columns
 
-    def validate_large_file_structure(self, file_path: str, shape_a: str, shape_b: str = None) -> Dict[str, Any]:
-        """Validate large file structure without loading entire file"""
-        return self.large_file_processor.validate_large_file_structure(file_path, shape_a, shape_b)
-
     def extract_shape_data(self, row: pd.Series, shape_type: str, group: str) -> Dict:
-        """Extract data for specific shape from Excel row"""
+        """Extract data for specific shape from Excel row với CLEANING"""
         if group == 'A':
             shape_mapping = self.mapping['group_a_mapping'].get(shape_type, {})
         else:
@@ -562,7 +517,9 @@ class ExcelProcessor:
                 if pd.isna(value):
                     data_dict[field] = ""
                 else:
-                    data_dict[field] = str(value).strip()
+                    # Clean value trước khi lưu
+                    cleaned_value = self._clean_cell_value(value)
+                    data_dict[field] = cleaned_value
             else:
                 data_dict[field] = ""
 
@@ -662,78 +619,3 @@ class ExcelProcessor:
 
         except Exception as e:
             print(f"Warning: Could not format worksheet: {e}")
-
-    def get_total_rows(self, file_path: str) -> int:
-        """Get total number of rows in Excel file"""
-        try:
-            file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
-
-            if file_size_mb > 10:
-                wb = openpyxl.load_workbook(file_path, read_only=True)
-                ws = wb.active
-                total_rows = ws.max_row - 1 if hasattr(ws, 'max_row') else 0
-                wb.close()
-                return total_rows
-            else:
-                df = pd.read_excel(file_path)
-                return len(df)
-        except Exception:
-            return 0
-
-    def get_file_info(self, file_path: str) -> Dict[str, Any]:
-        """Get information about Excel file"""
-        try:
-            is_large, large_file_info = self.is_large_file(file_path)
-
-            if is_large:
-                return self._get_large_file_info(file_path, large_file_info)
-            else:
-                df = self.read_excel_data(file_path)
-                file_name = os.path.basename(file_path)
-
-                return {
-                    'file_name': file_name,
-                    'total_rows': len(df),
-                    'total_columns': len(df.columns),
-                    'columns': list(df.columns),
-                    'file_size': os.path.getsize(file_path),
-                    'file_size_mb': os.path.getsize(file_path) / (1024 * 1024),
-                    'is_large_file': False,
-                    'first_few_rows': df.head(3).to_dict('records') if len(df) > 0 else []
-                }
-        except Exception as e:
-            raise Exception(f"Không thể đọc thông tin file: {str(e)}")
-
-    def _get_large_file_info(self, file_path: str, large_file_info: Dict) -> Dict[str, Any]:
-        """Get file info for large files without loading data"""
-        try:
-            wb = openpyxl.load_workbook(file_path, read_only=True)
-            ws = wb.active
-
-            header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True))
-            columns = [str(cell) for cell in header_row if cell is not None]
-
-            sample_rows = []
-            for i, row in enumerate(ws.iter_rows(min_row=2, max_row=5, values_only=True)):
-                if i >= 3:
-                    break
-                row_dict = {col: str(cell) if cell is not None else "" for col, cell in zip(columns, row)}
-                sample_rows.append(row_dict)
-
-            wb.close()
-
-            return {
-                'file_name': os.path.basename(file_path),
-                'total_rows': large_file_info.get('estimated_rows', 0),
-                'total_columns': len(columns),
-                'columns': columns,
-                'file_size': os.path.getsize(file_path),
-                'file_size_mb': large_file_info.get('file_size_mb', 0),
-                'is_large_file': True,
-                'recommended_chunk_size': large_file_info.get('recommended_chunk_size', 500),
-                'first_few_rows': sample_rows,
-                'warning': 'File lớn - khuyến nghị dùng xử lý chunked'
-            }
-
-        except Exception as e:
-            raise Exception(f"Không thể phân tích file lớn: {str(e)}")
