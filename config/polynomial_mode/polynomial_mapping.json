@@ -97,17 +97,18 @@
       "description": "Thay \\right] → )"
     },
     {
-      "find": "\\left{",
+      "find": "\\left(",
       "replace": "(",
       "type": "literal",
       "description": "Thay \\left{ → ("
     },
     {
-      "find": "\\right}",
+      "find": "\\right)",
       "replace": ")",
       "type": "literal",
       "description": "Thay \\right} → )"
     }
+
   ],
   "metadata": {
     "version": "1.3",
