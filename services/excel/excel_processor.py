@@ -11,25 +11,23 @@ from .large_file_processor import LargeFileProcessor
 
 
 class ExcelProcessor:
-    """Excel Processor for ConvertKeylogApp - Enhanced with large file support"""
+    """Excel Processor for ConvertKeylogApp - Enhanced with large file support and first row validation"""
 
     def __init__(self, config: Dict = None):
         self.config = config or {}
         self.mapping = self._load_mapping()
-        self.large_file_processor = LargeFileProcessor(config)  # NEW: Large file handler
-        self.large_file_threshold_mb = 20  # Files > 20MB use large file processor
-        self.large_file_threshold_rows = 50000  # Files > 50k rows use large file processor
+        self.large_file_processor = LargeFileProcessor(config)
+        self.large_file_threshold_mb = 20
+        self.large_file_threshold_rows = 50000
 
     def _load_mapping(self) -> Dict:
         """Load Excel mapping configuration from config or fallback"""
         try:
-            # Try to load from new config structure
             if self.config and 'geometry' in self.config:
                 geometry_config = self.config['geometry']
                 if 'excel_mapping' in geometry_config:
                     return geometry_config['excel_mapping']
 
-            # Fallback: try to load from separate file
             mapping_file = "config/geometry_mode/geometry_excel_mapping.json"
             if os.path.exists(mapping_file):
                 with open(mapping_file, 'r', encoding='utf-8') as f:
@@ -38,7 +36,6 @@ class ExcelProcessor:
         except Exception as e:
             print(f"Warning: Could not load Excel mapping: {e}")
 
-        # Default mapping fallback
         return self._get_default_mapping()
 
     def _get_default_mapping(self) -> Dict:
@@ -127,8 +124,6 @@ class ExcelProcessor:
         try:
             file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
 
-            # Quick row count estimation using openpyxl
-            import openpyxl
             wb = openpyxl.load_workbook(file_path, read_only=True)
             ws = wb.active
             estimated_rows = ws.max_row - 1 if hasattr(ws, 'max_row') else 0
@@ -147,10 +142,373 @@ class ExcelProcessor:
         except Exception as e:
             return False, {'error': f'Không thể phân tích file: {str(e)}'}
 
-    def read_excel_data(self, file_path: str) -> pd.DataFrame:
-        """Read Excel file and normalize data - with large file detection"""
+    def validate_first_row_data(self, file_path: str, shape_a: str,
+                                shape_b: str = None) -> Dict[str, Any]:
+        """
+        Validate dòng dữ liệu đầu tiên trước khi batch processing
+
+        Returns:
+            {
+                'valid': bool,
+                'has_structure': bool,
+                'has_data': bool,
+                'issues': List[str],
+                'warnings': List[str],
+                'sample_data': Dict
+            }
+        """
+        result = {
+            'valid': True,
+            'has_structure': False,
+            'has_data': False,
+            'issues': [],
+            'warnings': [],
+            'sample_data': {}
+        }
+
         try:
-            # Check if this is a large file
+            # Kiểm tra file có quá lớn không
+            is_large, file_info = self.is_large_file(file_path)
+
+            if is_large:
+                return self._validate_first_row_large_file(
+                    file_path, shape_a, shape_b, file_info
+                )
+
+            # Đọc file bình thường
+            df = pd.read_excel(file_path)
+            df.columns = df.columns.str.strip()
+
+            # Validate cấu trúc (header)
+            is_valid_structure, missing_cols = self.validate_excel_structure(
+                df, shape_a, shape_b
+            )
+
+            result['has_structure'] = is_valid_structure
+
+            if not is_valid_structure:
+                result['valid'] = False
+                result['issues'].append(
+                    f"❌ Thiếu các cột bắt buộc: {', '.join(missing_cols)}"
+                )
+                return result
+
+            # Kiểm tra có ít nhất 1 dòng data không
+            if len(df) == 0:
+                result['valid'] = False
+                result['issues'].append("❌ File Excel không có dữ liệu (chỉ có header)")
+                return result
+
+            # Validate dòng đầu tiên
+            first_row = df.iloc[0]
+
+            # Extract data từ dòng 1
+            data_a = self.extract_shape_data(first_row, shape_a, 'A')
+            data_b = self.extract_shape_data(first_row, shape_b, 'B') if shape_b else {}
+
+            # Validate data Group A
+            has_data_a = any(str(v).strip() for v in data_a.values())
+            issues_a = self._validate_shape_data_detailed(data_a, shape_a, "Nhóm A")
+
+            if not has_data_a:
+                result['issues'].append(
+                    f"❌ Dòng 1 - Nhóm A ({shape_a}): Không có dữ liệu"
+                )
+            elif issues_a:
+                result['issues'].extend(issues_a)
+
+            # Validate data Group B (nếu có)
+            if shape_b:
+                has_data_b = any(str(v).strip() for v in data_b.values())
+                issues_b = self._validate_shape_data_detailed(data_b, shape_b, "Nhóm B")
+
+                if not has_data_b:
+                    result['issues'].append(
+                        f"❌ Dòng 1 - Nhóm B ({shape_b}): Không có dữ liệu"
+                    )
+                elif issues_b:
+                    result['issues'].extend(issues_b)
+
+            # Tổng hợp kết quả
+            result['has_data'] = has_data_a and (not shape_b or has_data_b)
+            result['valid'] = result['has_structure'] and result['has_data'] and len(result['issues']) == 0
+
+            # Thêm sample data để preview
+            result['sample_data'] = {
+                'group_a': data_a,
+                'group_b': data_b if shape_b else None
+            }
+
+            # Thêm warnings
+            if len(df) < 5:
+                result['warnings'].append(
+                    f"⚠️ File chỉ có {len(df)} dòng dữ liệu"
+                )
+
+            return result
+
+        except Exception as e:
+            result['valid'] = False
+            result['issues'].append(f"❌ Lỗi đọc file: {str(e)}")
+            return result
+
+    def _validate_first_row_large_file(self, file_path: str, shape_a: str,
+                                       shape_b: str, file_info: Dict) -> Dict:
+        """Validate dòng đầu cho file lớn (dùng openpyxl)"""
+        result = {
+            'valid': True,
+            'has_structure': False,
+            'has_data': False,
+            'issues': [],
+            'warnings': [],
+            'sample_data': {}
+        }
+
+        try:
+            wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
+            ws = wb.active
+
+            # Header
+            header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True))
+            columns = [str(cell).strip() if cell else "" for cell in header_row]
+
+            # Dòng 1
+            first_data_row = next(ws.iter_rows(min_row=2, max_row=2, values_only=True), None)
+
+            wb.close()
+
+            if not first_data_row:
+                result['valid'] = False
+                result['issues'].append("❌ File không có dòng dữ liệu")
+                return result
+
+            # Tạo pandas Series từ dòng đầu
+            first_row = pd.Series(first_data_row, index=columns)
+
+            # Check structure
+            is_valid_structure, missing_cols = self._check_columns_exist(
+                columns, shape_a, shape_b
+            )
+
+            result['has_structure'] = is_valid_structure
+
+            if not is_valid_structure:
+                result['valid'] = False
+                result['issues'].append(
+                    f"❌ Thiếu cột: {', '.join(missing_cols)}"
+                )
+                return result
+
+            # Validate data
+            data_a = self.extract_shape_data(first_row, shape_a, 'A')
+            data_b = self.extract_shape_data(first_row, shape_b, 'B') if shape_b else {}
+
+            has_data_a = any(str(v).strip() for v in data_a.values())
+            issues_a = self._validate_shape_data_detailed(data_a, shape_a, "Nhóm A")
+
+            if not has_data_a or issues_a:
+                result['issues'].extend(issues_a or [f"❌ Nhóm A: Không có dữ liệu"])
+
+            if shape_b:
+                has_data_b = any(str(v).strip() for v in data_b.values())
+                issues_b = self._validate_shape_data_detailed(data_b, shape_b, "Nhóm B")
+
+                if not has_data_b or issues_b:
+                    result['issues'].extend(issues_b or [f"❌ Nhóm B: Không có dữ liệu"])
+
+            result['has_data'] = has_data_a and (not shape_b or has_data_b)
+            result['valid'] = result['has_structure'] and result['has_data'] and len(result['issues']) == 0
+
+            result['sample_data'] = {
+                'group_a': data_a,
+                'group_b': data_b if shape_b else None
+            }
+
+            result['warnings'].append(
+                f"⚠️ File lớn ({file_info['file_size_mb']:.1f}MB, "
+                f"~{file_info['estimated_rows']:,} dòng) - "
+                f"Sẽ dùng chế độ xử lý file lớn"
+            )
+
+            return result
+
+        except Exception as e:
+            result['valid'] = False
+            result['issues'].append(f"❌ Lỗi: {str(e)}")
+            return result
+
+    def _check_columns_exist(self, columns: List[str], shape_a: str,
+                             shape_b: str = None) -> Tuple[bool, List[str]]:
+        """Kiểm tra các cột có tồn tại không"""
+        missing_columns = []
+
+        if shape_a in self.mapping['group_a_mapping']:
+            required_cols = self.mapping['group_a_mapping'][shape_a]['required_columns']
+            for col in required_cols:
+                if col not in columns:
+                    missing_columns.append(f"Nhóm A - {col}")
+
+        if shape_b and shape_b in self.mapping['group_b_mapping']:
+            required_cols = self.mapping['group_b_mapping'][shape_b]['required_columns']
+            for col in required_cols:
+                if col not in columns:
+                    missing_columns.append(f"Nhóm B - {col}")
+
+        return len(missing_columns) == 0, missing_columns
+
+    def _validate_shape_data_detailed(self, data: Dict, shape: str,
+                                      group_name: str) -> List[str]:
+        """Validate chi tiết data của 1 shape"""
+        issues = []
+
+        if shape == "Điểm":
+            point_input = data.get('point_input', '').strip()
+
+            if not point_input:
+                issues.append(f"❌ {group_name}: Tọa độ điểm trống")
+            else:
+                coords = point_input.split(',')
+                if len(coords) < 2:
+                    issues.append(
+                        f"❌ {group_name}: Điểm cần ít nhất 2 tọa độ, "
+                        f"nhận được: '{point_input}'"
+                    )
+                else:
+                    for i, coord in enumerate(coords):
+                        if not self._is_valid_number_or_expression(coord.strip()):
+                            issues.append(
+                                f"❌ {group_name}: Tọa độ {i + 1} không hợp lệ: '{coord}'"
+                            )
+                            break
+
+        elif shape == "Đường thẳng":
+            line_A = data.get('line_A1') or data.get('line_A2', '')
+            line_X = data.get('line_X1') or data.get('line_X2', '')
+
+            if not line_A.strip():
+                issues.append(f"❌ {group_name}: Điểm trên đường thẳng trống")
+            else:
+                coords_A = line_A.split(',')
+                if len(coords_A) != 3:
+                    issues.append(
+                        f"❌ {group_name}: Điểm đường thẳng cần 3 tọa độ, "
+                        f"nhận được: '{line_A}'"
+                    )
+
+            if not line_X.strip():
+                issues.append(f"❌ {group_name}: Vector phương trống")
+            else:
+                coords_X = line_X.split(',')
+                if len(coords_X) != 3:
+                    issues.append(
+                        f"❌ {group_name}: Vector phương cần 3 tọa độ, "
+                        f"nhận được: '{line_X}'"
+                    )
+
+        elif shape == "Mặt phẳng":
+            coeffs = [
+                data.get('plane_a', '').strip(),
+                data.get('plane_b', '').strip(),
+                data.get('plane_c', '').strip(),
+                data.get('plane_d', '').strip()
+            ]
+
+            valid_coeffs = [c for c in coeffs if c]
+
+            if len(valid_coeffs) == 0:
+                issues.append(f"❌ {group_name}: Tất cả hệ số mặt phẳng đều trống")
+            elif len(valid_coeffs) < 4:
+                issues.append(
+                    f"⚠️ {group_name}: Chỉ có {len(valid_coeffs)}/4 hệ số "
+                    f"(a, b, c, d). Có thể gây lỗi tính toán."
+                )
+
+            coeff_names = ['a', 'b', 'c', 'd']
+            for i, coeff in enumerate(coeffs):
+                if coeff and not self._is_valid_number_or_expression(coeff):
+                    issues.append(
+                        f"❌ {group_name}: Hệ số {coeff_names[i]} không hợp lệ: '{coeff}'"
+                    )
+
+        elif shape == "Đường tròn":
+            center = data.get('circle_center', '').strip()
+            radius = data.get('circle_radius', '').strip()
+
+            if not center:
+                issues.append(f"❌ {group_name}: Tâm đường tròn trống")
+            else:
+                coords = center.split(',')
+                if len(coords) != 2:
+                    issues.append(
+                        f"❌ {group_name}: Tâm đường tròn cần 2 tọa độ, "
+                        f"nhận được: '{center}'"
+                    )
+
+            if not radius:
+                issues.append(f"❌ {group_name}: Bán kính đường tròn trống")
+            elif not self._is_valid_number_or_expression(radius):
+                issues.append(f"❌ {group_name}: Bán kính không hợp lệ: '{radius}'")
+            else:
+                try:
+                    r_value = float(radius)
+                    if r_value <= 0:
+                        issues.append(f"❌ {group_name}: Bán kính phải > 0, nhận được: {r_value}")
+                except:
+                    pass
+
+        elif shape == "Mặt cầu":
+            center = data.get('sphere_center', '').strip()
+            radius = data.get('sphere_radius', '').strip()
+
+            if not center:
+                issues.append(f"❌ {group_name}: Tâm mặt cầu trống")
+            else:
+                coords = center.split(',')
+                if len(coords) != 3:
+                    issues.append(
+                        f"❌ {group_name}: Tâm mặt cầu cần 3 tọa độ, "
+                        f"nhận được: '{center}'"
+                    )
+
+            if not radius:
+                issues.append(f"❌ {group_name}: Bán kính mặt cầu trống")
+            elif not self._is_valid_number_or_expression(radius):
+                issues.append(f"❌ {group_name}: Bán kính không hợp lệ: '{radius}'")
+            else:
+                try:
+                    r_value = float(radius)
+                    if r_value <= 0:
+                        issues.append(f"❌ {group_name}: Bán kính phải > 0, nhận được: {r_value}")
+                except:
+                    pass
+
+        return issues
+
+    def _is_valid_number_or_expression(self, value: str) -> bool:
+        """Kiểm tra value có phải số hoặc biểu thức toán hợp lệ"""
+        if not value or not value.strip():
+            return False
+
+        value = value.strip()
+
+        try:
+            float(value)
+            return True
+        except:
+            pass
+
+        math_chars = set('0123456789+-*/().sqrtsincotan π')
+        clean_value = value.lower().replace(' ', '')
+
+        for char in clean_value:
+            if char not in math_chars and not char.isalpha():
+                return False
+
+        return True
+
+    def read_excel_data(self, file_path: str) -> pd.DataFrame:
+        """Read Excel file and normalize data"""
+        try:
             is_large, file_info = self.is_large_file(file_path)
 
             if is_large:
@@ -162,7 +520,6 @@ class ExcelProcessor:
                 )
 
             df = pd.read_excel(file_path)
-            # Normalize column names (remove extra spaces)
             df.columns = df.columns.str.strip()
             return df
         except Exception as e:
@@ -172,14 +529,12 @@ class ExcelProcessor:
         """Validate Excel structure against selected shapes"""
         missing_columns = []
 
-        # Check Group A columns
         if shape_a in self.mapping['group_a_mapping']:
             required_cols = self.mapping['group_a_mapping'][shape_a]['required_columns']
             for col in required_cols:
                 if col not in df.columns:
                     missing_columns.append(f"Nhóm A - {col}")
 
-        # Check Group B columns
         if shape_b and shape_b in self.mapping['group_b_mapping']:
             required_cols = self.mapping['group_b_mapping'][shape_b]['required_columns']
             for col in required_cols:
@@ -204,7 +559,6 @@ class ExcelProcessor:
             excel_column = config.get('excel_column')
             if excel_column and excel_column in row.index:
                 value = row[excel_column]
-                # Convert to string, handle NaN values
                 if pd.isna(value):
                     data_dict[field] = ""
                 else:
@@ -234,27 +588,21 @@ class ExcelProcessor:
         try:
             result_df = original_df.copy()
 
-            # Find or create keylog column
             keylog_column = None
             for col in result_df.columns:
                 if col.strip().lower() == 'keylog':
                     keylog_column = col
                     break
 
-            # Add results
             if keylog_column:
                 result_df[keylog_column] = encoded_results
             else:
                 result_df['Kết quả mã hóa'] = encoded_results
 
-            # Ensure directory exists
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-            # Export with formatting
             with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
                 result_df.to_excel(writer, index=False, sheet_name='Results')
-
-                # Format the worksheet
                 worksheet = writer.sheets['Results']
                 self._format_results_worksheet(worksheet, result_df, keylog_column)
 
@@ -266,21 +614,16 @@ class ExcelProcessor:
     def _format_results_worksheet(self, worksheet, df, keylog_column=None):
         """Format Excel worksheet with colors and fonts"""
         try:
-            # Header formatting
             header_font = Font(name='Arial', size=12, bold=True, color='FFFFFF')
             header_fill = PatternFill(start_color='2E86AB', end_color='2E86AB', fill_type='solid')
-
-            # Data formatting
             data_font = Font(name='Arial', size=10)
             result_font = Font(name='Arial', size=10, bold=True, color='2E7D32')
 
-            # Apply header formatting
             for col in range(1, len(df.columns) + 1):
                 cell = worksheet.cell(row=1, column=col)
                 cell.font = header_font
                 cell.fill = header_fill
 
-            # Find keylog column index
             keylog_col_name = keylog_column if keylog_column else 'Kết quả mã hóa'
             keylog_col_idx = None
             for idx, col_name in enumerate(df.columns):
@@ -288,27 +631,23 @@ class ExcelProcessor:
                     keylog_col_idx = idx
                     break
 
-            # Apply data formatting - limit to first 10k rows for performance
             max_format_rows = min(len(df) + 2, 10000)
             for row in range(2, max_format_rows):
                 for col in range(1, len(df.columns) + 1):
                     cell = worksheet.cell(row=row, column=col)
 
-                    # Special formatting for result column
                     if keylog_col_idx is not None and col == keylog_col_idx + 1:
                         cell.font = result_font
                     else:
                         cell.font = data_font
 
-            # Auto-adjust column widths - limited for performance
             for col_idx, column in enumerate(worksheet.columns):
-                if col_idx > 20:  # Limit to first 20 columns
+                if col_idx > 20:
                     break
 
                 max_length = 0
                 column_letter = get_column_letter(column[0].column)
 
-                # Check only first 100 rows for performance
                 for i, cell in enumerate(column):
                     if i > 100:
                         break
@@ -325,55 +664,30 @@ class ExcelProcessor:
             print(f"Warning: Could not format worksheet: {e}")
 
     def get_total_rows(self, file_path: str) -> int:
-        """Get total number of rows in Excel file - optimized for large files"""
+        """Get total number of rows in Excel file"""
         try:
-            # For potentially large files, use openpyxl for efficiency
             file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
 
-            if file_size_mb > 10:  # Large file - use openpyxl
-                import openpyxl
+            if file_size_mb > 10:
                 wb = openpyxl.load_workbook(file_path, read_only=True)
                 ws = wb.active
                 total_rows = ws.max_row - 1 if hasattr(ws, 'max_row') else 0
                 wb.close()
                 return total_rows
             else:
-                # Small file - use pandas
                 df = pd.read_excel(file_path)
                 return len(df)
         except Exception:
             return 0
 
-    def read_excel_data_chunked(self, file_path: str, chunksize: int = 1000):
-        """Read Excel data in chunks - Enhanced for large files"""
-        try:
-            # Check if we need large file processing
-            is_large, file_info = self.is_large_file(file_path)
-
-            if is_large:
-                # Use streaming processor for very large files
-                print(f"🔥 Large file detected - using streaming processor")
-                return self.large_file_processor.read_excel_streaming(file_path, chunksize)
-            else:
-                # Use pandas chunking for smaller files
-                df = pd.read_excel(file_path)
-                # Yield chunks
-                for i in range(0, len(df), chunksize):
-                    yield df.iloc[i:i + chunksize]
-        except Exception as e:
-            raise Exception(f"Không thể đọc file Excel theo chunk: {str(e)}")
-
     def get_file_info(self, file_path: str) -> Dict[str, Any]:
-        """Get information about Excel file - Enhanced with large file detection"""
+        """Get information about Excel file"""
         try:
-            # Check if large file first
             is_large, large_file_info = self.is_large_file(file_path)
 
             if is_large:
-                # Use openpyxl for large file info
                 return self._get_large_file_info(file_path, large_file_info)
             else:
-                # Use pandas for normal files
                 df = self.read_excel_data(file_path)
                 file_name = os.path.basename(file_path)
 
@@ -393,16 +707,12 @@ class ExcelProcessor:
     def _get_large_file_info(self, file_path: str, large_file_info: Dict) -> Dict[str, Any]:
         """Get file info for large files without loading data"""
         try:
-            import openpyxl
-
             wb = openpyxl.load_workbook(file_path, read_only=True)
             ws = wb.active
 
-            # Get header
             header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True))
             columns = [str(cell) for cell in header_row if cell is not None]
 
-            # Get sample rows (first 3 data rows)
             sample_rows = []
             for i, row in enumerate(ws.iter_rows(min_row=2, max_row=5, values_only=True)):
                 if i >= 3:
@@ -427,222 +737,3 @@ class ExcelProcessor:
 
         except Exception as e:
             raise Exception(f"Không thể phân tích file lớn: {str(e)}")
-
-    def create_geometry_template(self, shape_a: str, shape_b: str, output_path: str) -> str:
-        """Create Excel template for geometry data input"""
-        try:
-            # Get required columns
-            template_data = {}
-
-            # Add columns for shape A
-            if shape_a in self.mapping['group_a_mapping']:
-                required_cols = self.mapping['group_a_mapping'][shape_a]['required_columns']
-                for col in required_cols:
-                    template_data[col] = self._get_sample_data(shape_a, col)
-
-            # Add columns for shape B
-            if shape_b and shape_b in self.mapping['group_b_mapping']:
-                required_cols = self.mapping['group_b_mapping'][shape_b]['required_columns']
-                for col in required_cols:
-                    template_data[col] = self._get_sample_data(shape_b, col)
-
-            # Add keylog column
-            template_data['keylog'] = [''] * len(next(iter(template_data.values())))
-
-            # Create DataFrame
-            df = pd.DataFrame(template_data)
-
-            # Export template
-            with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
-                df.to_excel(writer, index=False, sheet_name='Template')
-
-                # Format template
-                worksheet = writer.sheets['Template']
-                self._format_template_worksheet(worksheet, df, shape_a, shape_b)
-
-            return output_path
-
-        except Exception as e:
-            raise Exception(f"Không thể tạo template: {str(e)}")
-
-    def _get_sample_data(self, shape: str, column: str) -> List[str]:
-        """Generate sample data for template"""
-        if shape == "Điểm":
-            return ['1,2', '3,4', '5,6', '0,0']
-        elif shape == "Đường thẳng":
-            if 'P_data' in column:
-                return ['0,0,0', '1,1,1', '2,3,4', '0,1,0']
-            else:  # V_data
-                return ['1,0,0', '0,1,0', '1,1,1', '0,0,1']
-        elif shape == "Mặt phẳng":
-            if column.endswith('_a'):
-                return ['1', '2', '1', '0']
-            elif column.endswith('_b'):
-                return ['1', '1', '2', '1']
-            elif column.endswith('_c'):
-                return ['1', '3', '1', '0']
-            else:  # _d
-                return ['0', '5', '6', '1']
-        elif shape == "Đường tròn":
-            if 'I' in column:  # Center
-                return ['0,0', '1,1', '2,3', '0,5']
-            else:  # Radius
-                return ['5', '3', '2', '10']
-        elif shape == "Mặt cầu":
-            if 'I' in column:  # Center
-                return ['0,0,0', '1,1,1', '2,3,4', '0,0,5']
-            else:  # Radius
-                return ['5', '3', '2', '10']
-
-        return ['', '', '', '']
-
-    def _format_template_worksheet(self, worksheet, df, shape_a, shape_b):
-        """Format template worksheet with instructions"""
-        try:
-            # Header formatting
-            header_font = Font(name='Arial', size=12, bold=True, color='FFFFFF')
-            header_fill = PatternFill(start_color='4CAF50', end_color='4CAF50', fill_type='solid')
-
-            # Apply header formatting
-            for col in range(1, len(df.columns) + 1):
-                cell = worksheet.cell(row=1, column=col)
-                cell.font = header_font
-                cell.fill = header_fill
-
-            # Auto-adjust column widths
-            for column in worksheet.columns:
-                max_length = 0
-                column_letter = get_column_letter(column[0].column)
-                for cell in column:
-                    try:
-                        if len(str(cell.value)) > max_length:
-                            max_length = len(str(cell.value))
-                    except:
-                        pass
-                adjusted_width = min(max_length + 2, 30)
-                worksheet.column_dimensions[column_letter].width = adjusted_width
-
-        except Exception as e:
-            print(f"Warning: Could not format template: {e}")
-
-    def validate_data_quality(self, df: pd.DataFrame, shape_a: str, shape_b: str = None) -> Dict[str, Any]:
-        """Validate data quality in Excel file - optimized for large files"""
-        # For large DataFrames, limit validation to first 1000 rows
-        sample_size = min(1000, len(df))
-        sample_df = df.head(sample_size) if len(df) > 1000 else df
-
-        quality_info = {
-            'valid': True,
-            'total_rows': len(df),
-            'sample_size': sample_size,
-            'rows_with_data': 0,
-            'rows_with_errors': 0,
-            'missing_columns': [],
-            'data_issues': [],
-            'is_sample_validation': len(df) > 1000
-        }
-
-        # Check structure first
-        is_valid, missing_cols = self.validate_excel_structure(df, shape_a, shape_b)
-        if not is_valid:
-            quality_info['valid'] = False
-            quality_info['missing_columns'] = missing_cols
-            return quality_info
-
-        # Check sample rows for data quality
-        for row_index in range(len(sample_df)):
-            row = sample_df.iloc[row_index]
-            has_data = False
-            row_issues = []
-
-            # Check Group A data
-            data_a = self.extract_shape_data(row, shape_a, 'A')
-            if any(str(v).strip() for v in data_a.values()):
-                has_data = True
-                # Validate shape-specific data
-                shape_issues = self._validate_shape_data(data_a, shape_a, f"Nhóm A")
-                row_issues.extend(shape_issues)
-
-            # Check Group B data if needed
-            if shape_b:
-                data_b = self.extract_shape_data(row, shape_b, 'B')
-                if any(str(v).strip() for v in data_b.values()):
-                    has_data = True
-                    shape_issues = self._validate_shape_data(data_b, shape_b, f"Nhóm B")
-                    row_issues.extend(shape_issues)
-
-            if has_data:
-                quality_info['rows_with_data'] += 1
-
-            if row_issues:
-                quality_info['rows_with_errors'] += 1
-                # Only store first 10 error samples to avoid memory issues
-                if len(quality_info['data_issues']) < 10:
-                    quality_info['data_issues'].append({
-                        'row': row_index + 2,  # +2 for Excel row number (1-indexed + header)
-                        'issues': row_issues[:3]  # Limit to first 3 issues per row
-                    })
-
-        return quality_info
-
-    def _validate_shape_data(self, data: Dict, shape: str, group_name: str) -> List[str]:
-        """Validate data for specific shape - simplified for performance"""
-        issues = []
-
-        if shape == "Điểm":
-            point_input = data.get('point_input', '')
-            if point_input:
-                coords = point_input.split(',')
-                if len(coords) < 2:
-                    issues.append(f"{group_name}: Điểm cần ít nhất 2 tọa độ")
-
-        elif shape == "Đường thẳng":
-            line_A = data.get('line_A1') or data.get('line_A2', '')
-            if line_A:
-                coords = line_A.split(',')
-                if len(coords) != 3:
-                    issues.append(f"{group_name}: Đường thẳng cần 3 tọa độ")
-
-        elif shape == "Mặt phẳng":
-            coeffs = [data.get('plane_a', ''), data.get('plane_b', ''),
-                      data.get('plane_c', ''), data.get('plane_d', '')]
-
-            valid_coeffs = sum(1 for coeff in coeffs if coeff and coeff.strip())
-            if valid_coeffs == 0:
-                issues.append(f"{group_name}: Mặt phẳng cần ít nhất 1 hệ số")
-
-        elif shape in ["Đường tròn", "Mặt cầu"]:
-            center_key = 'circle_center' if shape == "Đường tròn" else 'sphere_center'
-            radius_key = 'circle_radius' if shape == "Đường tròn" else 'sphere_radius'
-
-            radius = data.get(radius_key, '')
-            if radius:
-                try:
-                    if float(radius) <= 0:
-                        issues.append(f"{group_name}: Bán kính phải > 0")
-                except:
-                    pass
-
-        return issues
-
-    def _is_valid_number(self, value: str) -> bool:
-        """Check if value is a valid number"""
-        try:
-            float(value)
-            return True
-        except:
-            return False
-
-    def _is_valid_expression(self, value: str) -> bool:
-        """Check if value is a valid mathematical expression"""
-        if not value or not value.strip():
-            return False
-
-        # Try simple number first
-        if self._is_valid_number(value):
-            return True
-
-        # Basic expression validation (simplified for performance)
-        math_chars = set('0123456789+-*/().\\sqrtsincotan')
-        clean_value = value.lower().replace(' ', '')
-        return all(c in math_chars for c in clean_value)
