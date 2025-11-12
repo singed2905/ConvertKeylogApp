@@ -119,7 +119,32 @@
       "replace": "_",
       "type": "regex",
       "description": "Dấu chỉ số dưới _ giữ nguyên"
-    }
+    },
+    {
+  "find": "\\\\left\\[",
+  "replace": "(",
+  "type": "regex",
+  "description": "Thay \\left[ → ("
+},
+{
+  "find": "\\\\right\\]",
+  "replace": ")",
+  "type": "regex",
+  "description": "Thay \\right] → )"
+},
+{
+  "find": "\\\\left\\{",
+  "replace": "(",
+  "type": "regex",
+  "description": "Thay \\left\\{ → ("
+},
+{
+  "find": "\\\\right\\}",
+  "replace": ")",
+  "type": "regex",
+  "description": "Thay \\right\\} → )"
+}
+
   ],
   "metadata": {
     "version": "1.0",
