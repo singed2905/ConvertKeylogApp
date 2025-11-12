@@ -1,5 +1,11 @@
 {
   "latex_to_calculator_mappings": [
+     {
+      "find": "\\\\int_\\\\{([^}]+)\\\\}\\\\^\\\\{([^}]+)\\\\}\\\\s*([^d]+)\\\\s*d[a-z]",
+      "replace": "y \\3,\\1,\\2)",
+      "type": "regex",
+      "description": "Tích phân ngoặc nhọn: \\int_{a}^{b} f(x) dx"
+    },
     {
       "find": "\\\\int_\\\\(([^)]+)\\\\)\\\\\\^\\\\(([^)]+)\\\\)([^d]+)d[a-z]",
       "replace": "y \\3,\\1,\\2)",
@@ -11,6 +17,12 @@
       "replace": "y \\3,\\1,\\2)",
       "type": "regex",
       "description": "Tích phân ngoặc nhọn: \\int_{a}^{b} f(x) dx → y f(x),a,b)"
+    },
+    {
+      "find": "\\\\int_\\\\(([^)]+)\\\\)\\\\^\\\\(([^)]+)\\\\)\\\\s*([^d]+)\\\\s*d[a-z]",
+      "replace": "y \\3,\\1,\\2)",
+      "type": "regex",
+      "description": "Tích phân ngoặc tròn: \\int_(a)^(b) f(x) dx"
     },
     {
       "find": "\\frac\\{([^{}]+)\\}\\{([^{}]+)\\}",
