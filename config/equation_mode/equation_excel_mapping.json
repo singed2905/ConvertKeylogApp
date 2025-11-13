@@ -1,136 +1,260 @@
 {
+  "version": "2.0",
+  "description": "Ánh xạ Excel cho Equation Mode - Format đơn giản hơn với a1,b1,c1,...",
   "equation_mapping_by_phuong_trinh": {
     "2_an": {
-      "description": "Ánh xạ cho hệ 2 phương trình 2 ẩn - theo cột phương trình",
+      "description": "Hệ 2 phương trình 2 ẩn - theo cột phương trình",
       "columns": {
         "phuong_trinh_1": {
           "excel_column": "Phương trình 1",
           "required": true,
-          "description": "Chuỗi hệ số phương trình 1: a11,a12,c1 (phân cách bằng dấu phẩy)"
+          "format": "a1,b1,c1",
+          "description": "Hệ số phương trình 1: a1,b1,c1 (phân cách bằng dấu phẩy)"
         },
         "phuong_trinh_2": {
           "excel_column": "Phương trình 2",
           "required": true,
-          "description": "Chuỗi hệ số phương trình 2: a21,a22,c2 (phân cách bằng dấu phẩy)"
+          "format": "a2,b2,c2",
+          "description": "Hệ số phương trình 2: a2,b2,c2"
         }
       },
       "required_columns": ["Phương trình 1", "Phương trình 2"],
       "total_columns": 2,
-      "he_so_per_equation": 3,
-      "total_he_so": 6,
+      "coefficients_per_equation": 3,
+      "total_coefficients": 6,
       "example": {
-        "Phương trình 1": "2,1,5",
-        "Phương trình 2": "1,3,10",
-        "description": "Tương ứng với hệ: 2x + y = 5; x + 3y = 10"
+        "Phương trình 1": "2,3,7",
+        "Phương trình 2": "1,-1,1",
+        "description": "Hệ: a1·x + b1·y = c1 → 2x + 3y = 7; a2·x + b2·y = c2 → x - y = 1"
       }
     },
     "3_an": {
-      "description": "Ánh xạ cho hệ 3 phương trình 3 ẩn - theo cột phương trình",
+      "description": "Hệ 3 phương trình 3 ẩn - theo cột phương trình",
       "columns": {
         "phuong_trinh_1": {
           "excel_column": "Phương trình 1",
           "required": true,
-          "description": "Chuỗi hệ số phương trình 1: a11,a12,a13,c1"
+          "format": "a1,b1,c1,d1",
+          "description": "Hệ số PT1: a1,b1,c1,d1"
         },
         "phuong_trinh_2": {
           "excel_column": "Phương trình 2",
           "required": true,
-          "description": "Chuỗi hệ số phương trình 2: a21,a22,a23,c2"
+          "format": "a2,b2,c2,d2",
+          "description": "Hệ số PT2: a2,b2,c2,d2"
         },
         "phuong_trinh_3": {
           "excel_column": "Phương trình 3",
           "required": true,
-          "description": "Chuỗi hệ số phương trình 3: a31,a32,a33,c3"
+          "format": "a3,b3,c3,d3",
+          "description": "Hệ số PT3: a3,b3,c3,d3"
         }
       },
       "required_columns": ["Phương trình 1", "Phương trình 2", "Phương trình 3"],
       "total_columns": 3,
-      "he_so_per_equation": 4,
-      "total_he_so": 12
+      "coefficients_per_equation": 4,
+      "total_coefficients": 12,
+      "example": {
+        "Phương trình 1": "1,1,1,6",
+        "Phương trình 2": "2,-1,1,1",
+        "Phương trình 3": "1,2,-1,2",
+        "description": "Hệ: a1·x + b1·y + c1·z = d1, v.v."
+      }
     },
     "4_an": {
-      "description": "Ánh xạ cho hệ 4 phương trình 4 ẩn - theo cột phương trình",
+      "description": "Hệ 4 phương trình 4 ẩn - theo cột phương trình",
       "columns": {
         "phuong_trinh_1": {
           "excel_column": "Phương trình 1",
           "required": true,
-          "description": "Hệ số PT1: a11,a12,a13,a14,c1"
+          "format": "a1,b1,c1,d1,e1",
+          "description": "Hệ số PT1: a1,b1,c1,d1,e1"
         },
         "phuong_trinh_2": {
           "excel_column": "Phương trình 2",
           "required": true,
-          "description": "Hệ số PT2: a21,a22,a23,a24,c2"
+          "format": "a2,b2,c2,d2,e2",
+          "description": "Hệ số PT2: a2,b2,c2,d2,e2"
         },
         "phuong_trinh_3": {
           "excel_column": "Phương trình 3",
           "required": true,
-          "description": "Hệ số PT3: a31,a32,a33,a34,c3"
+          "format": "a3,b3,c3,d3,e3",
+          "description": "Hệ số PT3: a3,b3,c3,d3,e3"
         },
         "phuong_trinh_4": {
           "excel_column": "Phương trình 4",
           "required": true,
-          "description": "Hệ số PT4: a41,a42,a43,a44,c4"
+          "format": "a4,b4,c4,d4,e4",
+          "description": "Hệ số PT4: a4,b4,c4,d4,e4"
         }
       },
       "required_columns": ["Phương trình 1", "Phương trình 2", "Phương trình 3", "Phương trình 4"],
       "total_columns": 4,
-      "he_so_per_equation": 5,
-      "total_he_so": 20
+      "coefficients_per_equation": 5,
+      "total_coefficients": 20
     }
   },
   "equation_mapping_by_he_so": {
     "2_an": {
-      "description": "Ánh xạ cho hệ 2 phương trình 2 ẩn - theo từng hệ số riêng lẻ",
+      "description": "Hệ 2×2 - Format đơn giản với a1, b1, c1, a2, b2, c2",
+      "naming_scheme": "intuitive",
       "columns": {
-        "a11": {
-          "excel_column": "A11",
+        "a1": {
+          "excel_column": "a1",
           "required": true,
-          "description": "Hệ số a11 của phương trình 1"
+          "equation": 1,
+          "variable": "x",
+          "description": "Hệ số x của phương trình 1"
         },
-        "a12": {
-          "excel_column": "A12",
+        "b1": {
+          "excel_column": "b1",
           "required": true,
-          "description": "Hệ số a12 của phương trình 1"
+          "equation": 1,
+          "variable": "y",
+          "description": "Hệ số y của phương trình 1"
         },
         "c1": {
-          "excel_column": "C1",
+          "excel_column": "c1",
           "required": true,
-          "description": "Hệ số c1 (vế phải) của phương trình 1"
+          "equation": 1,
+          "variable": "constant",
+          "description": "Hằng số (vế phải) của phương trình 1"
         },
-        "a21": {
-          "excel_column": "A21",
+        "a2": {
+          "excel_column": "a2",
           "required": true,
-          "description": "Hệ số a21 của phương trình 2"
+          "equation": 2,
+          "variable": "x",
+          "description": "Hệ số x của phương trình 2"
         },
-        "a22": {
-          "excel_column": "A22",
+        "b2": {
+          "excel_column": "b2",
           "required": true,
-          "description": "Hệ số a22 của phương trình 2"
+          "equation": 2,
+          "variable": "y",
+          "description": "Hệ số y của phương trình 2"
         },
         "c2": {
-          "excel_column": "C2",
+          "excel_column": "c2",
           "required": true,
-          "description": "Hệ số c2 (vế phải) của phương trình 2"
+          "equation": 2,
+          "variable": "constant",
+          "description": "Hằng số (vế phải) của phương trình 2"
         }
       },
-      "required_columns": ["A11", "A12", "C1", "A21", "A22", "C2"],
-      "total_columns": 6
+      "required_columns": ["a1", "b1", "c1", "a2", "b2", "c2"],
+      "column_order": ["a1", "b1", "c1", "a2", "b2", "c2"],
+      "total_columns": 6,
+      "example": {
+        "a1": "2",
+        "b1": "3",
+        "c1": "7",
+        "a2": "1",
+        "b2": "-1",
+        "c2": "1",
+        "description": "Hệ: 2x + 3y = 7; x - y = 1"
+      }
     },
     "3_an": {
-      "description": "Ánh xạ cho hệ 3 phương trình 3 ẩn - theo từng hệ số riêng lẻ",
-      "required_columns": ["A11", "A12", "A13", "C1", "A21", "A22", "A23", "C2", "A31", "A32", "A33", "C3"],
-      "total_columns": 12
+      "description": "Hệ 3×3 - Format với a1, b1, c1, d1, a2, b2, c2, d2, a3, b3, c3, d3",
+      "naming_scheme": "intuitive",
+      "columns": {
+        "a1": {"excel_column": "a1", "equation": 1, "variable": "x"},
+        "b1": {"excel_column": "b1", "equation": 1, "variable": "y"},
+        "c1": {"excel_column": "c1", "equation": 1, "variable": "z"},
+        "d1": {"excel_column": "d1", "equation": 1, "variable": "constant"},
+        "a2": {"excel_column": "a2", "equation": 2, "variable": "x"},
+        "b2": {"excel_column": "b2", "equation": 2, "variable": "y"},
+        "c2": {"excel_column": "c2", "equation": 2, "variable": "z"},
+        "d2": {"excel_column": "d2", "equation": 2, "variable": "constant"},
+        "a3": {"excel_column": "a3", "equation": 3, "variable": "x"},
+        "b3": {"excel_column": "b3", "equation": 3, "variable": "y"},
+        "c3": {"excel_column": "c3", "equation": 3, "variable": "z"},
+        "d3": {"excel_column": "d3", "equation": 3, "variable": "constant"}
+      },
+      "required_columns": ["a1", "b1", "c1", "d1", "a2", "b2", "c2", "d2", "a3", "b3", "c3", "d3"],
+      "column_order": ["a1", "b1", "c1", "d1", "a2", "b2", "c2", "d2", "a3", "b3", "c3", "d3"],
+      "total_columns": 12,
+      "example": {
+        "a1": "1", "b1": "1", "c1": "1", "d1": "6",
+        "a2": "2", "b2": "-1", "c2": "1", "d2": "1",
+        "a3": "1", "b3": "2", "c3": "-1", "d3": "2"
+      }
     },
     "4_an": {
-      "description": "Ánh xạ cho hệ 4 phương trình 4 ẩn - theo từng hệ số riêng lẻ",
-      "required_columns": ["A11", "A12", "A13", "A14", "C1", "A21", "A22", "A23", "A24", "C2", "A31", "A32", "A33", "A34", "C3", "A41", "A42", "A43", "A44", "C4"],
+      "description": "Hệ 4×4 - Format với a1..e1, a2..e2, a3..e3, a4..e4",
+      "naming_scheme": "intuitive",
+      "columns": {
+        "a1": {"excel_column": "a1", "equation": 1, "variable": "x"},
+        "b1": {"excel_column": "b1", "equation": 1, "variable": "y"},
+        "c1": {"excel_column": "c1", "equation": 1, "variable": "z"},
+        "d1": {"excel_column": "d1", "equation": 1, "variable": "t"},
+        "e1": {"excel_column": "e1", "equation": 1, "variable": "constant"},
+        "a2": {"excel_column": "a2", "equation": 2, "variable": "x"},
+        "b2": {"excel_column": "b2", "equation": 2, "variable": "y"},
+        "c2": {"excel_column": "c2", "equation": 2, "variable": "z"},
+        "d2": {"excel_column": "d2", "equation": 2, "variable": "t"},
+        "e2": {"excel_column": "e2", "equation": 2, "variable": "constant"},
+        "a3": {"excel_column": "a3", "equation": 3, "variable": "x"},
+        "b3": {"excel_column": "b3", "equation": 3, "variable": "y"},
+        "c3": {"excel_column": "c3", "equation": 3, "variable": "z"},
+        "d3": {"excel_column": "d3", "equation": 3, "variable": "t"},
+        "e3": {"excel_column": "e3", "equation": 3, "variable": "constant"},
+        "a4": {"excel_column": "a4", "equation": 4, "variable": "x"},
+        "b4": {"excel_column": "b4", "equation": 4, "variable": "y"},
+        "c4": {"excel_column": "c4", "equation": 4, "variable": "z"},
+        "d4": {"excel_column": "d4", "equation": 4, "variable": "t"},
+        "e4": {"excel_column": "e4", "equation": 4, "variable": "constant"}
+      },
+      "required_columns": [
+        "a1", "b1", "c1", "d1", "e1",
+        "a2", "b2", "c2", "d2", "e2",
+        "a3", "b3", "c3", "d3", "e3",
+        "a4", "b4", "c4", "d4", "e4"
+      ],
+      "column_order": [
+        "a1", "b1", "c1", "d1", "e1",
+        "a2", "b2", "c2", "d2", "e2",
+        "a3", "b3", "c3", "d3", "e3",
+        "a4", "b4", "c4", "d4", "e4"
+      ],
       "total_columns": 20
     }
   },
+  "naming_conventions": {
+    "format_1": {
+      "name": "Theo phương trình",
+      "pattern": "Phương trình N",
+      "advantages": ["Compact", "Dễ đọc", "Dễ nhập"],
+      "recommended_for": "General users, manual input, batch processing"
+    },
+    "format_2": {
+      "name": "Theo hệ số (Intuitive)",
+      "pattern": "{letter}{equation_number}",
+      "explanation": {
+        "letter": "a, b, c, d, e = hệ số của x, y, z, t, constant",
+        "number": "1, 2, 3, 4 = số thứ tự phương trình"
+      },
+      "advantages": ["Rõ ràng", "Structured", "Programmatic friendly"],
+      "recommended_for": "Advanced users, programmatic generation, database export"
+    }
+  },
+  "migration_notes": {
+    "from_old_format": {
+      "old": "A11, A12, C1, A21, A22, C2",
+      "new": "a1, b1, c1, a2, b2, c2",
+      "reason": "Simpler, more intuitive naming"
+    }
+  },
   "metadata": {
-    "version": "1.0",
-    "description": "Ánh xạ dữ liệu Excel cho Equation Mode - ConvertKeylogApp",
-    "extracted_from": "TL/config/excel_mapping.json",
-    "last_updated": "2025-10-29"
+    "version": "2.0",
+    "last_updated": "2025-11-13",
+    "changes": [
+      "Changed from A11/A12/C1 to a1/b1/c1 format",
+      "Added intuitive naming scheme",
+      "Updated all examples",
+      "Added naming conventions documentation"
+    ]
   }
 }

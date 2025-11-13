@@ -1,100 +1,136 @@
 {
   "math_expression_mappings": [
     {
-      "find": "\\\\sqrt\\{([^{}]+)\\}",
-      "replace": "s$1)",
+      "find": "\\\\int_\\\\(([^)]+)\\\\)\\\\\\^\\\\(([^)]+)\\\\)([^d]+)d[a-z]",
+      "replace": "y \\3,\\1,\\2)",
       "type": "regex",
-      "description": "Square root \\sqrt{x} → s(x)"
+      "description": "Tích phân ngoặc tròn: \\int_(a)^(b) f(x) dx → y f(x),a,b)"
     },
     {
-      "find": "sqrt\\(([^)]+)\\)",
-      "replace": "s$1)",
-      "type": "regex", 
-      "description": "Square root sqrt(x) → s(x)"
+      "find": "\\\\int_\\\\{([^}]+)\\\\}\\\\\\^\\\\{([^}]+)\\\\}([^d]+)d[a-z]",
+      "replace": "y \\3,\\1,\\2)",
+      "type": "regex",
+      "description": "Tích phân ngoặc nhọn: \\int_{a}^{b} f(x) dx → y f(x),a,b)"
     },
     {
-      "find": "\\-",
+      "find": "\\frac\\{([^{}]+)\\}\\{([^{}]+)\\}",
+      "replace": "$1a$2",
+      "type": "regex",
+      "description": "Chuyển phân số \\frac{x}{y} thành dạng x a y"
+    },
+    {
+      "find": "-",
       "replace": "p",
-      "type": "regex",
-      "description": "Negative sign → p"
+      "type": "literal",
+      "description": "Dấu âm (trừ) thành 'p'"
     },
     {
-      "find": "\\*",
+      "find": "*",
       "replace": "O",
-      "type": "regex",
-      "description": "Multiplication * → O"
+      "type": "literal",
+      "description": "Dấu nhân (*) thành 'O'"
     },
     {
-      "find": "\\/", 
+      "find": "/",
       "replace": "P",
-      "type": "regex",
-      "description": "Division / → P"
+      "type": "literal",
+      "description": "Dấu chia (/) thành 'P'"
     },
     {
-      "find": "\\\\pi",
-      "replace": "π",
-      "type": "regex",
-      "description": "Pi symbol \\pi → π"
+      "find": "\\sqrt{",
+      "replace": "s",
+      "type": "literal",
+      "description": "Hàm sqrt{ có dấu \\ → s("
     },
     {
-      "find": "pi",
-      "replace": "π", 
-      "type": "string",
-      "description": "Pi constant pi → π"
+      "find": "sqrt{",
+      "replace": "s",
+      "type": "literal",
+      "description": "Hàm sqrt{ không dấu \\ → s("
     },
     {
-      "find": "\\\\sin\\(",
+      "find": "\\sqrt(",
+      "replace": "s",
+      "type": "literal",
+      "description": "Hàm sqrt{ có dấu \\ → s("
+    },
+    {
+      "find": "sqrt(",
+      "replace": "s",
+      "type": "literal",
+      "description": "Hàm sqrt{ không dấu \\ → s("
+    },
+    {
+      "find": "sin(",
       "replace": "j(",
-      "type": "regex",
-      "description": "Sine function \\sin( → j("
+      "type": "literal",
+      "description": "Hàm sin(x) → j(x)"
     },
     {
-      "find": "sin\\(",
-      "replace": "j(",
-      "type": "regex",
-      "description": "Sine function sin( → j("
-    },
-    {
-      "find": "\\\\cos\\(",
+      "find": "cos(",
       "replace": "k(",
-      "type": "regex", 
-      "description": "Cosine function \\cos( → k("
+      "type": "literal",
+      "description": "Hàm cos(x) → k(x)"
     },
     {
-      "find": "cos\\(",
-      "replace": "k(",
-      "type": "regex",
-      "description": "Cosine function cos( → k("
-    },
-    {
-      "find": "\\\\tan\\(",
+      "find": "tan(",
       "replace": "l(",
-      "type": "regex",
-      "description": "Tangent function \\tan( → l("
+      "type": "literal",
+      "description": "Hàm tan(x) → l(x)"
     },
     {
-      "find": "tan\\(",
-      "replace": "l(",
-      "type": "regex",
-      "description": "Tangent function tan( → l("
-    },
-    {
-      "find": "\\\\ln\\(",
+      "find": "ln(",
       "replace": "h(",
-      "type": "regex",
-      "description": "Natural log \\ln( → h("
+      "type": "literal",
+      "description": "Hàm ln(x) → h(x)"
     },
     {
-      "find": "ln\\(",
-      "replace": "h(",
-      "type": "regex",
-      "description": "Natural log ln( → h("
+      "find": "}",
+      "replace": ")",
+      "type": "literal",
+      "description": "Ngoặc nhọn đóng } thành )"
     },
     {
-      "find": "\\^",
+      "find": "{",
+      "replace": "(",
+      "type": "literal",
+      "description": "Ngoặc nhọn mở { thành ("
+    },
+    {
+      "find": "^",
       "replace": "^",
-      "type": "regex",
-      "description": "Power operator ^ preserved"
+      "type": "literal",
+      "description": "Dấu mũ ^ giữ nguyên"
+    },
+    {
+      "find": "_",
+      "replace": "_",
+      "type": "literal",
+      "description": "Dấu chỉ số dưới _ giữ nguyên"
+    },
+    {
+      "find": "\\left[",
+      "replace": "(",
+      "type": "literal",
+      "description": "Thay \\left[ → ("
+    },
+    {
+      "find": "\\right]",
+      "replace": ")",
+      "type": "literal",
+      "description": "Thay \\right] → )"
+    },
+    {
+      "find": "\\left(",
+      "replace": "(",
+      "type": "literal",
+      "description": "Thay \\left( → ("
+    },
+    {
+      "find": "\\right)",
+      "replace": ")",
+      "type": "literal",
+      "description": "Thay \\right) → )"
     }
   ],
   "metadata": {

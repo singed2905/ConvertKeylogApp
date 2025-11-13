@@ -80,6 +80,12 @@ class PolynomialEncodingService:
             else:
                 # Literal replacement
                 result = result.replace(find_pattern, replace_pattern)
+        try:
+            val = float(result)
+            if val.is_integer():
+                result = str(int(val))
+        except:
+            pass  # Không phải số, giữ nguyên
         
         return result
     
