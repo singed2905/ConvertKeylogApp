@@ -1,7 +1,7 @@
 {
   "latex_to_calculator_mappings": [
     {
-      "find": "\\\\int_\\\\(([^)]+)\\\\)\\\\\\^\\\\(([^)]+)\\\\)([^d]+)d[a-z]",
+      "find": "\\\\int_\\\\([^)]+\\\\)\\\\\\^\\\\([^)]+\\\\)([^d]+)d[a-z]",
       "replace": "y \\3,\\1,\\2)",
       "type": "regex",
       "description": "Tích phân ngoặc tròn: \\int_(a)^(b) f(x) dx → y f(x),a,b)"
@@ -13,10 +13,28 @@
       "description": "Tích phân ngoặc nhọn: \\int_{a}^{b} f(x) dx → y f(x),a,b)"
     },
     {
-      "find": "\\frac\\{([^{}]+)\\}\\{([^{}]+)\\}",
+      "find": "\\\\frac\\\\{([^}]+)\\\\}\\\\{([^}]+)\\\\}",
       "replace": "$1a$2",
       "type": "regex",
-      "description": "Chuyển phân số \\frac{x}{y} thành dạng x a y"
+      "description": "Phân số \\frac{x}{y} (ngoặc nhọn): \\frac{9}{4} → 9a4"
+    },
+    {
+      "find": "\\\\frac\\\\(([^)]+)\\\\)\\\\(([^)]+)\\\\)",
+      "replace": "$1a$2",
+      "type": "regex",
+      "description": "Phân số \\frac(x)(y) (ngoặc tròn): \\frac(9)(4) → 9a4"
+    },
+    {
+      "find": "\\\\frac\\\\[([^\\]]+)\\\\]\\\\[([^\\]]+)\\\\]",
+      "replace": "$1a$2",
+      "type": "regex",
+      "description": "Phân số \\frac[x][y] (ngoặc vuông): \\frac[9][4] → 9a4"
+    },
+    {
+      "find": "frac\\{([^}]+)\\}\\{([^}]+)\\}",
+      "replace": "$1a$2",
+      "type": "regex",
+      "description": "Phân số frac{x}{y} (không dấu gạch chéo): frac{9}{4} → 9a4"
     },
     {
       "find": "-",
@@ -37,105 +55,112 @@
       "description": "Dấu chia (/) thành 'P'"
     },
     {
-      "find": "\\sqrt{",
-      "replace": "s",
+      "find": "\\\\sqrt\\\\{",
+      "replace": "s(",
       "type": "literal",
-      "description": "Hàm sqrt{ có dấu \\ → s("
+      "description": "Hàm sqrt{ có dấu gạch chéo → s("
     },
     {
-      "find": "sqrt{",
-      "replace": "s",
+      "find": "sqrt\\{",
+      "replace": "s(",
       "type": "literal",
-      "description": "Hàm sqrt{ không dấu \\ → s("
+      "description": "Hàm sqrt{ không dấu gạch chéo → s("
     },
     {
-      "find": "\\sqrt(",
-      "replace": "s",
+      "find": "\\\\sqrt\\\\(",
+      "replace": "s(",
       "type": "literal",
-      "description": "Hàm sqrt{ có dấu \\ → s("
+      "description": "Hàm sqrt( có dấu gạch chéo → s("
     },
     {
-      "find": "sqrt(",
-      "replace": "s",
+      "find": "sqrt\\(",
+      "replace": "s(",
       "type": "literal",
-      "description": "Hàm sqrt{ không dấu \\ → s("
+      "description": "Hàm sqrt( không dấu gạch chéo → s("
     },
     {
-      "find": "sin(",
-      "replace": "j(",
+      "find": "sin\\(",
+      "replace": "j\\(",
       "type": "literal",
       "description": "Hàm sin(x) → j(x)"
     },
     {
-      "find": "cos(",
-      "replace": "k(",
+      "find": "cos\\(",
+      "replace": "k\\(",
       "type": "literal",
       "description": "Hàm cos(x) → k(x)"
     },
     {
-      "find": "tan(",
-      "replace": "l(",
+      "find": "tan\\(",
+      "replace": "l\\(",
       "type": "literal",
       "description": "Hàm tan(x) → l(x)"
     },
     {
-      "find": "ln(",
-      "replace": "h(",
+      "find": "ln\\(",
+      "replace": "h\\(",
       "type": "literal",
       "description": "Hàm ln(x) → h(x)"
     },
     {
-      "find": "}",
+      "find": "\\}",
       "replace": ")",
       "type": "literal",
       "description": "Ngoặc nhọn đóng } thành )"
     },
     {
-      "find": "{",
+      "find": "\\{",
       "replace": "(",
       "type": "literal",
       "description": "Ngoặc nhọn mở { thành ("
     },
     {
-      "find": "^",
-      "replace": "^",
-      "type": "literal",
-      "description": "Dấu mũ ^ giữ nguyên"
-    },
-    {
-      "find": "_",
-      "replace": "_",
-      "type": "literal",
-      "description": "Dấu chỉ số dưới _ giữ nguyên"
-    },
-    {
-      "find": "\\left[",
+      "find": "\\\\left\\\\[",
       "replace": "(",
       "type": "literal",
       "description": "Thay \\left[ → ("
     },
     {
-      "find": "\\right]",
+      "find": "\\\\right\\\\]",
       "replace": ")",
       "type": "literal",
       "description": "Thay \\right] → )"
     },
     {
-      "find": "\\left(",
+      "find": "\\\\left\\\\(",
       "replace": "(",
       "type": "literal",
       "description": "Thay \\left( → ("
     },
     {
-      "find": "\\right)",
+      "find": "\\\\right\\\\)",
       "replace": ")",
       "type": "literal",
       "description": "Thay \\right) → )"
+    },
+    {
+      "find": "\\\\[",
+      "replace": "(",
+      "type": "literal",
+      "description": "Thay \\[ → ("
+    },
+    {
+      "find": "\\\\]",
+      "replace": ")",
+      "type": "literal",
+      "description": "Thay \\] → )"
     }
   ],
   "metadata": {
-    "version": "1.4",
-    "description": "Thêm hỗ trợ tích phân: \\int_(a)^(b) f(x) dx → y f(x),a,b) với regex escaping đúng.",
-    "last_updated": "2025-11-12"
+    "version": "1.5",
+    "description": "Fix \\frac support: Thêm hỗ trợ \\frac{x}{y}, \\frac(x)(y), \\frac[x][y], frac{x}{y}. Tích phân: \\int_(a)^(b) f(x) dx → y f(x),a,b). Cải thiện sqrt, sin, cos, tan, ln encoding.",
+    "last_updated": "2025-11-13",
+    "changes": [
+      "Thêm regex cho \\frac với ngoặc tròn (x)(y)",
+      "Thêm regex cho \\frac với ngoặc vuông [x][y]",
+      "Thêm regex cho frac{x}{y} (không backslash)",
+      "Fix escape sequences cho tất cả regex patterns",
+      "Cải thiện hỗ trợ các biến thể LaTeX input"
+    ]
   }
 }
