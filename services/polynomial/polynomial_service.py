@@ -4,6 +4,7 @@ Integrates enhanced solver with repeated roots detection, encoder, config manage
 from typing import List, Tuple, Dict, Any, Optional
 from .polynomial_solver import PolynomialSolver, PolynomialValidationError, PolynomialSolvingError
 from .polynomial_prefix_resolver import PolynomialPrefixResolver
+from .polynomial_encoding_service import PolynomialEncodingService
 
 
 class PolynomialService:
@@ -13,6 +14,7 @@ class PolynomialService:
         # Initialize components
         self.solver = PolynomialSolver()
         self.prefix_resolver = PolynomialPrefixResolver()
+        self.encoder = PolynomialEncodingService()  # NEW: Encoding service with mapping.json
         self.degree = 2  # Default degree
         self.version = "fx799"  # Default calculator version
         
@@ -127,7 +129,7 @@ class PolynomialService:
             self.last_roots_display = roots_display
             self.last_compact_display = self.solver.get_compact_display(roots)
             
-            # Step 4: Encode coefficients and generate keylog 
+            # Step 4: Encode coefficients using PolynomialEncodingService
             encoded_coeffs = self._encode_coefficients(coefficient_inputs)
             final_keylog = self._generate_final_keylog(encoded_coeffs)
             
@@ -139,47 +141,21 @@ class PolynomialService:
         except Exception as e:
             return False, f"Processing error: {str(e)}", "", ""
     
-    # ========== ENCODING METHODS ==========
+    # ========== ENCODING METHODS (UPDATED) ==========
     def _encode_coefficients(self, raw_coefficients: List[str]) -> List[str]:
-        """Encode coefficient expressions to calculator keylog format"""
+        """
+        Encode coefficient expressions to calculator keylog format
+        Uses PolynomialEncodingService with polynomial_mapping.json
+        """
         try:
-            # For MVP: simple placeholder encoding
-            # TODO: Implement proper PolynomialEncodingService integration
-            encoded = []
-            
-            for coeff in raw_coefficients:
-                if not coeff or not coeff.strip():
-                    encoded.append("0")
-                else:
-                    # Simple encoding - replace common expressions
-                    encoded_coeff = self._simple_encode_expression(coeff.strip())
-                    encoded.append(encoded_coeff)
-            
+            # Use encoder service to apply mappings from JSON
+            encoded = self.encoder.encode_coefficients(raw_coefficients)
             return encoded
             
         except Exception as e:
             print(f"Encoding error: {e}")
             # Fallback: return raw coefficients
             return raw_coefficients.copy()
-    
-    def _simple_encode_expression(self, expr: str) -> str:
-        """Simple expression encoding for MVP"""
-        # Basic replacements for common expressions
-        replacements = {
-            'sqrt': '√',
-            'pi': 'π',
-            '^': '',  # Remove power operator for now
-            'sin': 'sin',
-            'cos': 'cos',
-            'log': 'log',
-            'ln': 'ln'
-        }
-        
-        result = expr
-        for old, new in replacements.items():
-            result = result.replace(old, new)
-        
-        return result
     
     def _generate_final_keylog(self, encoded_coeffs: List[str]) -> str:
         """Generate final keylog string using PolynomialPrefixResolver"""
@@ -273,6 +249,16 @@ class PolynomialService:
         except Exception as e:
             print(f"Warning: Could not get prefix info: {e}")
         
+        # Add encoder info
+        try:
+            encoder_info = self.encoder.get_mapping_info()
+            base_info.update({
+                "total_encoding_rules": encoder_info.get('total_mappings', 0),
+                "encoding_version": encoder_info.get('metadata', {}).get('version', 'unknown')
+            })
+        except Exception as e:
+            print(f"Warning: Could not get encoder info: {e}")
+        
         return base_info
     
     # ========== UTILITY METHODS ==========
@@ -346,6 +332,29 @@ class PolynomialService:
         
         return analysis
     
+    def test_coefficient_encoding(self, coefficient: str) -> Dict[str, Any]:
+        """
+        Test encoding cho một hệ số và xem chi tiết các bước transform
+        Useful cho debug và understanding encoding rules
+        """
+        try:
+            return self.encoder.test_encoding(coefficient)
+        except Exception as e:
+            return {
+                "original": coefficient,
+                "final": coefficient,
+                "error": str(e),
+                "steps": []
+            }
+    
+    def reload_encoding_mappings(self) -> bool:
+        """Reload encoding mappings từ file (useful khi update config)"""
+        try:
+            return self.encoder.reload_mappings()
+        except Exception as e:
+            print(f"Error reloading encoding mappings: {e}")
+            return False
+    
     # ========== ERROR HANDLING ==========
     def get_last_error(self) -> Optional[str]:
         """Get last error message if any"""
@@ -356,10 +365,10 @@ class PolynomialService:
         """Check if service is ready for processing"""
         return (self.solver is not None and 
                 self.prefix_resolver is not None and 
+                self.encoder is not None and
                 self.degree in [2, 3, 4])
 
 
 class PolynomialServiceError(Exception):
     """Custom exception for polynomial service errors"""
     pass
-
