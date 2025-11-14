@@ -11,23 +11,33 @@ class PolynomialEncodingService:
     def __init__(self, mapping_file: str = "config/polynomial_mode/polynomial_mapping.json"):
         self.mapping_file = mapping_file
         self.mappings = self._load_mappings()
-        
+
     def _load_mappings(self) -> Dict[str, Any]:
-        """Load mappings từ JSON file"""
+        """Load mappings từ JSON file, thử nhiều relative paths"""
         try:
-            if not os.path.exists(self.mapping_file):
-                print(f"Warning: Mapping file not found: {self.mapping_file}")
+            possible_paths = [
+                self.mapping_file,
+                os.path.join("..", self.mapping_file),
+                os.path.join("..", "..", self.mapping_file)
+            ]
+            mapping_file_found = None
+            for path in possible_paths:
+                if os.path.exists(path):
+                    mapping_file_found = path
+                    break
+            if mapping_file_found is None:
+                print(f"Warning: Mapping file not found in any location")
+                print(f"Tried paths: {possible_paths}")
                 return self._get_default_mappings()
-            
-            with open(self.mapping_file, 'r', encoding='utf-8') as f:
+
+            with open(mapping_file_found, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-            
+
             if "latex_to_calculator_mappings" not in data:
                 print(f"Warning: Invalid mapping file structure")
                 return self._get_default_mappings()
-            
+
             return data
-            
         except Exception as e:
             print(f"Error loading mapping file: {e}")
             return self._get_default_mappings()
