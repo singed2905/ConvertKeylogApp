@@ -1,16 +1,15 @@
-# Integral View - UI chỉ 1 ô nhập liệu chuỗi LaTeX về tích phân
-# UI Only - Logic will be implemented later
-
+# Integral View - UI chỉ 1 ô nhập liệu chuỗi LaTeX về tích phân + validate tích phân
 import tkinter as tk
 from tkinter import messagebox
+from services.integral_service import IntegralService
 
 class IntegralView:
-    """Giao diện Integral Mode - 1 ô nhập liệu chuỗi LaTeX tích phân"""
+    """Giao diện Integral Mode - 1 ô nhập liệu chuỗi LaTeX tích phân + kiểm tra valid"""
     
     def __init__(self, parent):
         self.parent = parent
         self.root = tk.Toplevel(parent)
-        self.root.title("Integral Mode v1.1 - ConvertKeylogApp")
+        self.root.title("Integral Mode v1.2 - ConvertKeylogApp")
         self.root.geometry("700x340")
         self.root.configure(bg="#F0F8FF")
         self.root.resizable(False, False)
@@ -47,7 +46,7 @@ class IntegralView:
         # Action buttons
         btn_frame = tk.Frame(main, bg="#F0F8FF")
         btn_frame.pack(fill="x", pady=12)
-        self.btn_process = tk.Button(btn_frame, text="🚀 Mã hóa tích phân", command=self._process, bg="#8E44AD", fg="white", font=("Arial", 10, "bold"), width=20)
+        self.btn_process = tk.Button(btn_frame, text="🚀 Kiểm tra tích phân", command=self._process, bg="#8E44AD", fg="white", font=("Arial", 10, "bold"), width=20)
         self.btn_process.pack(side="left", padx=10)
         self.btn_copy = tk.Button(btn_frame, text="📋 Copy chuỗi", command=self._copy, bg="#9C27B0", fg="white", font=("Arial", 10, "bold"), width=14)
         self.btn_copy.pack(side="left", padx=10)
@@ -55,17 +54,23 @@ class IntegralView:
         self.btn_clear.pack(side="left", padx=10)
         
         # Status bar
-        self.status_label = tk.Label(self.root, text="⚠️ UI LaTeX - Chưa có logic xử lý", font=("Arial", 10, "bold"), bg="#F0F8FF", fg="#E67E22", relief="sunken", bd=1, anchor="w", pady=4)
+        self.status_label = tk.Label(self.root, text="⚠️ UI LaTeX - Chưa kiểm tra", font=("Arial", 10, "bold"), bg="#F0F8FF", fg="#E67E22", relief="sunken", bd=1, anchor="w", pady=4)
         self.status_label.pack(side="bottom", fill="x")
     
-    # ===================== Process =====================
+    # ===================== Process + Validate =====================
     def _process(self):
         latex = self.latex_entry.get().strip()
         if not latex:
             messagebox.showerror("Lỗi", "Vui lòng nhập chuỗi LaTeX cho tích phân")
+            self._set_status("Chưa nhập chuỗi LaTeX.")
             return
-        messagebox.showinfo("Thông báo", "Logic xử lý tích phân từ LaTeX sẽ được bổ sung sau.\n\nChuỗi nhận được:\n" + latex)
-        self._set_status("Đã nhận chuỗi LaTeX (chưa xử lý)")
+        is_valid, msg = IntegralService.validate_integral_latex(latex)
+        if is_valid:
+            messagebox.showinfo("✓ Hợp lệ", "Đây là chuỗi LaTeX của tích phân!\n\n" + msg)
+            self._set_status("✅ Chuỗi hợp lệ tích phân LaTeX")
+        else:
+            messagebox.showerror("Không hợp lệ", msg)
+            self._set_status("❌ Chuỗi không phải tích phân LaTeX.")
     
     def _copy(self):
         latex = self.latex_entry.get().strip()
@@ -79,7 +84,7 @@ class IntegralView:
     
     def _clear(self):
         self.latex_entry.delete(0, tk.END)
-        self.status_label.config(text="⚠️ UI LaTeX - Chưa có logic xử lý")
+        self.status_label.config(text="⚠️ UI LaTeX - Chưa kiểm tra")
         self._set_status("Đã xóa dữ liệu")
     
     def _set_status(self, text):
