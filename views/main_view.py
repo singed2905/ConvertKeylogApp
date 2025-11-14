@@ -9,7 +9,7 @@ class MainView:
         self.root.geometry("480x320")
         self.root.configure(bg="#e8f0f7")  # Màu nền nhẹ xanh pastel
 
-        # Load danh sách mode từ cấu trúc mới (bao gồm Vector Mode)
+        # Load danh sách mode từ cấu trúc mới (bao gồm Vector Mode và Integral Mode)
         self.modes = self._load_modes()
         self.mode_var = tk.StringVar(value=self.modes[0] if self.modes else "Không có mode")
 
@@ -22,13 +22,16 @@ class MainView:
         """Load modes từ config structure mới"""
         try:
             modes_data = config_loader.get_available_modes()
-            # Đảm bảo Vector Mode được thêm vào
-            if modes_data and "Vector Mode" not in modes_data:
-                modes_data.append("Vector Mode")
-            return modes_data if modes_data else ["Geometry Mode", "Equation Mode", "Polynomial Equation Mode", "Vector Mode"]
+            # Đảm bảo Vector Mode và Integral Mode được thêm vào
+            if modes_data:
+                if "Vector Mode" not in modes_data:
+                    modes_data.append("Vector Mode")
+                if "Integral Mode" not in modes_data:
+                    modes_data.append("Integral Mode")
+            return modes_data if modes_data else ["Geometry Mode", "Equation Mode", "Polynomial Equation Mode", "Vector Mode", "Integral Mode"]
         except Exception as e:
             messagebox.showwarning("Cảnh báo", f"Không thể load modes từ config mới:\n{str(e)}\n\nSử dụng modes mặc định.")
-            return ["Geometry Mode", "Equation Mode", "Polynomial Equation Mode", "Vector Mode"]
+            return ["Geometry Mode", "Equation Mode", "Polynomial Equation Mode", "Vector Mode", "Integral Mode"]
 
     def _setup_ui(self):
         """Tạo giao diện người dùng chính"""
@@ -39,7 +42,7 @@ class MainView:
 
         title_label = tk.Label(
             title_frame,
-            text="🧮 ConvertKeylogApp v2.2",
+            text="🧮 ConvertKeylogApp v2.3",
             font=("Segoe UI", 18, "bold"),
             bg="#4A90E2",
             fg="white",
@@ -109,7 +112,7 @@ class MainView:
         # === Thanh thông tin dưới cùng ===
         footer = tk.Label(
             self.root,
-            text="📁 Config: Cấu trúc mới theo mode | 🎯 Version: 2.2 with Vector Mode",
+            text="📁 Config: Cấu trúc mới theo mode | 🎯 Version: 2.3 with Integral Mode",
             font=("Segoe UI", 9),
             bg="#dfe7ef",
             fg="#444",
@@ -140,6 +143,8 @@ class MainView:
             self._open_polynomial_mode()
         elif selected == "Vector Mode":
             self._open_vector_mode()
+        elif selected == "Integral Mode":
+            self._open_integral_mode()
         elif selected == "Không có mode":
             messagebox.showwarning("Cảnh báo", "Vui lòng chọn một chế độ hợp lệ.")
         else:
@@ -208,6 +213,19 @@ class MainView:
             
         except Exception as e:
             messagebox.showerror("Lỗi", f"Không thể mở Vector Mode:\n{str(e)}")
+
+    def _open_integral_mode(self):
+        try:
+            from views.integral_view import IntegralView
+            view = IntegralView(self.root)  # IntegralView creates its own Toplevel
+            
+            # Track IntegralView's root window and view as tuple
+            self.active_windows["Integral Mode"] = (view.root, view)
+            view.root.protocol("WM_DELETE_WINDOW",
+                              lambda: self.on_mode_window_close("Integral Mode"))
+            
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Không thể mở Integral Mode:\n{str(e)}")
 
     def on_mode_window_close(self, mode_name: str):
         """Handle mode window closing with proper tuple handling"""
