@@ -14,7 +14,7 @@ class PolynomialService:
         # Initialize components
         self.solver = PolynomialSolver()
         self.prefix_resolver = PolynomialPrefixResolver()
-        self.encoder = PolynomialEncodingService()  # NEW: Encoding service with mapping.json
+        self.encoder = PolynomialEncodingService()
         self.degree = 2  # Default degree
         self.version = "fx799"  # Default calculator version
         

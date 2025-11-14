@@ -1,6 +1,4 @@
-"""Test script để demo Polynomial Encoding Service với polynomial_mapping.json
-Chạy file này để kiểm tra việc mã hóa hệ số với các quy tắc từ mapping.json
-"""
+
 from services.polynomial.polynomial_service import PolynomialService
 from services.polynomial.polynomial_encoding_service import PolynomialEncodingService
 

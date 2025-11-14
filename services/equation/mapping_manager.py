@@ -6,7 +6,7 @@ from typing import List, Dict, Any
 
 
 class MappingManager:
-    """Port từ TL models/mapping_manager.py - Core keylog encoding"""
+
     
     def __init__(self, mapping_file: str = "config/equation_mode/mapping.json"):
         self.mapping_file = mapping_file

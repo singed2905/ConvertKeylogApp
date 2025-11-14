@@ -7,41 +7,29 @@ class LatexToKeylogEncoder:
     """Utility to encode LaTeX math expressions to calculator keylog format.
     Supports version-based mapping (e.g. fx799, fx991, ...) via mapping JSON.
     """
-    def __init__(self, mapping_file: str = None, version: str = "fx799"):
-        self.version = version
-        if mapping_file is None:
-            # Auto-detect project root
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            project_root = os.path.dirname(current_dir)
-            mapping_file = os.path.join(project_root, "config", "polynomial_mode", "polynomial_mapping.json")
+
+    def __init__(self, mapping_file: str = "config/equation_mode/mapping.json"):
         self.mapping_file = mapping_file
         self.mappings = self._load_mappings()
 
-    def _load_mappings(self) -> Dict[str, Any]:
+    def _load_mappings(self) -> List[Dict[str, Any]]:
+        """Load mappings from JSON file"""
         try:
             if not os.path.exists(self.mapping_file):
-                print(f"[LatexToKeylogEncoder] Warning: Mapping file not found: {self.mapping_file}")
+                print(f"Warning: Mapping file not found: {self.mapping_file}")
                 return self._default_mappings()
+
             with open(self.mapping_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            if "latex_to_calculator_mappings" not in data:
-                print(f"[LatexToKeylogEncoder] Invalid mapping file, fallback to default.")
-                return self._default_mappings()
-            return data
+                return data.get("mappings", [])
         except Exception as e:
-            print(f"[LatexToKeylogEncoder] Load mapping error: {e}")
+            print(f"Error loading mappings: {e}")
             return self._default_mappings()
 
     def _default_mappings(self) -> Dict[str, Any]:
         # Sample minimal mapping
         return {
-            "latex_to_calculator_mappings": [
-                {"find": "\\frac\\{([^{}]+)\\}\\{([^{}]+)\\}", "replace": "$1a$2", "type": "regex", "description": "\frac{x}{y} → xay"},
-                {"find": "-", "replace": "p", "type": "literal", "description": "Minus sign → p"},
-                {"find": "sqrt(", "replace": "s(", "type": "literal", "description": "sqrt(x) → s(x)"},
-                {"find": "}", "replace": ")", "type": "literal", "description": "curly close → )"},
-                {"find": "{", "replace": "(", "type": "literal", "description": "curly open → ("}
-            ]
+
         }
 
     def encode(self, latex_expr: str) -> str:
@@ -108,11 +96,11 @@ if __name__ == "__main__":
     encoder = LatexToKeylogEncoder()
     tests = [
         "-5",
-        "\frac{9}{4}",
+        "\\frac{9}{4}",
         "sqrt(4)",
-        "\frac{\sqrt{2}}{3}",
+        "\\frac{\\sqrt{2}}{3}",
         "1",
-        "-\frac{1}{2}",
+        "-\\frac{1}{2}",
     ]
     for latex in tests:
         keylog = encoder.encode(latex)
