@@ -1,7 +1,4 @@
-"""Polynomial Encoding Service - Converts mathematical expressions to calculator keylog format
-Uses polynomial_mapping.json for LaTeX/mathematical expression to calculator encoding
-ENHANCED: Now handles complex nested fractions like Equation Mode's MappingManager
-"""
+
 import json
 import os
 import re
@@ -9,9 +6,7 @@ from typing import List, Dict, Any, Tuple
 
 
 class PolynomialEncodingService:
-    """Service mã hóa biểu thức toán học thành keylog format cho máy tính Casio
-    ENHANCED: Xử lý phân số phức tạp giống MappingManager trong Equation Mode
-    """
+
     
     def __init__(self, mapping_file: str = "config/polynomial_mode/polynomial_mapping.json"):
         self.mapping_file = mapping_file
@@ -60,15 +55,7 @@ class PolynomialEncodingService:
         }
     
     def encode_coefficient(self, coefficient_str: str) -> str:
-        """Mã hóa một hệ số từ biểu thức toán học sang calculator format
-        ENHANCED: Xử lý complex fractions như MappingManager
-        
-        Args:
-            coefficient_str: Chuỗi biểu thức hệ số (ví dụ: "\\frac{9}{4}", "sqrt(4)", "sin(pi/2)")
-            
-        Returns:
-            Chuỗi đã mã hóa theo quy tắc calculator
-        """
+
         if not coefficient_str or not coefficient_str.strip():
             return "0"
         

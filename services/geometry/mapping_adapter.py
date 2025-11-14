@@ -45,24 +45,7 @@ class GeometryMappingAdapter:
     def _get_default_mappings(self) -> List[Dict[str, Any]]:
         """Fallback mappings matching TL behavior"""
         return [
-            {"find": r"\\\\frac\\{([^{}]+)\\}\\{([^{}]+)\\}", "replace": r"\1a\2", "type": "regex", "description": "Fraction conversion"},
-            {"find": r"\\-", "replace": "p", "type": "regex", "description": "Negative sign"},
-            {"find": r"\\*", "replace": "O", "type": "regex", "description": "Multiplication"},
-            {"find": r"\\/", "replace": "P", "type": "regex", "description": "Division"},
-            {"find": r"\\\\sqrt\\{", "replace": "s", "type": "regex", "description": "Square root"},
-            {"find": r"sqrt\\{", "replace": "s", "type": "regex", "description": "Square root no backslash"},
-            {"find": r"\\\\sin\\(", "replace": "j(", "type": "regex", "description": "Sine function"},
-            {"find": r"sin\\(", "replace": "j(", "type": "regex", "description": "Sine function no backslash"},
-            {"find": r"\\\\cos\\(", "replace": "k(", "type": "regex", "description": "Cosine function"},
-            {"find": r"cos\\(", "replace": "k(", "type": "regex", "description": "Cosine function no backslash"},
-            {"find": r"\\\\tan\\(", "replace": "l(", "type": "regex", "description": "Tangent function"},
-            {"find": r"tan\\(", "replace": "l(", "type": "regex", "description": "Tangent function no backslash"},
-            {"find": r"\\\\ln\\(", "replace": "h(", "type": "regex", "description": "Natural log function"},
-            {"find": r"ln\\(", "replace": "h(", "type": "regex", "description": "Natural log function no backslash"},
-            {"find": r"\\}", "replace": ")", "type": "regex", "description": "Close brace to parenthesis"},
-            {"find": r"\\{", "replace": "(", "type": "regex", "description": "Open brace to parenthesis"},
-            {"find": r"\\^", "replace": "^", "type": "regex", "description": "Power operator"},
-            {"find": "_", "replace": "_", "type": "regex", "description": "Subscript operator"}
+
         ]
     
     def encode_string(self, input_string: str) -> str:
