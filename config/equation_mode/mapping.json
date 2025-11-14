@@ -24,6 +24,12 @@
       "type": "literal",
       "description": "Dấu âm (trừ) thành 'p'"
     },
+       {
+      "find": "x",
+      "replace": "[",
+      "type": "literal",
+      "description": "x thành '['"
+    },
     {
       "find": "*",
       "replace": "O",

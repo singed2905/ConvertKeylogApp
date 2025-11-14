@@ -6,8 +6,8 @@ from typing import List, Dict, Any, Tuple, Optional
 
 class LatexToKeylogEncoder:
     """Utility to encode LaTeX math expressions to calculator keylog format.
-    Supports version-based mapping (e.g. fx799, fx991, ...) via mapping JSON.
     Hỗ trợ: phân số, căn, hàm lượng giác, tích phân (kể cả cận có phân số).
+    ĐẶC BIỆT: Xử lý đệ quy tích phân lồng nhau - không còn \\int_ trong kết quả.
     """
 
     def __init__(self, mapping_file: str = "config/equation_mode/mapping.json"):
@@ -15,109 +15,130 @@ class LatexToKeylogEncoder:
         self.mappings = self._load_mappings()
 
     def _load_mappings(self) -> List[Dict[str, Any]]:
-        """Load mappings from JSON file - thử nhiều relative paths"""
+        """Load mappings from JSON file"""
         try:
-            # Thử nhiều đường dẫn relative khác nhau
             possible_paths = [
                 self.mapping_file,
                 os.path.join("..", self.mapping_file),
                 os.path.join("..", "..", self.mapping_file),
             ]
 
-            mapping_file_found = None
             for path in possible_paths:
                 if os.path.exists(path):
-                    mapping_file_found = path
-                    break
-
-            if mapping_file_found is None:
-                print(f"Warning: Mapping file not found in any location")
-                print(f"Tried paths: {possible_paths}")
-                return []
-
-            with open(mapping_file_found, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                return data.get("mappings", [])
-
+                    with open(path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                        return data.get("mappings", [])
+            return []
         except Exception as e:
             print(f"Error loading mappings: {e}")
             return []
 
-    def _default_mappings(self) -> List[Dict[str, Any]]:
-        """Return empty list as default"""
-        return []
-
     def encode(self, latex_expr: str) -> str:
-        """Encode a single LaTeX expression to calculator keylog.
-
-        Hỗ trợ:
-        - Tích phân: \\int_{a}^{b} f(x) dx → yf(x)),a,b)
-        - Tích phân với cận phức tạp: \\int_{\\frac{1}{2}}^{1} f(x) dx
-        - Phân số: \\frac{a}{b} → aab
-        - Hàm: sqrt, sin, cos, tan, ln
-        - Dấu: -, *, /, ^
-        """
+        """Encode LaTeX to keylog - XỬ LÝ ĐỆ QUY TÍCH PHÂN"""
         if not latex_expr or not latex_expr.strip():
             return "0"
 
-        result = latex_expr.strip().replace(" ", "")
+        result = latex_expr.strip()
 
-        # ✅ STEP 1: Process integrals FIRST
-        # ✅ FIX: Pattern hỗ trợ nested braces trong cận
-        integral_pattern = r"\\int_\{((?:\{[^}]*\}|[^{}])+)\}\^\{((?:\{[^}]*\}|[^{}])+)\}([^d]+)d[a-z]"
+        # Loại bỏ spaces để dễ xử lý
+        result = result.replace(" ", "")
 
-        def process_integral(match):
-            lower = match.group(1)  # Cận dưới (có thể có \frac{})
-            upper = match.group(2)  # Cận trên (có thể có \frac{})
-            function = match.group(3)  # Hàm số
+        # ✅ BƯỚC 1: Xử lý tích phân đệ quy (từ trong ra ngoài)
+        # Pattern phải match chính xác: \int_{...}^{...} ... dx
+        # Sử dụng non-greedy để match tích phân trong cùng trước
 
-            # Process nested content (bao gồm fractions trong cận)
-            function_processed = self._process_nested(function)
-            lower_processed = self._process_nested(lower)
-            upper_processed = self._process_nested(upper)
+        max_iterations = 20
+        for iteration in range(max_iterations):
+            # Pattern: \int_{lower}^{upper}function dx/dt/du...
+            # Chú ý: cận có thể chứa \frac{}{} nên cần pattern phức tạp
+            pattern = r'\\int_\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}\^\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}(.*?)d([a-z])'
 
-            return f"y{function_processed}),{lower_processed},{upper_processed})"
+            match = re.search(pattern, result)
+            if not match:
+                break
 
-        # Apply integral transformation (max 5 iterations for nested integrals)
-        changed = True
-        max_iter = 5
-        while changed and max_iter > 0:
-            new_result = re.sub(integral_pattern, process_integral, result)
-            changed = (new_result != result)
-            result = new_result
-            max_iter -= 1
+            lower = match.group(1)
+            upper = match.group(2)
+            function = match.group(3)
+            var = match.group(4)
 
-        # ✅ STEP 2: Handle complex/nested fractions (20 iterations max)
-        frac_pattern = r"\\frac\{((?:\{.*?\}|[^{}])+?)\}\{((?:\{.*?\}|[^{}])+?)\}"
+            # Xử lý các thành phần
+            lower_clean = self._clean_bounds(lower)
+            upper_clean = self._clean_bounds(upper)
+            function_clean = self._clean_function(function)
 
-        def process_frac(m):
-            num = m.group(1)
-            den = m.group(2)
-            return f"{self._process_nested(num)}a{self._process_nested(den)}"
+            # Tạo keylog: y function),lower,upper)
+            replacement = f"y{function_clean}),{lower_clean},{upper_clean})"
 
-        changed = True
-        max_iter = 20
-        while changed and max_iter > 0:
-            n_result = re.sub(frac_pattern, process_frac, result)
-            changed = (n_result != result)
-            result = n_result
-            max_iter -= 1
+            # Thay thế vào kết quả
+            result = result[:match.start()] + replacement + result[match.end():]
 
-        # ✅ STEP 3: Apply remaining mappings (sqrt, sin, cos, etc.)
+        # ✅ BƯỚC 2: Xử lý phân số còn lại
+        result = self._process_fractions(result)
+
+        # ✅ BƯỚC 3: Apply các mappings còn lại
+        result = self._apply_mappings(result)
+
+        return result
+
+    def _clean_bounds(self, bound: str) -> str:
+        """Xử lý cận (có thể chứa phân số)"""
+        result = bound
+
+        # Xử lý \frac trong cận
+        result = self._process_fractions(result)
+
+        return result
+
+    def _clean_function(self, func: str) -> str:
+        """Xử lý hàm số"""
+        result = func
+
+        # Xử lý phân số trong hàm
+        result = self._process_fractions(result)
+
+        return result
+
+    def _process_fractions(self, text: str) -> str:
+        """Xử lý tất cả phân số: \frac{a}{b} -> aab"""
+        result = text
+
+        # Lặp để xử lý phân số lồng nhau
+        for _ in range(15):
+            # Pattern: \frac{numerator}{denominator}
+            pattern = r'\\frac\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
+            match = re.search(pattern, result)
+
+            if not match:
+                break
+
+            num = match.group(1)
+            den = match.group(2)
+
+            # Thay thế
+            replacement = f"{num}a{den}"
+            result = result[:match.start()] + replacement + result[match.end():]
+
+        return result
+
+    def _apply_mappings(self, text: str) -> str:
+        """Apply các mapping rules từ JSON"""
+        result = text
+
         for mapping in self.mappings:
             find_pat = mapping.get("find", "")
             repl_pat = mapping.get("replace", "")
             typ = mapping.get("type", "literal")
-            desc = mapping.get("description", "")
+            desc = mapping.get("description", "").lower()
 
-            # Skip patterns already handled
-            if "frac" in desc.lower() or "tích phân" in desc.lower() or "int" in desc.lower():
+            # Skip các pattern đã xử lý
+            if "frac" in desc or "tích phân" in desc or "\\int" in find_pat.lower():
                 continue
 
             if typ == "regex":
                 try:
                     result = re.sub(find_pat, repl_pat, result)
-                except Exception:
+                except:
                     pass
             else:
                 result = result.replace(find_pat, repl_pat)
@@ -125,143 +146,43 @@ class LatexToKeylogEncoder:
         return result
 
     def encode_batch(self, latex_exprs: List[str]) -> List[str]:
-        """Encode multiple LaTeX expressions"""
+        """Encode multiple expressions"""
         return [self.encode(expr) for expr in latex_exprs]
 
-    def _process_nested(self, expr: str) -> str:
-        """Process mapping in numerator/denominator/integral parts
-
-        ✅ Xử lý cả fractions trong nested content
-        """
-        result = expr
-
-        # ✅ STEP 1: Process fractions in nested content FIRST
-        frac_pattern = r"\\frac\{((?:\{.*?\}|[^{}])+?)\}\{((?:\{.*?\}|[^{}])+?)\}"
-
-        def process_nested_frac(m):
-            num = m.group(1)
-            den = m.group(2)
-            # Recursive processing for deeply nested fractions
-            num_processed = self._process_other_mappings(num)
-            den_processed = self._process_other_mappings(den)
-            return f"{num_processed}a{den_processed}"
-
-        # Process fractions iteratively (max 10 iterations for nested content)
-        changed = True
-        max_iter = 10
-        while changed and max_iter > 0:
-            new_result = re.sub(frac_pattern, process_nested_frac, result)
-            changed = (new_result != result)
-            result = new_result
-            max_iter -= 1
-
-        # ✅ STEP 2: Apply other mappings (sqrt, sin, cos, etc.)
-        result = self._process_other_mappings(result)
-
-        return result
-
-    def _process_other_mappings(self, expr: str) -> str:
-        """Apply non-fraction, non-integral mappings"""
-        result = expr
-
-        for mapping in self.mappings:
-            find_pat = mapping.get("find", "")
-            repl_pat = mapping.get("replace", "")
-            typ = mapping.get("type", "literal")
-            desc = mapping.get("description", "")
-
-            # Skip patterns that should not be applied here
-            if "frac" in desc.lower() or "tích phân" in desc.lower() or "int" in desc.lower():
-                continue
-
-            if typ == "regex":
-                try:
-                    result = re.sub(find_pat, repl_pat, result)
-                except Exception:
-                    pass
-            else:
-                result = result.replace(find_pat, repl_pat)
-
-        return result
-
     def validate_latex(self, latex_expr: str) -> Tuple[bool, Optional[str]]:
-        """Validate LaTeX expression syntax"""
+        """Validate LaTeX syntax"""
         if not latex_expr or not latex_expr.strip():
             return False, "Rỗng"
-
-        # Check bracket matching
         if latex_expr.count("{") != latex_expr.count("}"):
             return False, "Dấu { } không khớp"
-
         return True, None
 
 
-# EXAMPLE USAGE (unit test):
+# TEST
 if __name__ == "__main__":
     encoder = LatexToKeylogEncoder()
 
     print("=" * 80)
-    print("LATEX TO KEYLOG ENCODER - TEST (COMPLEX INTEGRAL WITH FRACTION IN BOUNDS)")
+    print("LATEX TO KEYLOG ENCODER - COMPLETE FIX")
     print("=" * 80)
-    print(f"Loaded {len(encoder.mappings)} mapping rules")
     print()
 
-    # ✅ Test case phức tạp: Phân số chứa tích phân có cận là phân số
-    critical_tests = [
-        # Tích phân có cận là phân số
-        ("\\int_{\\frac{1}{2}}^{1} x dx", "Tích phân cận dưới là 1/2"),
-        ("\\int_{0}^{\\frac{1}{2}} x^2 dx", "Tích phân cận trên là 1/2"),
-        ("\\int_{\\frac{1}{2}}^{\\frac{3}{4}} x dx", "Tích phân 2 cận đều là phân số"),
-
-        # Phân số chứa tích phân
-        ("\\frac{\\int_{0}^{1} x dx}{2}", "Phân số tử là tích phân"),
-        ("\\frac{\\int_{\\frac{1}{2}}^{1} \\frac{1}{2} dx}{y-2}", "Case của bạn"),
-
-        # Tích phân có hàm là phân số, cận là phân số
-        ("\\int_{\\frac{1}{2}}^{1} \\frac{1}{x} dx", "Cận và hàm đều có phân số"),
-
-        # Test cases đơn giản
-        ("\\int_{0}^{1} x^3 dx", "Tích phân đơn giản"),
-        ("\\frac{1}{2}", "Phân số đơn giản"),
+    tests = [
+        (r"\int_{\frac{1-2}{2*4}}^{1/2} x^2 dx", "Tích phân đơn, cận phân số", "yx^2,1a2,1)"),
+        (r"\int_{\frac{1}{2}}^{1} \int_{\frac{1}{2}}^{1} x^2 dx dx", "Tích phân kép", "y(yx^2,1a2,1),1a2,1)"),
+        (r"\int_{0}^{1} \int_{0}^{1} \int_{0}^{1} x dx dx dx", "Tích phân bội 3", "y(y(yx,0,1),0,1),0,1)"),
+        (r"\frac{1}{2}", "Phân số", "1a2"),
+        (r"\int_{1}^{2} x^2 dx", "Tích phân đơn giản", "yx^2,1,2)"),
     ]
 
-    for latex, desc in critical_tests:
-        encoded = encoder.encode(latex)
-        print(f"{desc:50} | {latex:45}")
-        print(f"{'':50} → {encoded}")
+    for latex, desc, expected in tests:
+        result = encoder.encode(latex)
+        status = "✅" if result == expected else "❌"
+        has_int = "❌ CÒN \\int_" if "\\int" in result else "✅ OK"
+
+        print(f"{desc:40}")
+        print(f"  LaTeX:    {latex}")
+        print(f"  Keylog:   {result}")
+        print(f"  Expected: {expected}")
+        print(f"  Match: {status} | {has_int}")
         print()
-
-    print("=" * 80)
-    print("DETAILED ANALYSIS - YOUR CASE")
-    print("=" * 80)
-
-    your_case = "\\frac{\\int_{\\frac{1}{2}}^{1} \\frac{1}{2} dx}{y-2}"
-    print(f"\nInput:  {your_case}")
-    print(f"Output: {encoder.encode(your_case)}")
-
-    print("\n\nStep-by-step breakdown:")
-    print("1. Integral inside: \\int_{\\frac{1}{2}}^{1} \\frac{1}{2} dx")
-    print("   → Lower bound: \\frac{1}{2} → 1a2")
-    print("   → Upper bound: 1 → 1")
-    print("   → Function: \\frac{1}{2} → 1a2")
-    print("   → Result: y1a2),1a2,1)")
-    print()
-    print("2. Outer fraction: \\frac{y1a2),1a2,1)}{y-2}")
-    print("   → Numerator: y1a2),1a2,1)")
-    print("   → Denominator: y-2 → yp2")
-    print("   → Result: y1a2),1a2,1)ayp2")
-
-    print("\n" + "=" * 80)
-    print("VALIDATION")
-    print("=" * 80)
-
-    test_validation = [
-        ("\\int_{\\frac{1}{2}}^{1} x dx", "Valid complex integral"),
-        ("\\frac{\\int_{0}^{1} x dx}{2}", "Valid fraction with integral"),
-        ("\\frac{1{2}", "Invalid - missing brace"),
-    ]
-
-    for expr, desc in test_validation:
-        valid, error = encoder.validate_latex(expr)
-        status = "✓ Valid" if valid else f"✗ Invalid: {error}"
-        print(f"{desc:40} → {status}")
