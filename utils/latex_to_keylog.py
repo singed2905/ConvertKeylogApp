@@ -7,8 +7,13 @@ class LatexToKeylogEncoder:
     """Utility to encode LaTeX math expressions to calculator keylog format.
     Supports version-based mapping (e.g. fx799, fx991, ...) via mapping JSON.
     """
-    def __init__(self, mapping_file: str = "config/polynomial_mode/polynomial_mapping.json", version: str = "fx799"):
+    def __init__(self, mapping_file: str = None, version: str = "fx799"):
         self.version = version
+        if mapping_file is None:
+            # Auto-detect project root
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(current_dir)
+            mapping_file = os.path.join(project_root, "config", "polynomial_mode", "polynomial_mapping.json")
         self.mapping_file = mapping_file
         self.mappings = self._load_mappings()
 
