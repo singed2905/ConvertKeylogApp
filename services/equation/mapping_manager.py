@@ -1,4 +1,4 @@
-"""Mapping Manager - Core keylog encoding engine ported from TL"""
+"""Mapping Manager - REFACTORED with fallback paths"""
 import json
 import re
 import os
@@ -6,34 +6,50 @@ from typing import List, Dict, Any
 
 
 class MappingManager:
+    """
+    DEPRECATED: Sử dụng LatexToKeylogEncoder thay thế
+    Giữ lại để backwards compatibility
+    """
 
-    
     def __init__(self, mapping_file: str = "config/equation_mode/mapping.json"):
         self.mapping_file = mapping_file
         self.mappings = self._load_mappings()
 
     def _load_mappings(self) -> List[Dict[str, Any]]:
-        """Load mappings from JSON file"""
+        """Load mappings from JSON file - ✅ ADDED fallback paths"""
         try:
-            if not os.path.exists(self.mapping_file):
-                print(f"Warning: Mapping file not found: {self.mapping_file}")
+            # ✅ THÊM: Thử nhiều đường dẫn relative
+            possible_paths = [
+                self.mapping_file,
+                os.path.join("..", self.mapping_file),
+                os.path.join("..", "..", self.mapping_file),
+            ]
+
+            mapping_file_found = None
+            for path in possible_paths:
+                if os.path.exists(path):
+                    mapping_file_found = path
+                    break
+
+            if mapping_file_found is None:
+                print(f"Warning: Mapping file not found in any location")
+                print(f"Tried paths: {possible_paths}")
                 return self._get_default_mappings()
 
-            with open(self.mapping_file, "r", encoding="utf-8") as f:
+            with open(mapping_file_found, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 return data.get("mappings", [])
+
         except Exception as e:
             print(f"Error loading mappings: {e}")
             return self._get_default_mappings()
 
     def _get_default_mappings(self) -> List[Dict[str, Any]]:
-        """Fallback mappings giống TL"""
-        return [
-
-        ]
+        """Fallback mappings"""
+        return []
 
     def encode_string(self, input_string: str) -> str:
-        """Encode a string using the mapping rules - GIỐNG TL"""
+        """Encode a string using the mapping rules"""
         input_string = input_string.replace(" ", "")
         if not input_string:
             return ""
@@ -48,7 +64,7 @@ class MappingManager:
             den_processed = self._process_nested_content(den)
             return f"{num_processed}a{den_processed}"
 
-        # Process complex fractions - Logic y hệt TL
+        # Process complex fractions
         changed = True
         max_iterations = 20
         while changed and max_iterations > 0:
@@ -57,7 +73,7 @@ class MappingManager:
             result = new_result
             max_iterations -= 1
 
-        # Apply other mappings - Đúng thứ tự như TL
+        # Apply other mappings
         for rule in self.mappings:
             find = rule.get("find", "")
             replace = rule.get("replace", "")
@@ -79,7 +95,7 @@ class MappingManager:
         return result
 
     def _process_nested_content(self, content: str) -> str:
-        """Process nested content with mappings - GIỐNG TL"""
+        """Process nested content with mappings"""
         result = content
         for rule in self.mappings:
             find = rule.get("find", "")
@@ -99,7 +115,7 @@ class MappingManager:
                 result = result.replace(find, replace)
 
         return result
-    
+
     def reload_mappings(self):
         """Reload mappings (useful for development)"""
         try:

@@ -1,29 +1,43 @@
-"""Equation Prefix Resolver - Port từ TL controllers/equation_controller.py"""
+"""Equation Prefix Resolver - REFACTORED with fallback paths"""
 import json
 import os
 from typing import Dict, Any, List
 
 
 class EquationPrefixResolver:
-    """Resolver lấy prefix cho equation theo version và số ẩn - Port từ TL"""
-    
+    """Resolver lấy prefix cho equation theo version và số ẩn"""
+
     def __init__(self, prefixes_file: str = "config/equation_mode/equation_prefixes.json"):
         self.prefixes_file = prefixes_file
         self.prefixes_data = self._load_equation_prefixes()
-    
+
     def _load_equation_prefixes(self) -> Dict[str, Any]:
-        """Load tiền tố phương trình từ JSON với cấu trúc TL"""
+        """Load tiền tố phương trình từ JSON - ✅ ADDED fallback paths"""
         try:
-            if not os.path.exists(self.prefixes_file):
-                print(f"Warning: Prefixes file not found: {self.prefixes_file}")
+            # ✅ THÊM: Thử nhiều đường dẫn relative
+            possible_paths = [
+                self.prefixes_file,
+                os.path.join("..", self.prefixes_file),
+                os.path.join("..", "..", self.prefixes_file),
+            ]
+
+            prefixes_file_found = None
+            for path in possible_paths:
+                if os.path.exists(path):
+                    prefixes_file_found = path
+                    break
+
+            if prefixes_file_found is None:
+                print(f"Warning: Prefixes file not found in any location")
+                print(f"Tried paths: {possible_paths}")
                 return self._get_default_equation_prefixes()
 
-            with open(self.prefixes_file, 'r', encoding='utf-8') as f:
+            with open(prefixes_file_found, 'r', encoding='utf-8') as f:
                 data = json.load(f)
 
             # Validate cấu trúc file
             if "versions" not in data or "global_defaults" not in data:
-                print(f"File {self.prefixes_file} không có cấu trúc mong đợi, sử dụng mặc định")
+                print(f"File {prefixes_file_found} không có cấu trúc mong đợi, sử dụng mặc định")
                 return self._get_default_equation_prefixes()
 
             return data
@@ -31,9 +45,9 @@ class EquationPrefixResolver:
         except Exception as e:
             print(f"Lỗi khi đọc file equation_prefixes.json: {e}")
             return self._get_default_equation_prefixes()
-    
+
     def _get_default_equation_prefixes(self) -> Dict[str, Any]:
-        """Trả về cấu hình mặc định từ TL"""
+        """Trả về cấu hình mặc định"""
         return {
             "global_defaults": {
                 "2": "w912",
@@ -84,12 +98,12 @@ class EquationPrefixResolver:
             },
             "metadata": {
                 "version": "2.0",
-                "description": "Fallback prefixes từ TL"
+                "description": "Fallback prefixes"
             }
         }
-    
+
     def get_equation_prefix(self, version: str, so_an: int) -> str:
-        """Lấy tiền tố cho phiên bản máy và số ẩn - Logic y hệt TL"""
+        """Lấy tiền tố cho phiên bản máy và số ẩn"""
         try:
             so_an_str = str(so_an)
 
@@ -127,7 +141,7 @@ class EquationPrefixResolver:
         except Exception as e:
             print(f"Lỗi khi lấy equation prefix: {e}")
             return f"w91{so_an + 1}"
-    
+
     def get_version_info(self, version: str) -> Dict[str, Any]:
         """Lấy thông tin chi tiết về phiên bản"""
         try:
@@ -157,7 +171,7 @@ class EquationPrefixResolver:
                 "equation_prefixes": {},
                 "description": "Lỗi cấu hình"
             }
-    
+
     def get_all_supported_versions(self) -> List[str]:
         """Lấy danh sách tất cả phiên bản được hỗ trợ"""
         try:
@@ -166,9 +180,9 @@ class EquationPrefixResolver:
         except Exception as e:
             print(f"Lỗi khi lấy danh sách phiên bản: {e}")
             return ["fx799", "fx880", "fx801", "fx802", "fx803"]
-    
+
     def debug_prefix_info(self, version: str) -> Dict[str, Any]:
-        """Debug thông tin prefix cho tất cả số ẩn - Giống TL"""
+        """Debug thông tin prefix cho tất cả số ẩn"""
         result = {
             "current_version": version,
             "prefixes": {},
@@ -179,7 +193,7 @@ class EquationPrefixResolver:
             result["prefixes"][f"{so_an}_an"] = self.get_equation_prefix(version, so_an)
 
         return result
-    
+
     def validate_version_support(self, version: str) -> Dict[str, Any]:
         """Kiểm tra phiên bản có được hỗ trợ không"""
         supported_versions = self.get_all_supported_versions()
@@ -190,9 +204,9 @@ class EquationPrefixResolver:
             "supported_versions": supported_versions,
             "message": f"Phiên bản {version} {'được hỗ trợ' if version in supported_versions else 'chưa được hỗ trợ'}"
         }
-    
+
     def reload_prefixes(self):
-        """Reload lại cấu hình prefix (hữu ích khi cập nhật file config)"""
+        """Reload lại cấu hình prefix"""
         try:
             self.prefixes_data = self._load_equation_prefixes()
             return True
