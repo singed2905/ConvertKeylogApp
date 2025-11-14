@@ -118,7 +118,7 @@ class EquationView:
     def _setup_guide_frame(self):
         guide_frame = tk.LabelFrame(self.main_container, text="💡 HƯỚNG DẪN NHẬP LIỆU", font=("Arial", 10, "bold"), bg="#E3F2FD", fg="#1565C0", bd=1, relief="solid")
         guide_frame.grid(row=1, column=0, columnspan=4, pady=5, padx=10, sticky="we")
-        guide_text = ("• Hỗ trợ: sqrt(5), sin(pi/2), 2^3, log(10)\n" "• Nhập hệ số cách nhau bằng dấu phẩy\n" "• Ô trống sẽ tự động điền số 0 | Nhấn '🔍 Chi tiết' để xem rank analysis")
+        guide_text = ("• Hỗ trợ: sqrt(5), sin(pi/2), 2^3, log(10)\n" "• Nhập hệ số cách nhau bằng dấu phẩy\n" "• Ô trống sẽ tự động điền số 0 \n" "• Kết quả giảinghieemjm chỉ đúng với các phép toán như phân số va căn bậc 2")
         tk.Label(guide_frame, text=guide_text, font=("Arial", 9), bg="#E3F2FD", fg="#333333", justify="left", anchor="w").pack(padx=10, pady=8, fill="x")
 
     def _setup_input_output_frames(self):

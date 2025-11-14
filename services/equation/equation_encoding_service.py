@@ -223,10 +223,7 @@ class EquationEncodingService:
     # ✅ NEW METHODS - Thêm features từ LatexToKeylogEncoder
 
     def encode_single_expression(self, expression: str) -> str:
-        """Encode một biểu thức đơn lẻ
 
-        ✅ NEW: Hỗ trợ tích phân, phân số phức tạp, etc.
-        """
         if not self.encoder:
             return expression
         return self.encoder.encode(expression)
