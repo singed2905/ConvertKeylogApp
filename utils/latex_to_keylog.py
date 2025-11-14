@@ -4,30 +4,33 @@ import re
 from typing import List, Dict, Any, Tuple, Optional
 
 class LatexToKeylogEncoder:
-
-    def __init__(self, mapping_file: str = "config/polynomial_mode/polynomial_mapping.json"):
+    """Utility to encode LaTeX math expressions to calculator keylog format.
+    Supports version-based mapping (e.g. fx799, fx991, ...) via mapping JSON.
+    """
+    def __init__(self, mapping_file: str = None, version: str = "fx799"):
+        self.version = version
+        if mapping_file is None:
+            # Auto-detect project root
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(current_dir)
+            mapping_file = os.path.join(project_root, "config", "polynomial_mode", "polynomial_mapping.json")
         self.mapping_file = mapping_file
         self.mappings = self._load_mappings()
 
     def _load_mappings(self) -> Dict[str, Any]:
-        """Load mappings từ JSON file"""
         try:
             if not os.path.exists(self.mapping_file):
-                print(f"Warning: Mapping file not found: {self.mapping_file}")
+                print(f"[LatexToKeylogEncoder] Warning: Mapping file not found: {self.mapping_file}")
                 return self._default_mappings()
-
-            with open(self.mapping_file, 'r', encoding='utf-8') as f:
+            with open(self.mapping_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
-
             if "latex_to_calculator_mappings" not in data:
-                print(f"Warning: Invalid mapping file structure")
-                return self._get_default_mappings()
-
+                print(f"[LatexToKeylogEncoder] Invalid mapping file, fallback to default.")
+                return self._default_mappings()
             return data
-
         except Exception as e:
-            print(f"Error loading mapping file: {e}")
-            return self._get_default_mappings()
+            print(f"[LatexToKeylogEncoder] Load mapping error: {e}")
+            return self._default_mappings()
 
     def _default_mappings(self) -> Dict[str, Any]:
         # Sample minimal mapping
@@ -105,11 +108,11 @@ if __name__ == "__main__":
     encoder = LatexToKeylogEncoder()
     tests = [
         "-5",
-        "\\frac{9}{4}",
-        "\\sqrt(4)",
-        "\\frac{sqrt{2}}{3}",
+        "\frac{9}{4}",
+        "sqrt(4)",
+        "\frac{\sqrt{2}}{3}",
         "1",
-        "-\\frac{1}{2}",
+        "-\frac{1}{2}",
     ]
     for latex in tests:
         keylog = encoder.encode(latex)
