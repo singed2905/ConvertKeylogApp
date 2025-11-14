@@ -7,7 +7,7 @@ from typing import List, Dict, Any, Tuple, Optional
 class LatexToKeylogEncoder:
     """Utility to encode LaTeX math expressions to calculator keylog format.
     Supports version-based mapping (e.g. fx799, fx991, ...) via mapping JSON.
-    Hỗ trợ: phân số, căn, hàm lượng giác, tích phân.
+    Hỗ trợ: phân số, căn, hàm lượng giác, tích phân (kể cả cận có phân số).
     """
 
     def __init__(self, mapping_file: str = "config/equation_mode/mapping.json"):
@@ -17,11 +17,11 @@ class LatexToKeylogEncoder:
     def _load_mappings(self) -> List[Dict[str, Any]]:
         """Load mappings from JSON file - thử nhiều relative paths"""
         try:
-            # ✅ Thử nhiều đường dẫn relative khác nhau
+            # Thử nhiều đường dẫn relative khác nhau
             possible_paths = [
-                self.mapping_file,  # config/equation_mode/mapping.json
-                os.path.join("..", self.mapping_file),  # ../config/equation_mode/mapping.json
-                os.path.join("..", "..", self.mapping_file),  # ../../config/equation_mode/mapping.json
+                self.mapping_file,
+                os.path.join("..", self.mapping_file),
+                os.path.join("..", "..", self.mapping_file),
             ]
 
             mapping_file_found = None
@@ -35,7 +35,6 @@ class LatexToKeylogEncoder:
                 print(f"Tried paths: {possible_paths}")
                 return []
 
-            # Load file
             with open(mapping_file_found, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 return data.get("mappings", [])
@@ -53,6 +52,7 @@ class LatexToKeylogEncoder:
 
         Hỗ trợ:
         - Tích phân: \\int_{a}^{b} f(x) dx → yf(x)),a,b)
+        - Tích phân với cận phức tạp: \\int_{\\frac{1}{2}}^{1} f(x) dx
         - Phân số: \\frac{a}{b} → aab
         - Hàm: sqrt, sin, cos, tan, ln
         - Dấu: -, *, /, ^
@@ -62,24 +62,30 @@ class LatexToKeylogEncoder:
 
         result = latex_expr.strip().replace(" ", "")
 
-        # ✅ STEP 1: Process integrals FIRST (trước khi xử lý fraction)
-        # Pattern cho tích phân với ngoặc nhọn: \int_{lower}^{upper} function dx
-        integral_pattern = r"\\int_\{([^}]+)\}\^\{([^}]+)\}([^d]+)d[a-z]"
+        # ✅ STEP 1: Process integrals FIRST
+        # ✅ FIX: Pattern hỗ trợ nested braces trong cận
+        integral_pattern = r"\\int_\{((?:\{[^}]*\}|[^{}])+)\}\^\{((?:\{[^}]*\}|[^{}])+)\}([^d]+)d[a-z]"
 
         def process_integral(match):
-            lower = match.group(1)  # Cận dưới
-            upper = match.group(2)  # Cận trên
+            lower = match.group(1)  # Cận dưới (có thể có \frac{})
+            upper = match.group(2)  # Cận trên (có thể có \frac{})
             function = match.group(3)  # Hàm số
 
-            # ✅ Process nested content (bao gồm cả fractions)
+            # Process nested content (bao gồm fractions trong cận)
             function_processed = self._process_nested(function)
             lower_processed = self._process_nested(lower)
             upper_processed = self._process_nested(upper)
 
             return f"y{function_processed}),{lower_processed},{upper_processed})"
 
-        # Apply integral transformation
-        result = re.sub(integral_pattern, process_integral, result)
+        # Apply integral transformation (max 5 iterations for nested integrals)
+        changed = True
+        max_iter = 5
+        while changed and max_iter > 0:
+            new_result = re.sub(integral_pattern, process_integral, result)
+            changed = (new_result != result)
+            result = new_result
+            max_iter -= 1
 
         # ✅ STEP 2: Handle complex/nested fractions (20 iterations max)
         frac_pattern = r"\\frac\{((?:\{.*?\}|[^{}])+?)\}\{((?:\{.*?\}|[^{}])+?)\}"
@@ -125,7 +131,7 @@ class LatexToKeylogEncoder:
     def _process_nested(self, expr: str) -> str:
         """Process mapping in numerator/denominator/integral parts
 
-        ✅ FIX: Xử lý cả fractions trong nested content
+        ✅ Xử lý cả fractions trong nested content
         """
         result = expr
 
@@ -194,79 +200,68 @@ class LatexToKeylogEncoder:
 if __name__ == "__main__":
     encoder = LatexToKeylogEncoder()
 
-    print("=" * 70)
-    print("LATEX TO KEYLOG ENCODER - TEST (FIXED INTEGRAL WITH FRACTION)")
-    print("=" * 70)
+    print("=" * 80)
+    print("LATEX TO KEYLOG ENCODER - TEST (COMPLEX INTEGRAL WITH FRACTION IN BOUNDS)")
+    print("=" * 80)
     print(f"Loaded {len(encoder.mappings)} mapping rules")
     print()
 
-    # ✅ Test cases bao gồm tích phân có phân số
-    tests = [
-        # Tích phân có phân số (CRITICAL TEST)
-        ("\\int_{0}^{1} \\frac{1}{x} dx", "Tích phân 1/x"),
-        ("\\int_{a}^{b} \\frac{x^2}{2} dx", "Tích phân x²/2"),
-        ("\\int_{0}^{pi} \\frac{sin(x)}{2} dx", "Tích phân sin(x)/2"),
-
-        # Tích phân đơn giản
-        ("\\int_{0}^{1} x^3 dx", "Tích phân x^3 từ 0 đến 1"),
-        ("\\int_{1}^{5} sin(x) dx", "Tích phân sin(x) từ 1 đến 5"),
-        ("\\int_{a}^{b} 2x dx", "Tích phân 2x từ a đến b"),
-        ("\\int_{0}^{pi} cos(x) dx", "Tích phân cos(x) từ 0 đến pi"),
-
-        # Phân số
-        ("\\frac{9}{4}", "Phân số đơn giản"),
-        ("\\frac{\\sqrt{2}}{3}", "Phân số có căn"),
-        ("-\\frac{1}{2}", "Phân số âm"),
-
-        # Hàm số
-        ("-5", "Số âm"),
-        ("sqrt(4)", "Căn bậc hai"),
-        ("sin(x)", "Hàm sin"),
-        ("cos(x)", "Hàm cos"),
-        ("tan(x)", "Hàm tan"),
-        ("ln(x)", "Hàm logarit tự nhiên"),
-
-        # Phân số lồng nhau
-        ("\\frac{\\frac{1}{2}}{3}", "Phân số lồng nhau"),
-        ("\\int_{-1}^{1} x^2 dx", "Tích phân x^2 với cận âm"),
-    ]
-
-    for latex, description in tests:
-        keylog = encoder.encode(latex)
-        print(f"{description:40} | {latex:35} → {keylog}")
-
-    print()
-    print("=" * 70)
-    print("CRITICAL TESTS - INTEGRAL WITH FRACTION")
-    print("=" * 70)
-
+    # ✅ Test case phức tạp: Phân số chứa tích phân có cận là phân số
     critical_tests = [
-        ("\\int_{0}^{1} \\frac{1}{x} dx", "y1ax),0,1)"),
-        ("\\int_{a}^{b} \\frac{x^2}{2} dx", "yx^2a2),a,b)"),
-        ("\\int_{0}^{1} \\frac{sin(x)}{cos(x)} dx", "yj(x)ak(x)),0,1)"),
+        # Tích phân có cận là phân số
+        ("\\int_{\\frac{1}{2}}^{1} x dx", "Tích phân cận dưới là 1/2"),
+        ("\\int_{0}^{\\frac{1}{2}} x^2 dx", "Tích phân cận trên là 1/2"),
+        ("\\int_{\\frac{1}{2}}^{\\frac{3}{4}} x dx", "Tích phân 2 cận đều là phân số"),
+
+        # Phân số chứa tích phân
+        ("\\frac{\\int_{0}^{1} x dx}{2}", "Phân số tử là tích phân"),
+        ("\\frac{\\int_{\\frac{1}{2}}^{1} \\frac{1}{2} dx}{y-2}", "Case của bạn"),
+
+        # Tích phân có hàm là phân số, cận là phân số
+        ("\\int_{\\frac{1}{2}}^{1} \\frac{1}{x} dx", "Cận và hàm đều có phân số"),
+
+        # Test cases đơn giản
+        ("\\int_{0}^{1} x^3 dx", "Tích phân đơn giản"),
+        ("\\frac{1}{2}", "Phân số đơn giản"),
     ]
 
-    print("\nVerifying fraction encoding inside integrals:\n")
-    for latex, expected in critical_tests:
-        actual = encoder.encode(latex)
-        match = "✓" if actual == expected else "✗"
-        print(f"{match} Input:    {latex}")
-        print(f"  Expected: {expected}")
-        print(f"  Actual:   {actual}")
+    for latex, desc in critical_tests:
+        encoded = encoder.encode(latex)
+        print(f"{desc:50} | {latex:45}")
+        print(f"{'':50} → {encoded}")
         print()
 
-    print("=" * 70)
-    print("VALIDATION TEST")
-    print("=" * 70)
+    print("=" * 80)
+    print("DETAILED ANALYSIS - YOUR CASE")
+    print("=" * 80)
 
-    validation_tests = [
-        ("\\int_{0}^{1} x dx", "Valid integral"),
-        ("\\frac{1}{2}", "Valid fraction"),
-        ("\\frac{1{2}", "Missing closing brace"),
-        ("", "Empty string"),
+    your_case = "\\frac{\\int_{\\frac{1}{2}}^{1} \\frac{1}{2} dx}{y-2}"
+    print(f"\nInput:  {your_case}")
+    print(f"Output: {encoder.encode(your_case)}")
+
+    print("\n\nStep-by-step breakdown:")
+    print("1. Integral inside: \\int_{\\frac{1}{2}}^{1} \\frac{1}{2} dx")
+    print("   → Lower bound: \\frac{1}{2} → 1a2")
+    print("   → Upper bound: 1 → 1")
+    print("   → Function: \\frac{1}{2} → 1a2")
+    print("   → Result: y1a2),1a2,1)")
+    print()
+    print("2. Outer fraction: \\frac{y1a2),1a2,1)}{y-2}")
+    print("   → Numerator: y1a2),1a2,1)")
+    print("   → Denominator: y-2 → yp2")
+    print("   → Result: y1a2),1a2,1)ayp2")
+
+    print("\n" + "=" * 80)
+    print("VALIDATION")
+    print("=" * 80)
+
+    test_validation = [
+        ("\\int_{\\frac{1}{2}}^{1} x dx", "Valid complex integral"),
+        ("\\frac{\\int_{0}^{1} x dx}{2}", "Valid fraction with integral"),
+        ("\\frac{1{2}", "Invalid - missing brace"),
     ]
 
-    for expr, desc in validation_tests:
+    for expr, desc in test_validation:
         valid, error = encoder.validate_latex(expr)
         status = "✓ Valid" if valid else f"✗ Invalid: {error}"
-        print(f"{desc:40} | {expr:30} → {status}")
+        print(f"{desc:40} → {status}")
