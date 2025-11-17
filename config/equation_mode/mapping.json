@@ -137,6 +137,12 @@
       "replace": ")",
       "type": "literal",
       "description": "Thay \\right) → )"
-    }
+    },
+      {
+  "find": ",",
+  "replace": "q)",
+  "type": "literal",
+  "description": "Dấu phẩy thành q) cho keylog"
+}
     ]
 }

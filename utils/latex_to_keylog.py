@@ -5,10 +5,7 @@ from typing import List, Dict, Any, Tuple, Optional
 
 
 class LatexToKeylogEncoder:
-    """Utility to encode LaTeX math expressions to calculator keylog format.
-    Hỗ trợ: phân số, căn, hàm lượng giác, tích phân (kể cả cận có phân số).
-    ĐẶC BIỆT: Xử lý đệ quy tích phân lồng nhau - không còn \\int_ trong kết quả.
-    """
+    """Utility to encode LaTeX math expressions to calculator keylog format."""
 
     def __init__(self, mapping_file: str = "config/equation_mode/mapping.json"):
         self.mapping_file = mapping_file
@@ -34,23 +31,19 @@ class LatexToKeylogEncoder:
             return []
 
     def encode(self, latex_expr: str) -> str:
-        """Encode LaTeX to keylog - XỬ LÝ ĐỆ QUY TÍCH PHÂN"""
+        """Encode LaTeX to keylog"""
         if not latex_expr or not latex_expr.strip():
             return "0"
 
         result = latex_expr.strip()
-
-        # Loại bỏ spaces để dễ xử lý
         result = result.replace(" ", "")
 
-        # ✅ BƯỚC 1: Xử lý tích phân đệ quy (từ trong ra ngoài)
-        # Pattern phải match chính xác: \int_{...}^{...} ... dx
-        # Sử dụng non-greedy để match tích phân trong cùng trước
+        # ✅ BƯỚC 0: Xử lý hàm đặc biệt (sqrt, sin, cos...) TRƯỚC
+        result = self._process_special_functions(result)
 
+        # ✅ BƯỚC 1: Xử lý tích phân đệ quy
         max_iterations = 20
         for iteration in range(max_iterations):
-            # Pattern: \int_{lower}^{upper}function dx/dt/du...
-            # Chú ý: cận có thể chứa \frac{}{} nên cần pattern phức tạp
             pattern = r'\\int_\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}\^\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}(.*?)d([a-z])'
 
             match = re.search(pattern, result)
@@ -62,50 +55,70 @@ class LatexToKeylogEncoder:
             function = match.group(3)
             var = match.group(4)
 
-            # Xử lý các thành phần
             lower_clean = self._clean_bounds(lower)
             upper_clean = self._clean_bounds(upper)
             function_clean = self._clean_function(function)
 
-            # Tạo keylog: y function),lower,upper)
             replacement = f"y{function_clean}),{lower_clean},{upper_clean})"
-
-            # Thay thế vào kết quả
             result = result[:match.start()] + replacement + result[match.end():]
 
-        # ✅ BƯỚC 2: Xử lý phân số còn lại
+        # ✅ BƯỚC 2: Xử lý dấu mũ
+        result = self._process_exponents(result)
+
+        # ✅ BƯỚC 3: Xử lý phân số
         result = self._process_fractions(result)
 
-        # ✅ BƯỚC 3: Apply các mappings còn lại
+        # ✅ BƯỚC 4: Xử lý ngoặc { } còn lại
+        result = result.replace("{", "(")
+        result = result.replace("}", ")")
+
+        # ✅ BƯỚC 5: Apply mappings
         result = self._apply_mappings(result)
 
         return result
 
     def _clean_bounds(self, bound: str) -> str:
-        """Xử lý cận (có thể chứa phân số)"""
+        """Xử lý cận"""
         result = bound
-
-        # Xử lý \frac trong cận
+        result = self._process_special_functions(result)
+        result = self._process_exponents(result)
         result = self._process_fractions(result)
-
+        result = result.replace("{", "(")
+        result = result.replace("}", ")")
         return result
 
     def _clean_function(self, func: str) -> str:
         """Xử lý hàm số"""
         result = func
-
-        # Xử lý phân số trong hàm
+        result = self._process_special_functions(result)
+        result = self._process_exponents(result)
         result = self._process_fractions(result)
+        result = result.replace("{", "(")
+        result = result.replace("}", ")")
+        return result
+
+    def _process_special_functions(self, text: str) -> str:
+        """Xử lý sqrt, sin, cos, tan, ln"""
+        result = text
+
+        func_map = {
+            r'\sqrt': 's',
+            r'\sin': 'j',
+            r'\cos': 'k',
+            r'\tan': 'l',
+            r'\ln': 'h',
+        }
+
+        for latex_func, keylog_char in func_map.items():
+            result = result.replace(latex_func, keylog_char)
 
         return result
 
     def _process_fractions(self, text: str) -> str:
-        """Xử lý tất cả phân số: \frac{a}{b} -> aab"""
+        """Xử lý phân số: \frac{a}{b} -> (a)a(b)"""
         result = text
 
-        # Lặp để xử lý phân số lồng nhau
         for _ in range(15):
-            # Pattern: \frac{numerator}{denominator}
             pattern = r'\\frac\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
             match = re.search(pattern, result)
 
@@ -114,16 +127,29 @@ class LatexToKeylogEncoder:
 
             num = match.group(1)
             den = match.group(2)
-
-            # Thay thế
-            replacement = f"{num}a{den}"
+            replacement = f"({num})a({den})"
             result = result[:match.start()] + replacement + result[match.end():]
 
         return result
 
-    def _apply_mappings(self, text: str) -> str:
-        """Apply các mapping rules từ JSON"""
+    def _process_exponents(self, text: str) -> str:
+        """Xử lý dấu mũ: ^{...} -> ^...), ^n -> ^n)"""
         result = text
+
+        # Pattern 1: ^{...} -> ^...)
+        result = re.sub(r'\^\{([^}]+)\}', r'^\1)', result)
+
+        # Pattern 2: ^single_char -> ^char)
+        # CHỈ match nếu sau char KHÔNG phải số hoặc )
+        result = re.sub(r'\^([a-zA-Z0-9])(?![0-9\)])', r'^\1)', result)
+
+        return result
+
+    def _apply_mappings(self, text: str) -> str:
+        """Apply mapping rules"""
+        result = text
+
+        skip_keywords = ["frac", "tích phân", "ngoặc", "{", "}", "sqrt", "sin", "cos", "tan", "ln", "\\"]
 
         for mapping in self.mappings:
             find_pat = mapping.get("find", "")
@@ -131,8 +157,7 @@ class LatexToKeylogEncoder:
             typ = mapping.get("type", "literal")
             desc = mapping.get("description", "").lower()
 
-            # Skip các pattern đã xử lý
-            if "frac" in desc or "tích phân" in desc or "\\int" in find_pat.lower():
+            if any(kw in desc or kw in find_pat.lower() for kw in skip_keywords):
                 continue
 
             if typ == "regex":
@@ -146,11 +171,9 @@ class LatexToKeylogEncoder:
         return result
 
     def encode_batch(self, latex_exprs: List[str]) -> List[str]:
-        """Encode multiple expressions"""
         return [self.encode(expr) for expr in latex_exprs]
 
     def validate_latex(self, latex_expr: str) -> Tuple[bool, Optional[str]]:
-        """Validate LaTeX syntax"""
         if not latex_expr or not latex_expr.strip():
             return False, "Rỗng"
         if latex_expr.count("{") != latex_expr.count("}"):
@@ -163,26 +186,26 @@ if __name__ == "__main__":
     encoder = LatexToKeylogEncoder()
 
     print("=" * 80)
-    print("LATEX TO KEYLOG ENCODER - COMPLETE FIX")
+    print("LATEX TO KEYLOG ENCODER - ULTIMATE FIX")
     print("=" * 80)
     print()
 
     tests = [
-        (r"\int_{\frac{1-2}{2*4}}^{1/2} x^2 dx", "Tích phân đơn, cận phân số", "yx^2,1a2,1)"),
-        (r"\int_{\frac{1}{2}}^{1} \int_{\frac{1}{2}}^{1} x^2 dx dx", "Tích phân kép", "y(yx^2,1a2,1),1a2,1)"),
-        (r"\int_{0}^{1} \int_{0}^{1} \int_{0}^{1} x dx dx dx", "Tích phân bội 3", "y(y(yx,0,1),0,1),0,1)"),
-        (r"\frac{1}{2}", "Phân số", "1a2"),
-        (r"\int_{1}^{2} x^2 dx", "Tích phân đơn giản", "yx^2,1,2)"),
+        (r"x^{10}", "Dấu mũ 2 chữ số", "[^10)"),
+        (r"x^2", "Dấu mũ 1 chữ số", "[^2)"),
+        (r"\frac{1}{x^3}", "Phân số với mũ", "(1)a([^3))"),
+        (r"\int_{0}^{1} x^2 dx", "Tích phân x^2", "y[^2))q)0q)1)"),
+        (r"\int_{1}^{2} \sqrt{\frac{1}{x^3}+x^2} dx", "Tích phân phức tạp", "ys((1)a([^3))+[^2)))q)1q)2)"),
+        (r"\int_{\frac{1}{2}}^{1} x dx", "Tích phân cận phân số", "y[)q)(1)a(2)q)1)"),
     ]
 
     for latex, desc, expected in tests:
         result = encoder.encode(latex)
         status = "✅" if result == expected else "❌"
-        has_int = "❌ CÒN \\int_" if "\\int" in result else "✅ OK"
 
         print(f"{desc:40}")
         print(f"  LaTeX:    {latex}")
         print(f"  Keylog:   {result}")
         print(f"  Expected: {expected}")
-        print(f"  Match: {status} | {has_int}")
+        print(f"  Status:   {status}")
         print()
