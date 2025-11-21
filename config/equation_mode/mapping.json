@@ -1,16 +1,28 @@
 {
     "mappings": [
     {
-      "find": "\\\\int_\\\\(([^)]+)\\\\)\\\\\\^\\\\(([^)]+)\\\\)([^d]+)d[a-z]",
-      "replace": "y \\3,\\1,\\2)",
+      "find": "\\log_\\{([^}]+)\\}\\{([^}]+)\\}",
+      "replace": "i((\\2),\\1)",
       "type": "regex",
-      "description": "Tích phân ngoặc tròn: \\int_(a)^(b) f(x) dx → y f(x),a,b)"
+      "description": "Log với base: \\log_{base}{arg} → lo((arg),base)"
     },
     {
-      "find": "\\\\int_\\\\{([^}]+)\\\\}\\\\\\^\\\\{([^}]+)\\\\}([^d]+)d[a-z]",
-      "replace": "y \\3,\\1,\\2)",
+      "find": "\\log_\\{([^}]+)\\}\\(([^)]+)\\)",
+      "replace": "i(\\2,\\1)",
       "type": "regex",
-      "description": "Tích phân ngoặc nhọn: \\int_{a}^{b} f(x) dx → y f(x),a,b)"
+      "description": "Log với base và ngoặc tròn: \\log_{base}(arg) → lo(arg,base)"
+    },
+    {
+      "find": "\\log(",
+      "replace": "i(",
+      "type": "literal",
+      "description": "Hàm log(x) → lo(x)"
+    },
+    {
+      "find": "log(",
+      "replace": "i(",
+      "type": "literal",
+      "description": "Hàm log không dấu \\ → lo("
     },
     {
       "find": "\\frac\\{([^{}]+)\\}\\{([^{}]+)\\}",
@@ -24,7 +36,7 @@
       "type": "literal",
       "description": "Dấu âm (trừ) thành 'p'"
     },
-       {
+    {
       "find": "x",
       "replace": "[",
       "type": "literal",
@@ -138,11 +150,11 @@
       "type": "literal",
       "description": "Thay \\right) → )"
     },
-      {
-  "find": ",",
-  "replace": "q)",
-  "type": "literal",
-  "description": "Dấu phẩy thành q) cho keylog"
-}
+    {
+      "find": ",",
+      "replace": "q)",
+      "type": "literal",
+      "description": "Dấu phẩy thành q) cho keylog"
+    }
     ]
 }

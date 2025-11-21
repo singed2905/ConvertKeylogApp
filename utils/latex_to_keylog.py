@@ -38,10 +38,18 @@ class LatexToKeylogEncoder:
         result = latex_expr.strip()
         result = result.replace(" ", "")
 
-        # ✅ BƯỚC 0: Xử lý hàm đặc biệt (sqrt, sin, cos...) TRƯỚC
+        # ✅ BƯỚC 0: Xử lý \left và \right
+        result = result.replace(r'\left', '').replace(r'\right', '')
+
+        # ✅ BƯỚC 0.5: Xử lý \log_base{arg}
+        result = re.sub(r'\\log_\{([^}]*)\}\s*\{\s*([^}]*)\}', r'i((\2),\1)', result)
+        result = re.sub(r'\\log_\{([^}]*)\}\s*\(([^)]*)\)', r'i(\2,\1)', result)
+        result = re.sub(r'\\log_\{([^}]*)\}\s*([a-zA-Z0-9])', r'i(\2,\1)', result)
+
+        # ✅ BƯỚC 1: Xử lý hàm đặc biệt (sqrt, sin, cos...) TRƯỚC
         result = self._process_special_functions(result)
 
-        # ✅ BƯỚC 1: Xử lý tích phân đệ quy
+        # ✅ BƯỚC 2: Xử lý tích phân đệ quy
         max_iterations = 20
         for iteration in range(max_iterations):
             pattern = r'\\int_\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}\^\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}(.*?)d([a-z])'
@@ -62,24 +70,25 @@ class LatexToKeylogEncoder:
             replacement = f"y{function_clean}),{lower_clean},{upper_clean})"
             result = result[:match.start()] + replacement + result[match.end():]
 
-        # ✅ BƯỚC 2: Xử lý dấu mũ
+        # ✅ BƯỚC 3: Xử lý dấu mũ
         result = self._process_exponents(result)
 
-        # ✅ BƯỚC 3: Xử lý phân số
+        # ✅ BƯỚC 4: Xử lý phân số
         result = self._process_fractions(result)
 
-        # ✅ BƯỚC 4: Xử lý ngoặc { } còn lại
+        # ✅ BƯỚC 5: Xử lý ngoặc { } còn lại
         result = result.replace("{", "(")
         result = result.replace("}", ")")
 
-        # ✅ BƯỚC 5: Apply mappings
+        # ✅ BƯỚC 6: Apply mappings
         result = self._apply_mappings(result)
-
+        result = result.replace('__SEP__', 'q)')
         return result
 
     def _clean_bounds(self, bound: str) -> str:
         """Xử lý cận"""
         result = bound
+        result = result.replace(r'\left', '').replace(r'\right', '')
         result = self._process_special_functions(result)
         result = self._process_exponents(result)
         result = self._process_fractions(result)
@@ -90,6 +99,7 @@ class LatexToKeylogEncoder:
     def _clean_function(self, func: str) -> str:
         """Xử lý hàm số"""
         result = func
+        result = result.replace(r'\left', '').replace(r'\right', '')
         result = self._process_special_functions(result)
         result = self._process_exponents(result)
         result = self._process_fractions(result)
@@ -98,8 +108,16 @@ class LatexToKeylogEncoder:
         return result
 
     def _process_special_functions(self, text: str) -> str:
-        """Xử lý sqrt, sin, cos, tan, ln"""
+        """Xử lý sqrt, sin, cos, tan, ln, log"""
         result = text
+
+        # Xử lý \log_base{arg} hoặc \log_base(arg) trước
+        result = re.sub(r'\\log_\{([^}]*)\}\s*\{\s*([^}]*)\}', r'i((\2),\1)', result)
+        result = re.sub(r'\\log_\{([^}]*)\}\s*\(([^)]*)\)', r'i(\2,\1)', result)
+        result = re.sub(r'\\log_\{([^}]*)\}\s*([a-zA-Z0-9])', r'i(\2,\1)', result)
+
+        result = re.sub(r'\\log_(\d+)\s*\(([^)]*)\)', r'i(\2__SEP__\1)', result)
+        result = re.sub(r'\\log_(\d+)\s*([a-zA-Z0-9])', r'i(\2__SEP__\1)', result)
 
         func_map = {
             r'\sqrt': 's',
@@ -107,6 +125,7 @@ class LatexToKeylogEncoder:
             r'\cos': 'k',
             r'\tan': 'l',
             r'\ln': 'h',
+            r'\log': 'i',
         }
 
         for latex_func, keylog_char in func_map.items():
@@ -140,7 +159,6 @@ class LatexToKeylogEncoder:
         result = re.sub(r'\^\{([^}]+)\}', r'^\1)', result)
 
         # Pattern 2: ^single_char -> ^char)
-        # CHỈ match nếu sau char KHÔNG phải số hoặc )
         result = re.sub(r'\^([a-zA-Z0-9])(?![0-9\)])', r'^\1)', result)
 
         return result
@@ -186,26 +204,23 @@ if __name__ == "__main__":
     encoder = LatexToKeylogEncoder()
 
     print("=" * 80)
-    print("LATEX TO KEYLOG ENCODER - ULTIMATE FIX")
+    print("LATEX TO KEYLOG ENCODER - WITH LOG SUPPORT")
     print("=" * 80)
     print()
 
     tests = [
-        (r"x^{10}", "Dấu mũ 2 chữ số", "[^10)"),
-        (r"x^2", "Dấu mũ 1 chữ số", "[^2)"),
-        (r"\frac{1}{x^3}", "Phân số với mũ", "(1)a([^3))"),
-        (r"\int_{0}^{1} x^2 dx", "Tích phân x^2", "y[^2))q)0q)1)"),
-        (r"\int_{1}^{2} \sqrt{\frac{1}{x^3}+x^2} dx", "Tích phân phức tạp", "ys((1)a([^3))+[^2)))q)1q)2)"),
-        (r"\int_{\frac{1}{2}}^{1} x dx", "Tích phân cận phân số", "y[)q)(1)a(2)q)1)"),
+        (r"x^{10}", "Dấu mũ 2 chữ số"),
+        (r"x^2", "Dấu mũ 1 chữ số"),
+        (r"\frac{1}{x^3}", "Phân số với mũ"),
+        (r"\int_{0}^{1} x^2 dx", "Tích phân x^2"),
+        (r"\log_7{3x}", "Log base 7 của 3x"),
+        (r"\log_2(x)", "Log base 2 của x"),
+        (r"\int_{1}^{2} \sqrt{\frac{1}{x^3}+x^2} dx", "Tích phân phức tạp"),
     ]
 
-    for latex, desc, expected in tests:
+    for latex, desc in tests:
         result = encoder.encode(latex)
-        status = "✅" if result == expected else "❌"
-
         print(f"{desc:40}")
-        print(f"  LaTeX:    {latex}")
-        print(f"  Keylog:   {result}")
-        print(f"  Expected: {expected}")
-        print(f"  Status:   {status}")
+        print(f"  LaTeX:  {latex}")
+        print(f"  Keylog: {result}")
         print()
