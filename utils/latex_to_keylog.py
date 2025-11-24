@@ -58,7 +58,7 @@ class LatexToKeylogEncoder:
             lower_clean = self._clean_bounds(lower)
             upper_clean = self._clean_bounds(upper)
             function_clean = self._clean_function(function)
-            replacement = f"y{function_clean}),{lower_clean},{upper_clean})"
+            replacement = f"y({function_clean},{lower_clean},{upper_clean})"
             result = result[:match.start()] + replacement + result[match.end():]
         result = self._process_exponents(result)
         result = self._process_fractions(result)
@@ -168,7 +168,8 @@ if __name__ == "__main__":
         (r"\log_7{3x}", "Log base 7 của 3x"),
         (r"\log_2(x)", "Log base 2 của x"),
         (r"\int_{1}^{2} \sqrt{\frac{1}{x^3}+x^2} dx", "Tích phân phức tạp"),
-        (r"\log_7{(3x)}", "Log base 7 của (3x) [new rule]"),
+        (r"\log_6{(3)}", "Log base 7 của (3x) [new rule]"),
+        (r"\int_{\frac{6493762871}{6109766360}}^{\frac{9237763907}{8072273204}} \left( (856458 \times 10^{78}) \log_7{( 3x )} + (4304992 \times 10^{23}) x^{4} \right) dx", "Tích phân voi log"),
     ]
     for latex, desc in tests:
         result = encoder.encode(latex)

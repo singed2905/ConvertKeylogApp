@@ -221,8 +221,9 @@ if __name__ == "__main__":
     test_cases = [
         (r"\int_{0}^{1} x dx", "Tích phân đơn 1"),
         (r"\int_{0}^{1} x^2 dx", "Tích phân đơn 2"),
-        (r"\int_{0}^{1} \int_{0}^{x} xy dydx", "Tích phân kép"),
-        (r"\int_{0}^{1} \int_{0}^{1} \int_{0}^{1} xyz dzdydx", "Tích phân bội ba"),
+        (r"\int_{1}^{e} \log_2(x) dx", "Tích phân voi log"),
+        (
+        r"\int_{\frac{6493762871}{6109766360}}^{\frac{9237763907}{8072273204}} \left( (856458 \times 10^{78}) \log_7{( 3x )} + (4304992 \times 10^{23}) x^{4} \right) dx","Tích phân voi log"),
     ]
 
     for latex, desc in test_cases:
