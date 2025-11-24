@@ -573,7 +573,7 @@ if __name__ == "__main__":
         (r"\int_{0}^{1} x dx", "Definite integral (linear)", {}),
         (r"\int_{0}^{1} x^2 dx", "Definite integral (quadratic)", {}),
         (r"\int x^2 dx", "Indefinite integral", {}),
-        (r"\int_{0}^{1} \int_{0}^{x} xy dy dx", "Double integral", {}),
+        (r"\int_{0}^{1} \int_{0}^{x} x*y dy dx", "Double integral", {}),
     ]
     
     for latex, desc, opts in test_cases:

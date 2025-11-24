@@ -19,7 +19,7 @@ def create_sample_excel_file():
     sample_data = {
         'data_A': ['1,2', '3,4,5', '0,0', '2,3,4'],
         'data_B': ['3,4', '1,2,3', '5,5', '0,1,2'],
-        'keylog': ['', '', '', '']  # Empty - will be filled by processing
+        'keylog': ['', '', '', '']
     }
     
     df = pd.DataFrame(sample_data)
