@@ -1,17 +1,4 @@
-"""Integral Calculator Service - Tính toán biểu thức LaTeX và tích phân
 
-Service này thực hiện:
-1. Parse LaTeX expression sang Python expression
-2. Evaluate biểu thức với giá trị cụ thể
-3. Tính tích phân xác định (definite integral)
-4. Tính tích phân bất định (indefinite integral) nếu có SymPy
-5. Hỗ trợ nested integrals và multi-variable
-
-Dependencies:
-- numpy: Numerical integration
-- scipy: Advanced integration (optional)
-- sympy: Symbolic integration (optional)
-"""
 
 import re
 import math
