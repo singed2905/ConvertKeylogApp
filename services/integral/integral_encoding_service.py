@@ -124,6 +124,17 @@ class IntegralEncodingService:
 
             integral_count = self._count_nested_integrals(latex_expr)
 
+            # === ABSOLUTE VALUE PREPROCESSING ===
+            # Convert LaTeX absolute value variants to standard |...|
+            for _ in range(3):  # Max 3 iterations for nested cases
+                # LaTeX \left| \right| → |...|
+                latex_expr = re.sub(r'\\left\|([^|]+)\\right\|', r'|\1|', latex_expr)
+                # LaTeX \lvert \rvert → |...|
+                latex_expr = re.sub(r'\\lvert([^|]+)\\rvert', r'|\1|', latex_expr)
+                # Break if no more vertical bars
+                if '|' not in latex_expr and '\\left\\|' not in latex_expr:
+                    break
+
             # Pre-process: loại bỏ \left và \right
             latex_expr = latex_expr.replace(r'\left', '').replace(r'\right', '')
 
@@ -135,6 +146,17 @@ class IntegralEncodingService:
             keylog = re.sub(r'y\[([^)]*)\)\)([,q])', r'y[\1)\2', keylog)
             if mode in ["1", "2"]:
                 keylog = keylog.replace("q)", "$")
+
+            # === ADD MODE PREFIX ===
+            mode_prefixes = {
+                "1": "qw11",
+                "2": "qw12",
+                "3": "qw13",
+                "4": "qw14"
+            }
+            prefix = mode_prefixes.get(mode, "")
+            if prefix:
+                keylog = prefix + keylog
 
             return {
                 'success': True,

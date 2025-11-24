@@ -33,6 +33,15 @@ class LatexToKeylogEncoder:
         result = latex_expr.strip()
         result = result.replace(" ", "")
         result = result.replace(r'\left', '').replace(r'\right', '')
+        # Xử lý trị tuyệt đối: |expr| → q(expr)0
+        # Pattern 1: LaTeX absolute value \left|...\right|
+        result = re.sub(r'\\left\|([^|]+)\\right\|', r'q(\1)0', result)
+
+        # Pattern 2: Simple absolute value |...|
+        result = re.sub(r'\|([^|]+)\|', r'q(\1)0', result)
+
+        # Pattern 3: LaTeX vertical bar \lvert...\rvert
+        result = re.sub(r'\\lvert([^|]+)\\rvert', r'q(\1)0', result)
         # Xử lý \times 10^{N} → K{N}
         result = re.sub(r'\\times10\^\{(\d+)\}', r'K\1', result)
         result = re.sub(r'\\times10\^(\d+)', r'K\1', result)
@@ -169,6 +178,14 @@ if __name__ == "__main__":
         (r"\log_2(x)", "Log base 2 của x"),
         (r"\int_{1}^{2} \sqrt{\frac{1}{x^3}+x^2} dx", "Tích phân phức tạp"),
         (r"\log_6{(3)}", "Log base 7 của (3x) [new rule]"),
+        ("|x|", "q([)0"),  # Simple variable
+        ("|3|", "q(3)0"),  # Number
+        ("|-5|", "q(p5)0"),  # Negative (- → p)
+        ("|x+1|", "q([+1)0"),  # Expression
+        (r"\left|x\right|", "q([)0"),  # LaTeX \left\right
+        (r"\lvert x \rvert", "q([)0"),  # LaTeX \lvert\rvert
+        ("|sin(x)|", "q(j([))0"),  # Function inside
+        (r"|\frac{x}{2}|", "q(([)a(2))0"),  # Fraction inside
         (r"\int_{\frac{6493762871}{6109766360}}^{\frac{9237763907}{8072273204}} \left( (856458 \times 10^{78}) \log_7{( 3x )} + (4304992 \times 10^{23}) x^{4} \right) dx", "Tích phân voi log"),
     ]
     for latex, desc in tests:

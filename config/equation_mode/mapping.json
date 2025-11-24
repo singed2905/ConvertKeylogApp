@@ -1,6 +1,12 @@
 {
     "mappings": [
     {
+      "find": "\\|([^|]+)\\|",
+      "replace": "q(\\1)0",
+      "type": "regex",
+      "description": "Trị tuyệt đối |x| → q(x)0"
+    },
+    {
       "find": "\\log_\\{([^}]+)\\}\\{([^}]+)\\}",
       "replace": "i((\\2),\\1)",
       "type": "regex",
