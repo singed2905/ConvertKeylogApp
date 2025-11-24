@@ -33,18 +33,23 @@ class LatexToKeylogEncoder:
         result = latex_expr.strip()
         result = result.replace(" ", "")
         result = result.replace(r'\left', '').replace(r'\right', '')
+        
         # Xử lý log base đặc biệt
         result = re.sub(r'\\log_(\d+)\{\((.*?)\)\}', r'i\1,(\2))', result)
-        # Các pattern log khác (giữ nguyên như cũ)
         result = re.sub(r'\\log_\{([^}]*)\}\s*\{\s*([^}]*)\}', r'i((\2),\1)', result)
         result = re.sub(r'\\log_\{([^}]*)\}\s*\(([^)]*)\)', r'i(\2,\1)', result)
         result = re.sub(r'\\log_\{([^}]*)\}\s*([a-zA-Z0-9])', r'i(\2,\1)', result)
         result = re.sub(r'\\log_(\d+)\s*\(([^)]*)\)', r'i(\2__SEP__\1)', result)
         result = re.sub(r'\\log_(\d+)\s*([a-zA-Z0-9])', r'i(\2__SEP__\1)', result)
+        
         result = self._process_special_functions(result)
+        
+        # Xử lý tích phân - FIX: đổi pattern từ \\^ thành \^
         max_iterations = 20
         for iteration in range(max_iterations):
-            pattern = r'\\int_\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}\\^\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}(.*?)d([a-z])'
+            # Pattern cũ: r'\\int_\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}\\^\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}(.*?)d([a-z])'
+            # Pattern mới: thay \\^ bằng \^
+            pattern = r'\\int_\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}\^\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}(.*?)d([a-z])'
             match = re.search(pattern, result)
             if not match:
                 break
@@ -57,6 +62,7 @@ class LatexToKeylogEncoder:
             function_clean = self._clean_function(function)
             replacement = f"y{function_clean}),{lower_clean},{upper_clean})"
             result = result[:match.start()] + replacement + result[match.end():]
+        
         result = self._process_exponents(result)
         result = self._process_fractions(result)
         result = result.replace("{", "(")
@@ -159,6 +165,7 @@ if __name__ == "__main__":
         (r"x^2", "Dấu mũ 1 chữ số"),
         (r"\frac{1}{x^3}", "Phân số với mũ"),
         (r"\int_{0}^{1} x^2 dx", "Tích phân x^2"),
+        (r"\int_{1}^{e} \log_2(x) dx", "Tích phân với log [FIX]"),
         (r"\log_7{3x}", "Log base 7 của 3x"),
         (r"\log_2(x)", "Log base 2 của x"),
         (r"\int_{1}^{2} \sqrt{\frac{1}{x^3}+x^2} dx", "Tích phân phức tạp"),
