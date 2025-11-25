@@ -1,0 +1,52 @@
+{
+  "Tương giao": {
+    "code": "qT2",
+    "requires_two_shapes": true,
+    "separator": "="
+  },
+  "Khoảng cách": {
+    "code": "qT3",
+    "requires_two_shapes": true,
+    "separator": "="
+  },
+  "Diện tích": {
+    "code": "qT4",
+    "requires_two_shapes": false,
+    "suffix": "="
+  },
+  "Thể tích": {
+    "code": "qT5",
+    "requires_two_shapes": false,
+    "suffix": "="
+  },
+  "PT đường thẳng": {
+    "code": "qT6",
+    "requires_two_shapes": true,
+    "separator": "="
+  },
+  "PT mặt phẳng": {
+    "code": "qT7",
+    "requires_two_shapes": true,
+    "separator": "="
+  },
+  "Góc": {
+    "code": "qT8",
+    "requires_two_shapes": true,
+    "separator": "="
+  },
+  "Tích vô hướng 2 vecto": {
+    "code": "qT11",
+    "requires_two_shapes": true,
+    "separator": "="
+  },
+  "Vecto đơn vị": {
+    "code": "qT12",
+    "requires_two_shapes": false,
+    "suffix": "="
+  },
+  "Phép tính tam giác": {
+    "code": "qT9",
+    "requires_two_shapes": false,
+    "suffix": "="
+  }
+}

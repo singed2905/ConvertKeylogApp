@@ -111,7 +111,7 @@ class GeometryV2View:
     def _get_operation_shape_map(self):
         return {
             "Tương giao": (
-                ["Điểm", "Vecto", "Đường thẳng", "Mặt phẳng"], ["Điểm", "Vecto", "Đường thẳng", "Mặt phẳng"]),
+                ["Điểm", "Vecto", "Đường thẳng", "Mặt phẳng", "Đường tròn", "Mặt cầu"], ["Điểm", "Vecto", "Đường thẳng", "Mặt phẳng", "Đường tròn", "Mặt cầu"]),
             "Khoảng cách": (["Điểm", "Đường thẳng", "Mặt phẳng"], ["Điểm", "Đường thẳng", "Mặt phẳng"]),
             "Diện tích": (["Đường tròn", "Mặt cầu"], None),
             "Thể tích": (["Mặt cầu"], None),

@@ -1,0 +1,160 @@
+{
+  "mappings": [
+    {
+      "find": "\\|([^|]+)\\|",
+      "replace": "q(\\1)0",
+      "type": "regex",
+      "description": "Trị tuyệt đối |x| → q(x)0"
+    },
+    {
+      "find": "\\\\log_\\{([^}]+)\\}\\{([^}]+)\\}",
+      "replace": "i((\\2),\\1)",
+      "type": "regex",
+      "description": "Log với base: \\log_{base}{arg} → i((arg),base)"
+    },
+    {
+      "find": "\\\\log_\\{([^}]+)\\}\\(([^)]+)\\)",
+      "replace": "i(\\2,\\1)",
+      "type": "regex",
+      "description": "Log với base và ngoặc tròn"
+    },
+    {
+      "find": "\\\\log(",
+      "replace": "i(",
+      "type": "literal",
+      "description": "Hàm log(x) → i(x)"
+    },
+    {
+      "find": "log(",
+      "replace": "i(",
+      "type": "literal",
+      "description": "Hàm log không dấu \\"
+    },
+    {
+      "find": "\\\\frac\\{([^{}]+)\\}\\{([^{}]+)\\}",
+      "replace": "$1a$2",
+      "type": "regex",
+      "description": "Chuyển phân số \\frac{x}{y} thành x a y"
+    },
+    {
+      "find": "-",
+      "replace": "p",
+      "type": "literal",
+      "description": "Dấu âm (trừ) thành 'p'"
+    },
+    {
+      "find": "x",
+      "replace": "[",
+      "type": "literal",
+      "description": "x thành '['"
+    },
+    {
+      "find": "*",
+      "replace": "O",
+      "type": "literal",
+      "description": "Dấu nhân (*) thành 'O'"
+    },
+    {
+      "find": "/",
+      "replace": "P",
+      "type": "literal",
+      "description": "Dấu chia (/) thành 'P'"
+    },
+    {
+      "find": "\\\\sqrt{",
+      "replace": "s",
+      "type": "literal",
+      "description": "Hàm sqrt{ có dấu \\ → s"
+    },
+    {
+      "find": "sqrt{",
+      "replace": "s",
+      "type": "literal",
+      "description": "Hàm sqrt{ không dấu \\ → s"
+    },
+    {
+      "find": "\\\\sqrt(",
+      "replace": "s",
+      "type": "literal",
+      "description": "Hàm sqrt( có dấu \\ → s"
+    },
+    {
+      "find": "sqrt(",
+      "replace": "s",
+      "type": "literal",
+      "description": "Hàm sqrt( không dấu \\ → s"
+    },
+    {
+      "find": "sin(",
+      "replace": "j(",
+      "type": "literal",
+      "description": "Hàm sin(x) → j(x)"
+    },
+    {
+      "find": "cos(",
+      "replace": "k(",
+      "type": "literal",
+      "description": "Hàm cos(x) → k(x)"
+    },
+    {
+      "find": "tan(",
+      "replace": "l(",
+      "type": "literal",
+      "description": "Hàm tan(x) → l(x)"
+    },
+    {
+      "find": "ln(",
+      "replace": "h(",
+      "type": "literal",
+      "description": "Hàm ln(x) → h(x)"
+    },
+    {
+      "find": "}",
+      "replace": ")",
+      "type": "literal",
+      "description": "Ngoặc nhọn đóng } thành )"
+    },
+    {
+      "find": "{",
+      "replace": "(",
+      "type": "literal",
+      "description": "Ngoặc nhọn mở { thành ("
+    },
+    {
+      "find": "^",
+      "replace": "^",
+      "type": "literal",
+      "description": "Dấu mũ ^ giữ nguyên"
+    },
+    {
+      "find": "_",
+      "replace": "_",
+      "type": "literal",
+      "description": "Dấu chỉ số dưới _ giữ nguyên"
+    },
+    {
+      "find": "\\\\left[",
+      "replace": "(",
+      "type": "literal",
+      "description": "Thay \\left[ → ("
+    },
+    {
+      "find": "\\\\right]",
+      "replace": ")",
+      "type": "literal",
+      "description": "Thay \\right] → )"
+    },
+    {
+      "find": "\\\\left(",
+      "replace": "(",
+      "type": "literal",
+      "description": "Thay \\left( → ("
+    },
+    {
+      "find": "\\\\right)",
+      "replace": ")",
+      "type": "literal",
+      "description": "Thay \\right) → )"
+    }
+  ]
+}

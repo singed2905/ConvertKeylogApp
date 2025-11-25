@@ -1,0 +1,30 @@
+{
+  "Điểm": {
+    "code": "1",
+    "prefix": "wj"
+  },
+  "Vecto": {
+    "code": "2",
+    "prefix": "wv"
+  },
+  "Đường thẳng": {
+    "code": "3",
+    "prefix": "wl"
+  },
+  "Mặt phẳng": {
+    "code": "4",
+    "prefix": "wp"
+  },
+  "Đường tròn": {
+    "code": "5",
+    "prefix": "wc"
+  },
+  "Mặt cầu": {
+    "code": "6",
+    "prefix": "ws"
+  },
+  "Tam giác": {
+    "code": "7",
+    "prefix": "wt"
+  }
+}
