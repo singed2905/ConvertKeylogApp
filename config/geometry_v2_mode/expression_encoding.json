@@ -49,6 +49,13 @@
       "description": "x thành '['"
     },
     {
+      "find": "\\cdot",
+       "replace": "O",
+      "type": "literal",
+      "description":""
+    },
+
+    {
       "find": "*",
       "replace": "O",
       "type": "literal",

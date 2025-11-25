@@ -22,7 +22,7 @@ def test_basic_encoding():
     service.set_dimension("3", "3")
 
     # Data
-    data_a = {'point_input': '1, 2, 3'}
+    data_a = {'point_input': '1, 2 \\cdot 5'}
     data_b = {'point_input': '4, 5, 6'}
 
     # Encode

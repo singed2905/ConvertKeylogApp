@@ -250,44 +250,57 @@ class GeometryEncoder:
 
         # Route to specific shape encoder - chỉ encode DATA
         if shape == "Điểm":
-            return self._encode_point_data(data)
+            return self._encode_point_data(data).replace(" ", "")
         elif shape == "Vecto":
-            return self._encode_vector_data(data)
+            return self._encode_vector_data(data).replace(" ", "")
         elif shape == "Đường thẳng":
-            return self._encode_line_data(data)
+            return self._encode_line_data(data).replace(" ", "")
         elif shape == "Mặt phẳng":
-            return self._encode_plane_data(data)
+            return self._encode_plane_data(data).replace(" ", "")
         elif shape == "Đường tròn":
-            return self._encode_circle_data(data)
+            return self._encode_circle_data(data).replace(" ", "")
         elif shape == "Mặt cầu":
-            return self._encode_sphere_data(data)
+            return self._encode_sphere_data(data).replace(" ", "")
         elif shape == "Tam giác":
-            return self._encode_triangle_data(data)
+            return self._encode_triangle_data(data).replace(" ", "")
         else:
             return ""
 
-    def _encode_point_data(self, data):
-        """
-        Encode DATA của Điểm
-        Input: "1, 2, 3"
-        Output: "1=2=3=" (encode từng tọa độ, nối bằng =)
-        """
-        point_str = data.get('point_input', '')
+    # services/geometry_v2/geometry_encoder.py
 
-        # Split bằng dấu phẩy
+    def _encode_point_data(self, data, dimension="3"):
+
+        point_str = data.get('point_input', '')
         coords = [c.strip() for c in point_str.split(',') if c.strip()]
+
+        expected_dim = int(dimension)
+
+        # ✅ PADDING: Nếu thiếu tọa độ → thêm '0'
+        while len(coords) < expected_dim:
+            coords.append('0')
+
+        # ✅ TRUNCATION: Nếu thừa tọa độ → cắt bỏ
+        coords = coords[:expected_dim]
 
         # Encode từng tọa độ
         encoded_coords = [self._encode_expression(c) for c in coords]
 
-        # Nối bằng dấu = và thêm = ở cuối
         return '='.join(encoded_coords) + '='
 
-    def _encode_vector_data(self, data):
-        """Encode DATA của Vecto"""
-        vector_str = data.get('vecto_input', data.get('vector_input', ''))
+    def _encode_vector_data(self, data, dimension="3"):
 
+        vector_str = data.get('vecto_input', data.get('vector_input', ''))
         components = [c.strip() for c in vector_str.split(',') if c.strip()]
+
+        expected_dim = int(dimension)
+
+        # ✅ PADDING với '0'
+        while len(components) < expected_dim:
+            components.append('0')
+
+        # ✅ TRUNCATION
+        components = components[:expected_dim]
+
         encoded_comps = [self._encode_expression(c) for c in components]
 
         return '='.join(encoded_comps) + '='
