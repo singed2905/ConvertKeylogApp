@@ -8,7 +8,7 @@
       "status": "production",
       "features": [
         "Hệ phương trình 2-4 ẩn",
-        "NumPy solver với rank analysis", 
+        "NumPy solver với rank analysis",
         "TL-compatible encoding",
         "Excel batch processing",
         "Multi-version support (fx799-fx803)"
@@ -19,7 +19,7 @@
       "enabled": true
     },
     "polynomial": {
-      "name": "Polynomial Mode", 
+      "name": "Polynomial Mode",
       "version": "2.1",
       "description": "Giải phương trình đa thức bậc 2, 3, 4",
       "icon": "📈",
@@ -32,13 +32,13 @@
         "Excel template system"
       ],
       "view_class": "PolynomialEquationView",
-      "service_class": "PolynomialService", 
+      "service_class": "PolynomialService",
       "config_path": "config/polynomial_mode/",
       "enabled": true
     },
     "geometry": {
       "name": "Geometry Mode",
-      "version": "2.1", 
+      "version": "2.1",
       "description": "Xử lý bài toán hình học 2D/3D",
       "icon": "📐",
       "status": "production",

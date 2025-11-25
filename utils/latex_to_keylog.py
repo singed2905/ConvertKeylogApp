@@ -33,26 +33,32 @@ class LatexToKeylogEncoder:
         result = latex_expr.strip()
         result = result.replace(" ", "")
         result = result.replace(r'\left', '').replace(r'\right', '')
-        # Xử lý trị tuyệt đối: |expr| → q(expr)0
-        # Pattern 1: LaTeX absolute value \left|...\right|
+
+        # ==== E^ (Euler number): e^{anything} → qh... ) ====
+        result = re.sub(r'e\^\{([^}]+)\}', r'qh\1)', result)
+        result = re.sub(r'e\^([0-9]+)', r'qh\1)', result)
+
+        # ==== SQRT normalization: sqrt{...} / sqrt(...) không cần \ ====
+        result = re.sub(r'(?<!\\)sqrt\{', r'\\sqrt{', result)
+        result = re.sub(r'(?<!\\)sqrt\(', r'\\sqrt(', result)
+
+        # ==== Absolute value: |a|, \left|a\right|, \lvert a \rvert ====
         result = re.sub(r'\\left\|([^|]+)\\right\|', r'q(\1)0', result)
-
-        # Pattern 2: Simple absolute value |...|
         result = re.sub(r'\|([^|]+)\|', r'q(\1)0', result)
-
-        # Pattern 3: LaTeX vertical bar \lvert...\rvert
         result = re.sub(r'\\lvert([^|]+)\\rvert', r'q(\1)0', result)
-        # Xử lý \times 10^{N} → K{N}
+
+        # ==== Scientific notation: \times 10^{n} → Kn ====
         result = re.sub(r'\\times10\^\{(\d+)\}', r'K\1', result)
         result = re.sub(r'\\times10\^(\d+)', r'K\1', result)
-        # Xử lý log base đặc biệt
+
+        # ==== Special log bases ====
         result = re.sub(r'\\log_(\d+)\{\((.*?)\)\}', r'i\1,(\2))', result)
         result = re.sub(r'\\log_\{([^}]*)\}\s*\{\s*([^}]*)\}', r'i((\2),\1)', result)
         result = re.sub(r'\\log_\{([^}]*)\}\s*\(([^)]*)\)', r'i(\2,\1)', result)
         result = re.sub(r'\\log_\{([^}]*)\}\s*([a-zA-Z0-9])', r'i(\2,\1)', result)
         result = re.sub(r'\\log_(\d+)\s*\(([^)]*)\)', r'i(\2__SEP__\1)', result)
         result = re.sub(r'\\log_(\d+)\s*([a-zA-Z0-9])', r'i(\2__SEP__\1)', result)
-        
+
         result = self._process_special_functions(result)
         max_iterations = 20
         for iteration in range(max_iterations):
@@ -69,6 +75,7 @@ class LatexToKeylogEncoder:
             function_clean = self._clean_function(function)
             replacement = f"y({function_clean},{lower_clean},{upper_clean})"
             result = result[:match.start()] + replacement + result[match.end():]
+
         result = self._process_exponents(result)
         result = self._process_fractions(result)
         result = result.replace("{", "(")
@@ -159,38 +166,19 @@ class LatexToKeylogEncoder:
             return False, "Dấu { } không khớp"
         return True, None
 
-# TEST
+# Example test cases (rút ngắn)
 if __name__ == "__main__":
     encoder = LatexToKeylogEncoder()
-    print("=" * 80)
-    print("LATEX TO KEYLOG ENCODER - WITH LOG SUPPORT")
-    print("=" * 80)
-    print()
     tests = [
-        (r"x^{10}", "Dấu mũ 2 chữ số"),
-        (r"x^2", "Dấu mũ 1 chữ số"),
-        (r"\frac{1}{x^3}", "Phân số với mũ"),
-        (r"1\times 10^{78}", "Ký hiệu khoa học (1e78)"),
-        (r"5\times10^{3}", "Test 5e3"),
-        (r"\int_{0}^{1} x^2 dx", "Tích phân x^2"),
-        (r"\int_{1}^{e} \log_2(x) dx", "Tích phân với log [FIX]"),
-        (r"\log_7{3x}", "Log base 7 của 3x"),
-        (r"\log_2(x)", "Log base 2 của x"),
-        (r"\int_{1}^{2} \sqrt{\frac{1}{x^3}+x^2} dx", "Tích phân phức tạp"),
-        (r"\log_6{(3)}", "Log base 7 của (3x) [new rule]"),
-        ("|x|", "q([)0"),  # Simple variable
-        ("|3|", "q(3)0"),  # Number
-        ("|-5|", "q(p5)0"),  # Negative (- → p)
-        ("|x+1|", "q([+1)0"),  # Expression
-        (r"\left|x\right|", "q([)0"),  # LaTeX \left\right
-        (r"\lvert x \rvert", "q([)0"),  # LaTeX \lvert\rvert
-        ("|sin(x)|", "q(j([))0"),  # Function inside
-        (r"|\frac{x}{2}|", "q(([)a(2))0"),  # Fraction inside
-        (r"\int_{\frac{6493762871}{6109766360}}^{\frac{9237763907}{8072273204}} \left( (856458 \times 10^{78}) \log_7{( 3x )} + (4304992 \times 10^{23}) x^{4} \right) dx", "Tích phân voi log"),
+        ("e^{2}", "qh2)"),
+        (r"e^{\frac{1}{2}}", "qh(1)a(2))"),
+        ("e^{x+1}", "qh[Ka1)"),
+        ("sqrt{4}", "s(4)"),
+        ("|x|", "q([)0"),
+        (r"\left|x\right|", "q([)0"),
+        ("e^{-|y|}", "qhq([)0p)"),
+        (r"e^{\sqrt{x}}", "qhs([))"),
     ]
-    for latex, desc in tests:
+    for latex, expect in tests:
         result = encoder.encode(latex)
-        print(f"{desc:40}")
-        print(f"  LaTeX:  {latex}")
-        print(f"  Keylog: {result}")
-        print()
+        print(f"{latex:20} → {result:20} (expect: {expect})")

@@ -698,9 +698,9 @@ class GeometryService:
         
         # Build final result - matching TL format
         if self.current_operation in ["Diện tích", "Thể tích"]:
-            ket_qua = f"{prefix}{tenA_code}{gia_tri_A}C{pheptoan_code}{tcodeA}= ".rstrip() + " "
+            ket_qua = f"{prefix}{tenA_code}{gia_tri_A}C{pheptoan_code}{tcodeA}= =".rstrip() + " "
         else:
-            ket_qua = f"{prefix}{tenA_code}{gia_tri_A}C{tenB_code}{gia_tri_B}C{pheptoan_code}{tcodeA}R{tcodeB}= ".rstrip() + " "
+            ket_qua = f"{prefix}{tenA_code}{gia_tri_A}C{tenB_code}{gia_tri_B}C{pheptoan_code}{tcodeA}R{tcodeB}= =".rstrip() + " "
 
         return ket_qua
     
