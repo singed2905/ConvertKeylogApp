@@ -584,15 +584,15 @@ class GeometryV2View:
         )
         self.frame_A_triangle.grid(row=1, column=0, columnspan=4, padx=10, pady=5, sticky="we")
 
-        tk.Label(self.frame_A_triangle, text="Đỉnh A (x,y,z):", bg="#FFFFFF").grid(row=0, column=0)
+        tk.Label(self.frame_A_triangle, text="Độ dài cạnh:", bg="#FFFFFF").grid(row=0, column=0)
         self.entry_triangle_a_A = tk.Entry(self.frame_A_triangle, width=25)
         self.entry_triangle_a_A.grid(row=0, column=1, padx=5)
 
-        tk.Label(self.frame_A_triangle, text="Đỉnh B (x,y,z):", bg="#FFFFFF").grid(row=1, column=0)
+        tk.Label(self.frame_A_triangle, text="Độ dài cạnh:", bg="#FFFFFF").grid(row=1, column=0)
         self.entry_triangle_b_A = tk.Entry(self.frame_A_triangle, width=25)
         self.entry_triangle_b_A.grid(row=1, column=1, padx=5)
 
-        tk.Label(self.frame_A_triangle, text="Đỉnh C (x,y,z):", bg="#FFFFFF").grid(row=2, column=0)
+        tk.Label(self.frame_A_triangle, text="Góc giữa 2 cạnh:", bg="#FFFFFF").grid(row=2, column=0)
         self.entry_triangle_c_A = tk.Entry(self.frame_A_triangle, width=25)
         self.entry_triangle_c_A.grid(row=2, column=1, padx=5)
 
