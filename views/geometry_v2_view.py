@@ -12,15 +12,9 @@ class GeometryV2View:
         self.window.title("Geometry V2 Mode - 7 Shapes & 10 Operations 🚀")
         self.window.geometry("950x950")
         self.window.configure(bg="#F8F9FA")
-
-        # Lưu config được truyền vào
         self.config = config or {}
-        
-        # Import và khởi tạo GeometryV2Service (lazy loading)
         self.geometry_service = None
         self._initialize_service()
-        
-        # Excel processing state
         self.imported_data = False
         self.imported_file_path = ""
         self.imported_file_name = ""
@@ -28,21 +22,12 @@ class GeometryV2View:
         self.processing_cancelled = False
         self.is_large_file = False
         self.has_result = False
-        
-        # Biến và trạng thái
         self._initialize_variables()
         self._setup_ui()
-        
-        # Đảm bảo hiển thị đúng ngay lần đầu
         self._on_operation_changed()
         self._on_shape_changed()
 
     def _initialize_service(self):
-        """
-        Khởi tạo Geometry V2 Service.
-        
-        Tạm thời chưa import vì structure đã tạo nhưng logic chưa implement.
-        """
         try:
             from services.geometry_v2.geometry_v2_service import GeometryV2Service
             self.geometry_service = GeometryV2Service(self.config)
@@ -52,38 +37,26 @@ class GeometryV2View:
             self.geometry_service = None
 
     def _initialize_variables(self):
-        """Khởi tạo tất cả biến"""
         self.dropdown1_var = tk.StringVar(value="")
         self.dropdown2_var = tk.StringVar(value="")
         self.kich_thuoc_A_var = tk.StringVar(value="3")
         self.kich_thuoc_B_var = tk.StringVar(value="3")
-        
-        # Phép toán mặc định
         self.pheptoan_var = tk.StringVar(value="Khoảng cách")
-
-        # Phiên bản mặc định
         self.phien_ban_list = self._get_available_versions()
         self.phien_ban_var = tk.StringVar(value=self.phien_ban_list[0])
-        
-        # Bind các thay đổi
         self.dropdown1_var.trace('w', self._on_shape_changed)
         self.dropdown2_var.trace('w', self._on_shape_changed)
         self.pheptoan_var.trace('w', self._on_operation_changed)
         self.kich_thuoc_A_var.trace('w', self._on_dimension_changed)
         self.kich_thuoc_B_var.trace('w', self._on_dimension_changed)
-        
-        # Bind input events
         self.window.after(1000, self._setup_input_bindings)
     
     def _setup_input_bindings(self):
-        """Setup bindings for input change detection"""
         entries = self._get_all_input_entries()
         for entry in entries:
             if hasattr(entry, 'bind'):
                 entry.bind('<KeyRelease>', self._on_input_data_changed)
-    
     def _get_all_input_entries(self):
-        """Get all input entry widgets"""
         entries = []
         for attr_name in dir(self):
             if attr_name.startswith('entry_') and hasattr(self, attr_name):
@@ -91,16 +64,12 @@ class GeometryV2View:
                 if hasattr(entry, 'get'):
                     entries.append(entry)
         return entries
-    
     def _on_input_data_changed(self, event):
-        """Handle manual data input changes"""
         if self.imported_data:
             messagebox.showerror("Lỗi", "Đã import Excel, không thể nhập dữ liệu thủ công!")
             event.widget.delete(0, tk.END)
             return
-
         has_data = self._check_manual_data()
-        
         if has_data and not self.manual_data_entered:
             self.manual_data_entered = True
             self._show_manual_buttons()
@@ -108,9 +77,8 @@ class GeometryV2View:
             self.manual_data_entered = False
             self._hide_action_buttons()
             self._hide_copy_button()
-    
+
     def _check_manual_data(self):
-        """Check if manual data has been entered"""
         entries = self._get_all_input_entries()
         for entry in entries:
             try:
@@ -119,27 +87,23 @@ class GeometryV2View:
             except:
                 pass
         return False
-    
+
     def _show_manual_buttons(self):
-        """Show buttons for manual mode"""
         self.frame_buttons_manual.grid()
         if hasattr(self, 'frame_buttons_import'):
             self.frame_buttons_import.grid_remove()
-    
+
     def _show_import_buttons(self):
-        """Show buttons for import mode"""
         if hasattr(self, 'frame_buttons_import'):
             self.frame_buttons_import.grid()
         self.frame_buttons_manual.grid_remove()
-    
+
     def _hide_action_buttons(self):
-        """Hide all action buttons"""
         self.frame_buttons_manual.grid_remove()
         if hasattr(self, 'frame_buttons_import'):
             self.frame_buttons_import.grid_remove()
 
     def _get_available_versions(self):
-        """Lấy danh sách phiên bản từ config hoặc sử dụng mặc định"""
         try:
             if self.config and 'common' in self.config and 'versions' in self.config['common']:
                 versions_data = self.config['common']['versions']
@@ -147,16 +111,8 @@ class GeometryV2View:
                     return [f"Phiên bản {v}" for v in versions_data['versions']]
         except Exception as e:
             print(f"Warning: Không thể load versions từ config: {e}")
-        
         return ["Phiên bản fx799", "Phiên bản fx880", "Phiên bản fx801"]
-    
     def _get_available_operations(self):
-        """
-        Lấy danh sách phép toán (10 phép).
-        
-        Nếu service đã khởi tạo, dùng từ service.
-        Nếu không, dùng danh sách mặc định.
-        """
         if self.geometry_service:
             return self.geometry_service.get_available_operations()
         else:
@@ -172,6 +128,22 @@ class GeometryV2View:
                 "Vecto đơn vị",
                 "Phép tính tam giác"
             ]
+
+    def _get_operation_shape_map(self):
+        # Trả về dict phép toán --> allowed shapes cho (A, B).
+        return {
+            "Tương giao": (
+            ["Điểm", "Vecto", "Đường thẳng", "Mặt phẳng"], ["Điểm", "Vecto", "Đường thẳng", "Mặt phẳng"]),
+            "Khoảng cách": (["Điểm", "Đường thẳng", "Mặt phẳng"], ["Điểm", "Đường thẳng", "Mặt phẳng"]),
+            "Diện tích": (["Đường tròn", "Mặt cầu"], None),
+            "Thể tích": (["Mặt cầu"], None),
+            "PT đường thẳng": (["Điểm", "Vecto"], ["Điểm", "Vecto"]),
+            "PT mặt phẳng": (["Điểm", "Vecto"], ["Điểm", "Vecto"]),
+            "Góc": (["Vecto", "Đường thẳng", "Mặt phẳng"], ["Vecto", "Đường thẳng", "Mặt phẳng"]),
+            "Tích vô hướng 2 vecto": (["Vecto"], ["Vecto"]),
+            "Vecto đơn vị": (["Vecto"], None),
+            "Phép tính tam giác": (["Tam giác"], None),
+        }
     
     def _get_available_shapes(self):
         """
@@ -192,27 +164,40 @@ class GeometryV2View:
                 "Mặt cầu",
                 "Tam giác"
             ]
-    
-    def _on_shape_changed(self, *args):
-        """Xử lý khi thay đổi hình dạng"""
-        if self.geometry_service:
-            self.geometry_service.set_current_shapes(
-                self.dropdown1_var.get(),
-                self.dropdown2_var.get()
-            )
-        self._update_input_frames()
-    
+
+    def _update_shape_dropdowns(self, _):
+        op = self.pheptoan_var.get()
+        op_map = self._get_operation_shape_map()
+        allowed_a, allowed_b = op_map.get(op, ([], []))
+        if allowed_a is None:
+            allowed_a = []
+        if allowed_b is None:
+            allowed_b = []
+        menu_A = self.dropdown1_menu['menu']
+        menu_A.delete(0, 'end')
+        for shape in allowed_a:
+            menu_A.add_command(label=shape, command=tk._setit(self.dropdown1_var, shape))
+        if self.dropdown1_var.get() not in allowed_a:
+            self.dropdown1_var.set(allowed_a[0] if allowed_a else "")
+        if allowed_b:
+            menu_B = self.dropdown2_menu['menu']
+            menu_B.delete(0, 'end')
+            for shape in allowed_b:
+                menu_B.add_command(label=shape, command=tk._setit(self.dropdown2_var, shape))
+            if self.dropdown2_var.get() not in allowed_b:
+                self.dropdown2_var.set(allowed_b[0] if allowed_b else "")
+            self.label_B.grid()
+            self.dropdown2_menu.grid()
+        else:
+            self.label_B.grid_remove()
+            self.dropdown2_menu.grid_remove()
+
     def _on_operation_changed(self, *args):
-        """Xử lý khi thay đổi phép toán"""
-        operation = self.pheptoan_var.get()
-        if operation:
-            if self.geometry_service:
-                self.geometry_service.set_current_operation(operation)
-                available_shapes = self.geometry_service.update_dropdown_options(operation)
-            else:
-                available_shapes = self._get_available_shapes()
-            
-            self._update_shape_dropdowns(available_shapes)
+        op = self.pheptoan_var.get()
+        self._update_shape_dropdowns(None)
+        self._update_input_frames()
+
+    def _on_shape_changed(self, *args):
         self._update_input_frames()
     
     def _on_dimension_changed(self, *args):
@@ -253,15 +238,16 @@ class GeometryV2View:
                 self.dropdown2_menu.grid_remove()
         except Exception as e:
             print(f"Warning: Could not update dropdowns: {e}")
-    
+
     def _update_input_frames(self):
-        """Cập nhật hiển thị các frame nhập liệu"""
-        # Ẩn các frame cũ trước (7 hình x 2 nhóm = 14 frames)
+        op = self.pheptoan_var.get()
+        op_map = self._get_operation_shape_map()
+        allowed_a, allowed_b = op_map.get(op, ([], []))
         all_frames = [
-            'frame_A_diem', 'frame_A_vecto', 'frame_A_duong', 'frame_A_plane', 
-            'frame_A_circle', 'frame_A_sphere', 'frame_A_triangle',
-            'frame_B_diem', 'frame_B_vecto', 'frame_B_duong', 'frame_B_plane',
-            'frame_B_circle', 'frame_B_sphere', 'frame_B_triangle'
+            'frame_A_diem', 'frame_A_vecto', 'frame_A_duong', 'frame_A_plane', 'frame_A_circle', 'frame_A_sphere',
+            'frame_A_triangle',
+            'frame_B_diem', 'frame_B_vecto', 'frame_B_duong', 'frame_B_plane', 'frame_B_circle', 'frame_B_sphere',
+            'frame_B_triangle'
         ]
         for frame_name in all_frames:
             frame = getattr(self, frame_name, None)
@@ -270,17 +256,12 @@ class GeometryV2View:
                     frame.grid_remove()
                 except:
                     pass
-        
-        # Hiển thị frame cho nhóm A
         shape_A = self.dropdown1_var.get()
-        if shape_A:
+        if allowed_a and shape_A in allowed_a:
             self._show_input_frame_A(shape_A)
-        
-        # Hiển thị frame cho nhóm B (nếu cần)
-        single_shape_operations = ["Diện tích", "Thể tích", "Vecto đơn vị", "Phép tính tam giác"]
-        if self.pheptoan_var.get() not in single_shape_operations:
+        if allowed_b:
             shape_B = self.dropdown2_var.get()
-            if shape_B:
+            if shape_B in allowed_b:
                 self._show_input_frame_B(shape_B)
     
     def _show_input_frame_A(self, shape):
