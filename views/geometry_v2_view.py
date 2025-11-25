@@ -6,6 +6,7 @@ import os
 from datetime import datetime
 import psutil
 
+
 class GeometryV2View:
     def __init__(self, window, config=None):
         self.window = window
@@ -67,7 +68,8 @@ class GeometryV2View:
 
     def _on_input_data_changed(self, event):
         if self.imported_data:
-            messagebox.showerror("Lỗi", "Đã import Excel, không thể nhập dữ liệu thủ công!\n\nNhấn 'Quay lại' để thoát chế độ import.")
+            messagebox.showerror("Lỗi",
+                                 "Đã import Excel, không thể nhập dữ liệu thủ công!\n\nNhấn 'Quay lại' để thoát chế độ import.")
             event.widget.delete(0, tk.END)
             return
         has_data = self._check_manual_data()
@@ -111,7 +113,9 @@ class GeometryV2View:
     def _get_operation_shape_map(self):
         return {
             "Tương giao": (
-                ["Điểm", "Vecto", "Đường thẳng", "Mặt phẳng", "Đường tròn", "Mặt cầu"], ["Điểm", "Vecto", "Đường thẳng", "Mặt phẳng", "Đường tròn", "Mặt cầu"]),
+                ["Điểm", "Vecto", "Đường thẳng", "Mặt phẳng", "Đường tròn", "Mặt cầu"],
+                ["Điểm", "Vecto", "Đường thẳng", "Mặt phẳng", "Đường tròn", "Mặt cầu"]
+            ),
             "Khoảng cách": (["Điểm", "Đường thẳng", "Mặt phẳng"], ["Điểm", "Đường thẳng", "Mặt phẳng"]),
             "Diện tích": (["Đường tròn", "Mặt cầu"], None),
             "Thể tích": (["Mặt cầu"], None),
@@ -323,6 +327,7 @@ class GeometryV2View:
             except Exception:
                 pass
             self.window.after(5000, update_memory)
+
         update_memory()
 
     def _setup_dropdowns(self, parent):
@@ -342,7 +347,6 @@ class GeometryV2View:
         self.dropdown2_menu.grid(row=0, column=3, padx=5, pady=5)
 
     def _setup_all_input_frames(self):
-        # NHÓM A
         self._create_point_frame_A()
         self._create_vector_frame_A()
         self._create_line_frame_A()
@@ -350,7 +354,6 @@ class GeometryV2View:
         self._create_circle_frame_A()
         self._create_sphere_frame_A()
         self._create_triangle_frame_A()
-        # NHÓM B
         self._create_point_frame_B()
         self._create_vector_frame_B()
         self._create_line_frame_B()
@@ -359,355 +362,112 @@ class GeometryV2View:
         self._create_sphere_frame_B()
         self._create_triangle_frame_B()
 
-    # ... TẠO frame cho từng shape như nội dung đã hướng dẫn ...
-
-    # ========== CONTROL FRAME ==========
-    def _setup_control_frame(self):
-        self.frame_tong = tk.LabelFrame(
-            self.main_container, text="🎉 KẾT QUẢ & ĐIỀU KHIỂN",
-            bg="#FFFFFF", font=("Arial", 10, "bold")
-        )
-        self.frame_tong.grid(row=8, column=0, columnspan=4, padx=10, pady=10, sticky="we")
-
-        self.entry_tong = tk.Text(
-            self.main_container,
-            width=80, height=4,
-            font=("Courier New", 9), wrap=tk.WORD,
-            bg="#F8F9FA", fg="black",
-            relief="solid", bd=1, padx=5, pady=5
-        )
-        self.entry_tong.grid(row=9, column=0, columnspan=4, padx=5, pady=5, sticky="we")
-
-        self.btn_copy_result = tk.Button(
-            self.main_container, text="📋 Copy Kết Quả",
-            command=self._copy_result,
-            bg="#9C27B0", fg="white", font=("Arial", 9, "bold"),
-            width=20
-        )
-        self.btn_copy_result.grid(row=10, column=0, sticky="w", padx=0, pady=5)
-        self.btn_copy_result.grid_remove()
-
-        self.btn_import_excel = tk.Button(
-            self.frame_tong, text="📁 Import Excel",
-            command=self._import_excel,
-            bg="#FF9800", fg="white", font=("Arial", 10, "bold")
-        )
-        self.btn_import_excel.grid(row=0, column=0, columnspan=4, pady=5, sticky="we")
-
-        self.frame_buttons_manual = tk.Frame(self.frame_tong, bg="#FFFFFF")
-        self.frame_buttons_manual.grid(row=1, column=0, columnspan=4, pady=5, sticky="we")
-        tk.Button(self.frame_buttons_manual, text="🔐 Encode",
-                  command=self._encode_manual,
-                  bg="#4CAF50", fg="white", font=("Arial", 9, "bold")).grid(row=0, column=0, padx=5)
-        self.frame_buttons_manual.grid_remove()
-
-        self.frame_buttons_excel = tk.Frame(self.frame_tong, bg="#FFFFFF")
-        self.frame_buttons_excel.grid(row=1, column=0, columnspan=4, pady=5, sticky="we")
-        tk.Button(self.frame_buttons_excel, text="🚀 Xử lý Excel",
-                  command=self._process_excel,
-                  bg="#F44336", fg="white", font=("Arial", 10, "bold")).grid(row=0, column=0, padx=5)
-        tk.Button(self.frame_buttons_excel, text="↩️ Quay lại",
-                  command=self._quit_import_mode,
-                  bg="#607D8B", fg="white", font=("Arial", 10)).grid(row=0, column=1, padx=5)
-        self.frame_buttons_excel.grid_remove()
-
-    # ========== LOGIC EXCEL & MANUAL ==========
-    def _import_excel(self):
-        try:
-            if self.manual_data_entered or self._check_manual_data():
-                messagebox.showerror(
-                    "Lỗi",
-                    "Đã có dữ liệu thủ công trong các ô nhập liệu!\n\nVui lòng xóa dữ liệu thủ công trước khi import Excel."
-                )
-                return
-            file_path = filedialog.askopenfilename(
-                title="Chọn file Excel",
-                filetypes=[("Excel files", "*.xlsx *.xls")]
-            )
-            if not file_path:
-                return
-            file_ext = os.path.splitext(file_path)[1].lower()
-            if file_ext not in ['.xlsx', '.xls']:
-                messagebox.showerror("Lỗi", "Chỉ hỗ trợ file Excel (.xlsx, .xls)!")
-                return
-            if not os.path.exists(file_path):
-                messagebox.showerror("Lỗi", "File không tồn tại!")
-                return
-            self.imported_file_path = file_path
-            self.imported_file_name = os.path.basename(file_path)
-            self.imported_data = True
-            self.manual_data_entered = False
-            self._lock_manual_inputs()
-            file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
-            result_message = (
-                f"✅ Import thành công!\n\n"
-                f"📁 File: {self.imported_file_name}\n"
-                f"📂 Đường dẫn: {file_path}\n"
-                f"📊 Kích thước: {file_size_mb:.2f} MB\n\n"
-                f"Nhấn 'Xử lý Excel' để bắt đầu xử lý file."
-            )
-            self._update_result_display(result_message)
-            self.excel_status_label.config(
-                text=f"📁 Excel: {self.imported_file_name[:20]}..."
-            )
-            self.frame_buttons_manual.grid_remove()
-            self.frame_buttons_excel.grid()
-        except Exception as e:
-            messagebox.showerror("Lỗi Import", f"Lỗi import Excel:\n{str(e)}")
-
-    def _process_excel(self):
-        try:
-            if not self.imported_data or not self.imported_file_path:
-                messagebox.showwarning("Cảnh báo", "Chưa import file Excel nào!")
-                return
-            if not self.geometry_service:
-                messagebox.showerror("Lỗi", "GeometryV2Service chưa sẵn sàng!")
-                return
-            if not os.path.exists(self.imported_file_path):
-                messagebox.showerror("Lỗi", f"File không tồn tại:\n{self.imported_file_path}")
-                return
-            original_name = os.path.splitext(self.imported_file_name)[0]
-            default_output = f"{original_name}_encoded_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-            output_path = filedialog.asksaveasfilename(
-                title="Chọn nơi lưu kết quả",
-                defaultextension=".xlsx",
-                filetypes=[("Excel files", "*.xlsx")],
-                initialfile=default_output
-            )
-            if not output_path:
-                return
-            messagebox.showinfo(
-                "Xử lý Excel",
-                f"🚧 Chức năng đang phát triển\n\nInput: {self.imported_file_path}\nOutput: {output_path}\n\nLogic xử lý sẽ được implement sau."
-            )
-            result_message = (
-                f"🚧 Xử lý Excel (Coming Soon)\n\n"
-                f"📁 Input: {self.imported_file_name}\n"
-                f"💾 Output: {os.path.basename(output_path)}\n\n"
-                f"Logic xử lý đang được phát triển..."
-            )
-            self._update_result_display(result_message)
-        except Exception as e:
-            messagebox.showerror("Lỗi Xử lý", f"Lỗi xử lý Excel:\n{str(e)}")
-
-    def _quit_import_mode(self):
-        try:
-            result = messagebox.askyesno(
-                "Thoát chế độ import",
-                "Bạn có chắc muốn thoát chế độ import Excel?\n\nDữ liệu import sẽ bị xóa và bạn có thể nhập thủ công lại."
-            )
-            if result:
-                self.imported_data = False
-                self.imported_file_path = ""
-                self.imported_file_name = ""
-                self.manual_data_entered = False
-                self._unlock_manual_inputs()
-                self._update_result_display("✅ Đã quay lại chế độ nhập thủ công.")
-                self.excel_status_label.config(text="📋 Excel: ✅ Ready")
-                self.frame_buttons_excel.grid_remove()
-                self.frame_buttons_manual.grid_remove()
-        except Exception as e:
-            messagebox.showerror("Lỗi", f"Lỗi thoát chế độ import:\n{str(e)}")
-
-    def _encode_manual(self):
-        try:
-            if not self.geometry_service:
-                messagebox.showerror("Lỗi", "GeometryV2Service chưa sẵn sàng!")
-                return
-            messagebox.showinfo(
-                "Encode",
-                "🚧 Chức năng đang phát triển\n\nLogic encode sẽ được implement sau."
-            )
-            result_message = "🚧 Encode (Coming Soon)\n\nLogic encode đang được phát triển..."
-            self._update_result_display(result_message)
-        except Exception as e:
-            messagebox.showerror("Lỗi", f"Lỗi encode:\n{str(e)}")
-
-    def _lock_manual_inputs(self):
-        entries = self._get_all_input_entries()
-        for entry in entries:
-            try:
-                entry.config(state='disabled', bg='#E0E0E0')
-            except:
-                pass
-
-    def _unlock_manual_inputs(self):
-        entries = self._get_all_input_entries()
-        for entry in entries:
-            try:
-                entry.config(state='normal', bg='white')
-                entry.delete(0, tk.END)
-            except:
-                pass
-
-    def _update_result_display(self, message):
-        self.entry_tong.delete(1.0, tk.END)
-        self.entry_tong.insert(tk.END, message)
-        try:
-            self.entry_tong.config(font=("Courier New", 9), fg="black")
-        except Exception:
-            pass
-        if "Lỗi" in message or "lỗi" in message:
-            self.entry_tong.config(bg="#FFEBEE", fg="#D32F2F")
-        elif "Đã import" in message or "Hoàn thành" in message:
-            self.entry_tong.config(bg="#E8F5E8", fg="#388E3C")
-        elif "Đang xử lý" in message:
-            self.entry_tong.config(bg="#FFF3E0", fg="#F57C00")
-        else:
-            self.entry_tong.config(bg="#F8F9FA", fg="#9C27B0")
-
-    def _show_ready_message(self):
-        if self.geometry_service:
-            message = "✅ Geometry V2 Service Ready!\n\n7 hình học: Điểm, Vecto, Đường thẳng, Mặt phẳng, Đường tròn, Mặt cầu, Tam giác\n10 phép tính: Tương giao, Khoảng cách, Diện tích, Thể tích, PT đường thẳng, PT mặt phẳng, Góc, Tích vô hướng, Vecto đơn vị, Phép tính tam giác"
-        else:
-            message = "⚠️ Service chưa khởi tạo\n\nGiao diện UI đã sẵn sàng."
-        self.entry_tong.insert(tk.END, message)
-
-    def _copy_result(self):
-        messagebox.showinfo("Geometry V2", "Chưa có kết quả để copy (logic chưa implement)")
-
-        # ========== NHÓM A FRAMES (7 HÌNH) ==========
-
     def _create_point_frame_A(self):
-        """Tạo frame điểm A"""
         self.frame_A_diem = tk.LabelFrame(
             self.main_container, text="🎯 NHÓM A - Điểm",
             bg="#FFFFFF", fg="#7B1FA2", font=("Arial", 10, "bold")
         )
         self.frame_A_diem.grid(row=1, column=0, columnspan=4, padx=10, pady=5, sticky="we")
-
         tk.Label(self.frame_A_diem, text="Kích thước:", bg="#FFFFFF").grid(row=0, column=0)
         tk.OptionMenu(self.frame_A_diem, self.kich_thuoc_A_var, "2", "3").grid(row=0, column=1)
-
         tk.Label(self.frame_A_diem, text="Nhập tọa độ (x,y,z):", bg="#FFFFFF").grid(row=1, column=0)
         self.entry_diem_A = tk.Entry(self.frame_A_diem, width=40)
         self.entry_diem_A.grid(row=1, column=1, columnspan=2, sticky="we")
-
         self.frame_A_diem.grid_remove()
 
     def _create_vector_frame_A(self):
-        """Tạo frame vecto A"""
         self.frame_A_vecto = tk.LabelFrame(
             self.main_container, text="➡️ NHÓM A - Vecto",
             bg="#FFFFFF", fg="#7B1FA2", font=("Arial", 10, "bold")
         )
         self.frame_A_vecto.grid(row=1, column=0, columnspan=4, padx=10, pady=5, sticky="we")
-
         tk.Label(self.frame_A_vecto, text="Kích thước:", bg="#FFFFFF").grid(row=0, column=0)
         tk.OptionMenu(self.frame_A_vecto, self.kich_thuoc_A_var, "2", "3").grid(row=0, column=1)
-
         tk.Label(self.frame_A_vecto, text="Nhập thành phần (x,y,z):", bg="#FFFFFF").grid(row=1, column=0)
         self.entry_vecto_A = tk.Entry(self.frame_A_vecto, width=40)
         self.entry_vecto_A.grid(row=1, column=1, columnspan=2, sticky="we")
-
         self.frame_A_vecto.grid_remove()
 
     def _create_line_frame_A(self):
-        """Tạo frame đường thẳng A"""
         self.frame_A_duong = tk.LabelFrame(
             self.main_container, text="📏 NHÓM A - Đường thẳng",
             bg="#FFFFFF", fg="#7B1FA2", font=("Arial", 10, "bold")
         )
         self.frame_A_duong.grid(row=1, column=0, columnspan=4, padx=10, pady=5, sticky="we")
-
         tk.Label(self.frame_A_duong, text="Điểm (A,B,C):", bg="#FFFFFF").grid(row=0, column=0)
         self.entry_point_A = tk.Entry(self.frame_A_duong, width=30)
         self.entry_point_A.grid(row=0, column=1)
-
         tk.Label(self.frame_A_duong, text="Vector (X,Y,Z):", bg="#FFFFFF").grid(row=1, column=0)
         self.entry_vector_A = tk.Entry(self.frame_A_duong, width=30)
         self.entry_vector_A.grid(row=1, column=1)
-
         self.frame_A_duong.grid_remove()
 
     def _create_plane_frame_A(self):
-        """Tạo frame mặt phẳng A"""
         self.frame_A_plane = tk.LabelFrame(
             self.main_container, text="📐 NHÓM A - Mặt phẳng",
             bg="#FFFFFF", fg="#7B1FA2", font=("Arial", 10, "bold")
         )
         self.frame_A_plane.grid(row=1, column=0, columnspan=4, padx=10, pady=5, sticky="we")
-
         tk.Label(self.frame_A_plane, text="Phương trình ax+by+cz+d=0:", bg="#FFFFFF").grid(row=0, column=0,
                                                                                            columnspan=4)
-
         tk.Label(self.frame_A_plane, text="a:", bg="#FFFFFF", width=3).grid(row=1, column=0, sticky="e")
         self.entry_a_A = tk.Entry(self.frame_A_plane, width=15)
         self.entry_a_A.grid(row=1, column=1, padx=5)
-
         tk.Label(self.frame_A_plane, text="b:", bg="#FFFFFF", width=3).grid(row=1, column=2, sticky="e")
         self.entry_b_A = tk.Entry(self.frame_A_plane, width=15)
         self.entry_b_A.grid(row=1, column=3, padx=5)
-
         tk.Label(self.frame_A_plane, text="c:", bg="#FFFFFF", width=3).grid(row=2, column=0, sticky="e")
         self.entry_c_A = tk.Entry(self.frame_A_plane, width=15)
         self.entry_c_A.grid(row=2, column=1, padx=5)
-
         tk.Label(self.frame_A_plane, text="d:", bg="#FFFFFF", width=3).grid(row=2, column=2, sticky="e")
         self.entry_d_A = tk.Entry(self.frame_A_plane, width=15)
         self.entry_d_A.grid(row=2, column=3, padx=5)
-
         self.frame_A_plane.grid_remove()
 
     def _create_circle_frame_A(self):
-        """Tạo frame đường tròn A"""
         self.frame_A_circle = tk.LabelFrame(
             self.main_container, text="⭕ NHÓM A - Đường tròn",
             bg="#FFFFFF", fg="#7B1FA2", font=("Arial", 10, "bold")
         )
         self.frame_A_circle.grid(row=1, column=0, columnspan=4, padx=10, pady=5, sticky="we")
-
         tk.Label(self.frame_A_circle, text="Tâm đường tròn (x,y):", bg="#FFFFFF").grid(row=0, column=0)
         self.entry_center_A = tk.Entry(self.frame_A_circle, width=25)
         self.entry_center_A.grid(row=0, column=1, padx=5)
-
         tk.Label(self.frame_A_circle, text="Bán kính:", bg="#FFFFFF").grid(row=0, column=2)
         self.entry_radius_A = tk.Entry(self.frame_A_circle, width=20)
         self.entry_radius_A.grid(row=0, column=3, padx=5)
-
         self.frame_A_circle.grid_remove()
 
     def _create_sphere_frame_A(self):
-        """Tạo frame mặt cầu A"""
         self.frame_A_sphere = tk.LabelFrame(
             self.main_container, text="🌍 NHÓM A - Mặt cầu",
             bg="#FFFFFF", fg="#7B1FA2", font=("Arial", 10, "bold")
         )
         self.frame_A_sphere.grid(row=1, column=0, columnspan=4, padx=10, pady=5, sticky="we")
-
         tk.Label(self.frame_A_sphere, text="Tâm mặt cầu (x,y,z):", bg="#FFFFFF").grid(row=0, column=0)
         self.entry_sphere_center_A = tk.Entry(self.frame_A_sphere, width=25)
         self.entry_sphere_center_A.grid(row=0, column=1, padx=5)
-
         tk.Label(self.frame_A_sphere, text="Bán kính:", bg="#FFFFFF").grid(row=0, column=2)
         self.entry_sphere_radius_A = tk.Entry(self.frame_A_sphere, width=20)
         self.entry_sphere_radius_A.grid(row=0, column=3, padx=5)
-
         self.frame_A_sphere.grid_remove()
 
     def _create_triangle_frame_A(self):
-        """Tạo frame tam giác A"""
         self.frame_A_triangle = tk.LabelFrame(
             self.main_container, text="🔺 NHÓM A - Tam giác",
             bg="#FFFFFF", fg="#7B1FA2", font=("Arial", 10, "bold")
         )
         self.frame_A_triangle.grid(row=1, column=0, columnspan=4, padx=10, pady=5, sticky="we")
-
-        tk.Label(self.frame_A_triangle, text="Độ dài cạnh:", bg="#FFFFFF").grid(row=0, column=0)
+        tk.Label(self.frame_A_triangle, text="Độ dài cạnh a:", bg="#FFFFFF").grid(row=0, column=0)
         self.entry_triangle_a_A = tk.Entry(self.frame_A_triangle, width=25)
         self.entry_triangle_a_A.grid(row=0, column=1, padx=5)
-
-        tk.Label(self.frame_A_triangle, text="Độ dài cạnh:", bg="#FFFFFF").grid(row=1, column=0)
+        tk.Label(self.frame_A_triangle, text="Độ dài cạnh b:", bg="#FFFFFF").grid(row=1, column=0)
         self.entry_triangle_b_A = tk.Entry(self.frame_A_triangle, width=25)
         self.entry_triangle_b_A.grid(row=1, column=1, padx=5)
-
-        tk.Label(self.frame_A_triangle, text="Góc giữa 2 cạnh:", bg="#FFFFFF").grid(row=2, column=0)
+        tk.Label(self.frame_A_triangle, text="Góc C (độ):", bg="#FFFFFF").grid(row=2, column=0)
         self.entry_triangle_c_A = tk.Entry(self.frame_A_triangle, width=25)
         self.entry_triangle_c_A.grid(row=2, column=1, padx=5)
-
         self.frame_A_triangle.grid_remove()
-
-        # ========== NHÓM B FRAMES (7 HÌNH - TƯƠNG TỰ) ==========
 
     def _create_point_frame_B(self):
         self.frame_B_diem = tk.LabelFrame(
@@ -815,6 +575,392 @@ class GeometryV2View:
         self.entry_triangle_c_B = tk.Entry(self.frame_B_triangle, width=25)
         self.entry_triangle_c_B.grid(row=2, column=1, padx=5)
         self.frame_B_triangle.grid_remove()
+
+    # ========== CONTROL FRAME ==========
+    def _setup_control_frame(self):
+        self.frame_tong = tk.LabelFrame(
+            self.main_container, text="🎉 KẾT QUẢ & ĐIỀU KHIỂN",
+            bg="#FFFFFF", font=("Arial", 10, "bold")
+        )
+        self.frame_tong.grid(row=8, column=0, columnspan=4, padx=10, pady=10, sticky="we")
+
+        self.entry_tong = tk.Text(
+            self.main_container,
+            width=80, height=6,
+            font=("Courier New", 9), wrap=tk.WORD,
+            bg="#F3E5F5", fg="#6A1B9A",
+            relief="solid", bd=1, padx=5, pady=5
+        )
+        self.entry_tong.grid(row=9, column=0, columnspan=4, padx=5, pady=5, sticky="we")
+
+        # Buttons row
+        buttons_row = tk.Frame(self.main_container, bg="#F8F9FA")
+        buttons_row.grid(row=10, column=0, columnspan=4, pady=5, sticky="we")
+
+
+
+
+        self.btn_clear = tk.Button(
+            buttons_row, text="🗑️ Clear All",
+            command=self._clear_all_inputs,
+            bg="#607D8B", fg="white", font=("Arial", 9, "bold"),
+            width=15, height=1
+        )
+        self.btn_clear.pack(side="left", padx=5)
+
+        self.btn_import_excel = tk.Button(
+            self.frame_tong, text="📁 Import Excel",
+            command=self._import_excel,
+            bg="#FF9800", fg="white", font=("Arial", 10, "bold")
+        )
+        self.btn_import_excel.grid(row=0, column=0, columnspan=4, pady=5, sticky="we")
+
+        self.frame_buttons_manual = tk.Frame(self.frame_tong, bg="#FFFFFF")
+        self.frame_buttons_manual.grid(row=1, column=0, columnspan=4, pady=5, sticky="we")
+        tk.Button(
+            self.frame_buttons_manual, text="🔐 Encode",
+            command=self._encode_manual,
+            bg="#4CAF50", fg="white", font=("Arial", 10, "bold"),
+            width=20, height=1
+        ).pack(pady=5)
+        self.frame_buttons_manual.grid_remove()
+
+        self.frame_buttons_excel = tk.Frame(self.frame_tong, bg="#FFFFFF")
+        self.frame_buttons_excel.grid(row=1, column=0, columnspan=4, pady=5, sticky="we")
+        tk.Button(self.frame_buttons_excel, text="🚀 Xử lý Excel",
+                  command=self._process_excel,
+                  bg="#F44336", fg="white", font=("Arial", 10, "bold")).grid(row=0, column=0, padx=5)
+        tk.Button(self.frame_buttons_excel, text="↩️ Quay lại",
+                  command=self._quit_import_mode,
+                  bg="#607D8B", fg="white", font=("Arial", 10)).grid(row=0, column=1, padx=5)
+        self.frame_buttons_excel.grid_remove()
+
+    # ========== DATA COLLECTION ==========
+    def _collect_data_from_inputs(self, group):
+        """Thu thập data từ input fields"""
+        if group == 'A':
+            shape = self.dropdown1_var.get()
+        else:
+            shape = self.dropdown2_var.get()
+
+        data = {}
+
+        try:
+            if shape == "Điểm":
+                if group == 'A':
+                    point_input = self.entry_diem_A.get().strip()
+                else:
+                    point_input = self.entry_diem_B.get().strip()
+                if not point_input:
+                    return None
+                data['point_input'] = point_input
+
+            elif shape == "Vecto":
+                if group == 'A':
+                    vecto_input = self.entry_vecto_A.get().strip()
+                else:
+                    vecto_input = self.entry_vecto_B.get().strip()
+                if not vecto_input:
+                    return None
+                data['vecto_input'] = vecto_input
+
+            elif shape == "Đường thẳng":
+                if group == 'A':
+                    point = self.entry_point_A.get().strip()
+                    vector = self.entry_vector_A.get().strip()
+                else:
+                    point = self.entry_point_B.get().strip()
+                    vector = self.entry_vector_B.get().strip()
+                if not point or not vector:
+                    return None
+                data['line_A1'] = point
+                data['line_X1'] = vector
+
+            elif shape == "Mặt phẳng":
+                if group == 'A':
+                    a = self.entry_a_A.get().strip()
+                    b = self.entry_b_A.get().strip()
+                    c = self.entry_c_A.get().strip()
+                    d = self.entry_d_A.get().strip()
+                else:
+                    a = self.entry_a_B.get().strip()
+                    b = self.entry_b_B.get().strip()
+                    c = self.entry_c_B.get().strip()
+                    d = self.entry_d_B.get().strip()
+                if not a or not b or not c or not d:
+                    return None
+                data['plane_a'] = a
+                data['plane_b'] = b
+                data['plane_c'] = c
+                data['plane_d'] = d
+
+            elif shape == "Đường tròn":
+                if group == 'A':
+                    center = self.entry_center_A.get().strip()
+                    radius = self.entry_radius_A.get().strip()
+                else:
+                    center = self.entry_center_B.get().strip()
+                    radius = self.entry_radius_B.get().strip()
+                if not center or not radius:
+                    return None
+                data['circle_center'] = center
+                data['circle_radius'] = radius
+
+            elif shape == "Mặt cầu":
+                if group == 'A':
+                    center = self.entry_sphere_center_A.get().strip()
+                    radius = self.entry_sphere_radius_A.get().strip()
+                else:
+                    center = self.entry_sphere_center_B.get().strip()
+                    radius = self.entry_sphere_radius_B.get().strip()
+                if not center or not radius:
+                    return None
+                data['sphere_center'] = center
+                data['sphere_radius'] = radius
+
+            elif shape == "Tam giác":
+                if group == 'A':
+                    a = self.entry_triangle_a_A.get().strip()
+                    b = self.entry_triangle_b_A.get().strip()
+                    c = self.entry_triangle_c_A.get().strip()
+                else:
+                    a = self.entry_triangle_a_B.get().strip()
+                    b = self.entry_triangle_b_B.get().strip()
+                    c = self.entry_triangle_c_B.get().strip()
+                if not a or not b or not c:
+                    return None
+                data['triangle_a'] = a
+                data['triangle_b'] = b
+                data['triangle_c'] = c
+
+            return data if data else None
+
+        except Exception as e:
+            print(f"⚠️ Error collecting data for group {group}: {e}")
+            return None
+
+    def _requires_group_b(self):
+        """Kiểm tra operation có cần nhóm B không"""
+        operation = self.pheptoan_var.get()
+        op_map = self._get_operation_shape_map()
+        allowed_a, allowed_b = op_map.get(operation, ([], []))
+        return allowed_b is not None and len(allowed_b) > 0
+
+    # ========== ENCODE MANUAL ==========
+    def _encode_manual(self):
+        """Encode dữ liệu thủ công"""
+        try:
+            if not self.geometry_service:
+                messagebox.showerror("Lỗi", "GeometryV2Service chưa sẵn sàng!")
+                return
+
+            data_a = self._collect_data_from_inputs('A')
+            if not data_a:
+                messagebox.showerror(
+                    "Lỗi",
+                    "Vui lòng nhập dữ liệu cho Nhóm A!\n\nTất cả các trường bắt buộc phải được điền."
+                )
+                return
+
+            data_b = None
+            if self._requires_group_b():
+                data_b = self._collect_data_from_inputs('B')
+                if not data_b:
+                    messagebox.showerror(
+                        "Lỗi",
+                        "Phép toán này cần Nhóm B!\n\nVui lòng nhập dữ liệu cho Nhóm B."
+                    )
+                    return
+
+            self.geometry_service.set_operation(self.pheptoan_var.get())
+            self.geometry_service.set_shapes(
+                self.dropdown1_var.get(),
+                self.dropdown2_var.get() if self._requires_group_b() else None
+            )
+            self.geometry_service.set_dimension(
+                self.kich_thuoc_A_var.get(),
+                self.kich_thuoc_B_var.get()
+            )
+            self.geometry_service.set_version(
+                self.phien_ban_var.get().replace("Phiên bản ", "")
+            )
+
+            result = self.geometry_service.process_manual_data(data_a, data_b)
+
+            if result['success']:
+
+                output_message = f"{result['encoded']}"
+
+
+                self._update_result_display(output_message)
+
+                self.has_result = True
+            else:
+                messagebox.showerror("Lỗi Encode", result['error'])
+                self._update_result_display(f"❌ Lỗi encode:\n\n{result['error']}")
+
+        except Exception as e:
+            error_msg = f"Lỗi encode:\n\n{str(e)}"
+            messagebox.showerror("Lỗi", error_msg)
+            self._update_result_display(f"❌ {error_msg}")
+
+
+
+    def _clear_all_inputs(self):
+        """Clear tất cả inputs"""
+        try:
+            entries = self._get_all_input_entries()
+            for entry in entries:
+                try:
+                    if hasattr(entry, 'delete'):
+                        entry.delete(0, tk.END)
+                except:
+                    pass
+
+            self._update_result_display("✨ Đã xóa tất cả input!\n\nSẵn sàng nhập dữ liệu mới.")
+
+            self.has_result = False
+            self.manual_data_entered = False
+
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Lỗi clear inputs:\n{str(e)}")
+
+    def _update_result_display(self, message):
+        """Cập nhật result display"""
+        self.entry_tong.delete(1.0, tk.END)
+        self.entry_tong.insert(tk.END, message)
+
+        if "❌" in message or "Lỗi" in message or "lỗi" in message:
+            self.entry_tong.config(bg="#FFEBEE", fg="#D32F2F")
+        elif "✅" in message or "thành công" in message:
+            self.entry_tong.config(bg="#E8F5E9", fg="#2E7D32")
+        elif "⚠️" in message or "Cảnh báo" in message:
+            self.entry_tong.config(bg="#FFF3E0", fg="#F57C00")
+        elif "🚧" in message or "Coming Soon" in message:
+            self.entry_tong.config(bg="#E3F2FD", fg="#1976D2")
+        else:
+            self.entry_tong.config(bg="#F3E5F5", fg="#6A1B9A")
+
+    # ========== EXCEL PROCESSING ==========
+    def _import_excel(self):
+        try:
+            if self.manual_data_entered or self._check_manual_data():
+                messagebox.showerror(
+                    "Lỗi",
+                    "Đã có dữ liệu thủ công trong các ô nhập liệu!\n\nVui lòng xóa dữ liệu thủ công trước khi import Excel."
+                )
+                return
+            file_path = filedialog.askopenfilename(
+                title="Chọn file Excel",
+                filetypes=[("Excel files", "*.xlsx *.xls")]
+            )
+            if not file_path:
+                return
+            file_ext = os.path.splitext(file_path)[1].lower()
+            if file_ext not in ['.xlsx', '.xls']:
+                messagebox.showerror("Lỗi", "Chỉ hỗ trợ file Excel (.xlsx, .xls)!")
+                return
+            if not os.path.exists(file_path):
+                messagebox.showerror("Lỗi", "File không tồn tại!")
+                return
+            self.imported_file_path = file_path
+            self.imported_file_name = os.path.basename(file_path)
+            self.imported_data = True
+            self.manual_data_entered = False
+            self._lock_manual_inputs()
+            file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
+            result_message = (
+                f"✅ Import thành công!\n\n"
+                f"📁 File: {self.imported_file_name}\n"
+                f"📂 Đường dẫn: {file_path}\n"
+                f"📊 Kích thước: {file_size_mb:.2f} MB\n\n"
+                f"Nhấn 'Xử lý Excel' để bắt đầu xử lý file."
+            )
+            self._update_result_display(result_message)
+            self.excel_status_label.config(text=f"📁 Excel: {self.imported_file_name[:20]}...")
+            self.frame_buttons_manual.grid_remove()
+            self.frame_buttons_excel.grid()
+        except Exception as e:
+            messagebox.showerror("Lỗi Import", f"Lỗi import Excel:\n{str(e)}")
+
+    def _process_excel(self):
+        try:
+            if not self.imported_data or not self.imported_file_path:
+                messagebox.showwarning("Cảnh báo", "Chưa import file Excel nào!")
+                return
+            if not self.geometry_service:
+                messagebox.showerror("Lỗi", "GeometryV2Service chưa sẵn sàng!")
+                return
+            if not os.path.exists(self.imported_file_path):
+                messagebox.showerror("Lỗi", f"File không tồn tại:\n{self.imported_file_path}")
+                return
+            original_name = os.path.splitext(self.imported_file_name)[0]
+            default_output = f"{original_name}_encoded_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            output_path = filedialog.asksaveasfilename(
+                title="Chọn nơi lưu kết quả",
+                defaultextension=".xlsx",
+                filetypes=[("Excel files", "*.xlsx")],
+                initialfile=default_output
+            )
+            if not output_path:
+                return
+            messagebox.showinfo(
+                "Xử lý Excel",
+                f"🚧 Chức năng đang phát triển\n\nInput: {self.imported_file_path}\nOutput: {output_path}\n\nLogic xử lý sẽ được implement sau."
+            )
+            result_message = (
+                f"🚧 Xử lý Excel (Coming Soon)\n\n"
+                f"📁 Input: {self.imported_file_name}\n"
+                f"💾 Output: {os.path.basename(output_path)}\n\n"
+                f"Logic xử lý đang được phát triển..."
+            )
+            self._update_result_display(result_message)
+        except Exception as e:
+            messagebox.showerror("Lỗi Xử lý", f"Lỗi xử lý Excel:\n{str(e)}")
+
+    def _quit_import_mode(self):
+        try:
+            result = messagebox.askyesno(
+                "Thoát chế độ import",
+                "Bạn có chắc muốn thoát chế độ import Excel?\n\nDữ liệu import sẽ bị xóa và bạn có thể nhập thủ công lại."
+            )
+            if result:
+                self.imported_data = False
+                self.imported_file_path = ""
+                self.imported_file_name = ""
+                self.manual_data_entered = False
+                self._unlock_manual_inputs()
+                self._update_result_display("✅ Đã quay lại chế độ nhập thủ công.")
+                self.excel_status_label.config(text="📋 Excel: ✅ Ready")
+                self.frame_buttons_excel.grid_remove()
+                self.frame_buttons_manual.grid_remove()
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Lỗi thoát chế độ import:\n{str(e)}")
+
+    def _lock_manual_inputs(self):
+        entries = self._get_all_input_entries()
+        for entry in entries:
+            try:
+                entry.config(state='disabled', bg='#E0E0E0')
+            except:
+                pass
+
+    def _unlock_manual_inputs(self):
+        entries = self._get_all_input_entries()
+        for entry in entries:
+            try:
+                entry.config(state='normal', bg='white')
+                entry.delete(0, tk.END)
+            except:
+                pass
+
+    def _show_ready_message(self):
+        if self.geometry_service:
+            message = "✅ Geometry V2 Service Ready!\n\n7 hình học: Điểm, Vecto, Đường thẳng, Mặt phẳng, Đường tròn, Mặt cầu, Tam giác\n10 phép tính: Tương giao, Khoảng cách, Diện tích, Thể tích, PT đường thẳng, PT mặt phẳng, Góc, Tích vô hướng, Vecto đơn vị, Phép tính tam giác"
+        else:
+            message = "⚠️ Service chưa khởi tạo\n\nGiao diện UI đã sẵn sàng."
+        self.entry_tong.insert(tk.END, message)
+
 
 if __name__ == "__main__":
     root = tk.Tk()
