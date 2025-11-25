@@ -1,0 +1,121 @@
+{
+  "operations": {
+    "Tương giao": {
+      "code": "qT2",
+      "description": "Tìm giao điểm/giao tuyến giữa các đối tượng hình học",
+      "supported_combinations": [
+        {"type1": "Điểm", "type2": "Đường thẳng", "result": "boolean"},
+        {"type1": "Điểm", "type2": "Mặt phẳng", "result": "boolean"},
+        {"type1": "Đường thẳng", "type2": "Đường thẳng", "result": "point"},
+        {"type1": "Đường thẳng", "type2": "Mặt phẳng", "result": "point"},
+        {"type1": "Mặt phẳng", "type2": "Mặt phẳng", "result": "line"},
+        {"type1": "Vecto", "type2": "Vecto", "result": "point"},
+        {"type1": "Tam giác", "type2": "Đường thẳng", "result": "points"}
+      ]
+    },
+    "Khoảng cách": {
+      "code": "qT3",
+      "description": "Tính khoảng cách giữa các đối tượng hình học",
+      "supported_combinations": [
+        {"type1": "Điểm", "type2": "Điểm", "result": "distance"},
+        {"type1": "Điểm", "type2": "Đường thẳng", "result": "distance"},
+        {"type1": "Điểm", "type2": "Mặt phẳng", "result": "distance"},
+        {"type1": "Đường thẳng", "type2": "Đường thẳng", "result": "distance"},
+        {"type1": "Đường thẳng", "type2": "Mặt phẳng", "result": "distance"},
+        {"type1": "Mặt phẳng", "type2": "Mặt phẳng", "result": "distance"},
+        {"type1": "Vecto", "type2": "Vecto", "result": "distance"}
+      ]
+    },
+    "Diện tích": {
+      "code": "qT4",
+      "description": "Tính diện tích của các đối tượng hình học",
+      "single_object_only": true,
+      "supported_objects": [
+        {"type": "Đường tròn", "formula": "π × r²"},
+        {"type": "Tam giác", "formula": "Heron hoặc vector cross product"},
+        {"type": "Mặt cầu", "formula": "4 × π × r² (surface area)"}
+      ]
+    },
+    "Thể tích": {
+      "code": "qT5",
+      "description": "Tính thể tích của các đối tượng hình học 3D",
+      "single_object_only": true,
+      "supported_objects": [
+        {"type": "Mặt cầu", "formula": "(4/3) × π × r³"}
+      ]
+    },
+    "PT đường thẳng": {
+      "code": "qT6",
+      "description": "Viết phương trình đường thẳng từ 2 điểm hoặc 1 điểm và 1 vector",
+      "supported_combinations": [
+        {"type1": "Điểm", "type2": "Điểm", "result": "line_equation"},
+        {"type1": "Điểm", "type2": "Vecto", "result": "line_equation"}
+      ]
+    },
+    "PT mặt phẳng": {
+      "code": "qT7",
+      "description": "Viết phương trình mặt phẳng từ 3 điểm hoặc 1 điểm và 1 vector pháp tuyến",
+      "supported_combinations": [
+        {"type1": "Điểm", "type2": "Điểm", "type3": "Điểm", "result": "plane_equation"},
+        {"type1": "Điểm", "type2": "Vecto", "result": "plane_equation"},
+        {"type1": "Tam giác", "result": "plane_equation"}
+      ]
+    },
+    "Góc": {
+      "code": "qT8",
+      "description": "Tính góc giữa các đối tượng hình học",
+      "supported_combinations": [
+        {"type1": "Vecto", "type2": "Vecto", "result": "angle_degrees"},
+        {"type1": "Đường thẳng", "type2": "Đường thẳng", "result": "angle_degrees"},
+        {"type1": "Đường thẳng", "type2": "Mặt phẳng", "result": "angle_degrees"},
+        {"type1": "Mặt phẳng", "type2": "Mặt phẳng", "result": "angle_degrees"}
+      ]
+    },
+    "Tích vô hướng 2 vecto": {
+      "code": "qT9",
+      "description": "Tính tích vô hướng (dot product) của 2 vector",
+      "supported_combinations": [
+        {"type1": "Vecto", "type2": "Vecto", "result": "scalar"}
+      ]
+    },
+    "Vecto đơn vị": {
+      "code": "qT10",
+      "description": "Tính vector đơn vị (unit vector) từ một vector",
+      "single_object_only": true,
+      "supported_objects": [
+        {"type": "Vecto", "formula": "v / |v|"}
+      ]
+    },
+    "Phép tính tam giác": {
+      "code": "qT11",
+      "description": "Các phép tính liên quan đến tam giác",
+      "single_object_only": true,
+      "supported_calculations": [
+        {"name": "Chu vi", "formula": "a + b + c"},
+        {"name": "Diện tích", "formula": "Heron"},
+        {"name": "Trọng tâm", "formula": "(A + B + C) / 3"},
+        {"name": "Tâm đường tròn ngoại tiếp", "formula": "Perpendicular bisectors"},
+        {"name": "Bán kính đường tròn ngoại tiếp", "formula": "R = abc / (4S)"}
+      ]
+    }
+  },
+  "coordinate_systems": {
+    "2D": {
+      "description": "Hệ tọa độ 2 chiều (x, y)",
+      "supported_objects": ["Điểm", "Vecto", "Đường thẳng", "Đường tròn", "Tam giác"]
+    },
+    "3D": {
+      "description": "Hệ tọa độ 3 chiều (x, y, z)",
+      "supported_objects": ["Điểm", "Vecto", "Đường thẳng", "Mặt phẳng", "Mặt cầu", "Tam giác"]
+    }
+  },
+  "metadata": {
+    "version": "2.0",
+    "mode": "Geometry V2 Mode",
+    "description": "Định nghĩa 10 phép toán hình học nâng cao cho Geometry V2",
+    "created_for": "ConvertKeylogApp",
+    "created_date": "2025-11-25",
+    "total_operations": 10,
+    "new_operations": ["PT mặt phẳng", "Góc", "Tích vô hướng 2 vecto", "Vecto đơn vị", "Phép tính tam giác"]
+  }
+}

@@ -1,0 +1,173 @@
+{
+  "shapes": {
+    "Điểm": {
+      "code_2d": "112",
+      "code_3d": "113",
+      "tcode_group_a": "T1",
+      "tcode_group_b": "T2",
+      "description": "Điểm trong không gian 2D hoặc 3D",
+      "parameters": {
+        "2D": ["x", "y"],
+        "3D": ["x", "y", "z"]
+      },
+      "validation": {
+        "min_params": 2,
+        "max_params": 3,
+        "numeric_only": true
+      },
+      "encoding_format": {
+        "2D": "{x_encoded}={y_encoded}=",
+        "3D": "{x_encoded}={y_encoded}={z_encoded}="
+      }
+    },
+    "Vecto": {
+      "code_2d": "122",
+      "code_3d": "123",
+      "tcode_group_a": "T3",
+      "tcode_group_b": "T4",
+      "description": "Vector trong không gian 2D hoặc 3D",
+      "parameters": {
+        "2D": ["vx", "vy"],
+        "3D": ["vx", "vy", "vz"]
+      },
+      "validation": {
+        "min_params": 2,
+        "max_params": 3,
+        "numeric_only": true
+      },
+      "encoding_format": {
+        "2D": "{vx_encoded}={vy_encoded}=",
+        "3D": "{vx_encoded}={vy_encoded}={vz_encoded}="
+      },
+      "operations": {
+        "magnitude": "|v| = √(vx² + vy² [+ vz²])",
+        "unit_vector": "v̂ = v / |v|",
+        "dot_product": "A · B = Ax×Bx + Ay×By [+ Az×Bz]",
+        "cross_product_3d": "A × B = (AyBz - AzBy, AzBx - AxBz, AxBy - AyBx)"
+      }
+    },
+    "Đường thẳng": {
+      "code": "21",
+      "tcode_group_a": "T4",
+      "tcode_group_b": "T5",
+      "description": "Đường thẳng trong không gian 3D (parametric form)",
+      "parameters": {
+        "point": ["Ax", "Ay", "Az"],
+        "direction_vector": ["dx", "dy", "dz"]
+      },
+      "validation": {
+        "point_params": 3,
+        "vector_params": 3,
+        "vector_non_zero": true
+      },
+      "encoding_format": "{Ax}={dx}={Ay}={dy}={Az}={dz}=",
+      "equation_form": "(x-Ax)/dx = (y-Ay)/dy = (z-Az)/dz"
+    },
+    "Mặt phẳng": {
+      "code": "31",
+      "tcode_group_a": "T7",
+      "tcode_group_b": "T8",
+      "description": "Mặt phẳng trong không gian 3D",
+      "parameters": ["a", "b", "c", "d"],
+      "validation": {
+        "param_count": 4,
+        "normal_non_zero": "a² + b² + c² ≠ 0"
+      },
+      "encoding_format": "{a_encoded}={b_encoded}={c_encoded}={d_encoded}=",
+      "equation_form": "ax + by + cz + d = 0"
+    },
+    "Đường tròn": {
+      "code": "41",
+      "tcode_group_a": "Tz",
+      "tcode_group_b": "Tx",
+      "description": "Đường tròn trong không gian 2D",
+      "parameters": {
+        "center": ["Ix", "Iy"],
+        "radius": ["R"]
+      },
+      "validation": {
+        "center_params": 2,
+        "radius_positive": true
+      },
+      "encoding_format": "{Ix_encoded}={Iy_encoded}={R_encoded}=",
+      "equation_form": "(x-Ix)² + (y-Iy)² = R²",
+      "formulas": {
+        "area": "π × R²",
+        "circumference": "2 × π × R"
+      }
+    },
+    "Mặt cầu": {
+      "code": "51",
+      "tcode_group_a": "Tj",
+      "tcode_group_b": "Tk",
+      "description": "Mặt cầu trong không gian 3D",
+      "parameters": {
+        "center": ["Ix", "Iy", "Iz"],
+        "radius": ["R"]
+      },
+      "validation": {
+        "center_params": 3,
+        "radius_positive": true
+      },
+      "encoding_format": "{Ix_encoded}={Iy_encoded}={Iz_encoded}={R_encoded}=",
+      "equation_form": "(x-Ix)² + (y-Iy)² + (z-Iz)² = R²",
+      "formulas": {
+        "surface_area": "4 × π × R²",
+        "volume": "(4/3) × π × R³"
+      }
+    },
+    "Tam giác": {
+      "code": "61",
+      "tcode_group_a": "T9",
+      "tcode_group_b": "T10",
+      "description": "Tam giác trong không gian 2D hoặc 3D",
+      "parameters": {
+        "2D": {
+          "A": ["Ax", "Ay"],
+          "B": ["Bx", "By"],
+          "C": ["Cx", "Cy"]
+        },
+        "3D": {
+          "A": ["Ax", "Ay", "Az"],
+          "B": ["Bx", "By", "Bz"],
+          "C": ["Cx", "Cy", "Cz"]
+        }
+      },
+      "validation": {
+        "vertices_count": 3,
+        "non_collinear": true
+      },
+      "encoding_format": {
+        "2D": "{Ax}={Ay}={Bx}={By}={Cx}={Cy}=",
+        "3D": "{Ax}={Ay}={Az}={Bx}={By}={Bz}={Cx}={Cy}={Cz}="
+      },
+      "formulas": {
+        "area_heron": "√[s(s-a)(s-b)(s-c)], s = (a+b+c)/2",
+        "area_vector": "|AB × AC| / 2",
+        "perimeter": "a + b + c",
+        "centroid": "((Ax+Bx+Cx)/3, (Ay+By+Cy)/3, (Az+Bz+Cz)/3)"
+      }
+    }
+  },
+  "shape_categories": {
+    "basic_objects": ["Điểm", "Vecto"],
+    "1d_objects": ["Đường thẳng"],
+    "2d_objects": ["Mặt phẳng", "Đường tròn", "Tam giác"],
+    "3d_objects": ["Mặt cầu"]
+  },
+  "dimension_support": {
+    "2D_only": ["Đường tròn"],
+    "3D_only": ["Mặt phẳng", "Mặt cầu", "Đường thẳng"],
+    "both_2D_3D": ["Điểm", "Vecto", "Tam giác"]
+  },
+  "metadata": {
+    "version": "2.0",
+    "mode": "Geometry V2 Mode",
+    "description": "Định nghĩa 7 hình dạng hình học cho Geometry V2",
+    "created_for": "ConvertKeylogApp",
+    "created_date": "2025-11-25",
+    "total_shapes": 7,
+    "new_shapes": ["Vecto", "Tam giác"],
+    "inherited_shapes": ["Điểm", "Đường thẳng", "Mặt phẳng", "Đường tròn", "Mặt cầu"]
+  }
+}

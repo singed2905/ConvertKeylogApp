@@ -1,0 +1,135 @@
+{
+  "character_mapping": {
+    "0": "A", "1": "B", "2": "C", "3": "D", "4": "E",
+    "5": "F", "6": "G", "7": "H", "8": "I", "9": "J",
+    ".": "K", "-": "L", "+": "M", "(": "N", ")": "O",
+    "/": "P", "*": "Q", "^": "R", "√": "S", "π": "T",
+    "e": "U", "sin": "V", "cos": "W", "tan": "X",
+    "log": "Y", "ln": "Z"
+  },
+  "reverse_mapping": {
+    "A": "0", "B": "1", "C": "2", "D": "3", "E": "4",
+    "F": "5", "G": "6", "H": "7", "I": "8", "J": "9",
+    "K": ".", "L": "-", "M": "+", "N": "(", "O": ")",
+    "P": "/", "Q": "*", "R": "^", "S": "√", "T": "π",
+    "U": "e", "V": "sin", "W": "cos", "X": "tan",
+    "Y": "log", "Z": "ln"
+  },
+  "operation_codes": {
+    "Tương giao": "qT2",
+    "Khoảng cách": "qT3",
+    "Diện tích": "qT4",
+    "Thể tích": "qT5",
+    "PT đường thẳng": "qT6",
+    "PT mặt phẳng": "qT7",
+    "Góc": "qT8",
+    "Tích vô hướng 2 vecto": "qT9",
+    "Vecto đơn vị": "qT10",
+    "Phép tính tam giác": "qT11"
+  },
+  "shape_codes": {
+    "group_a": {
+      "Điểm_2D": "112",
+      "Điểm_3D": "113",
+      "Vecto_2D": "122",
+      "Vecto_3D": "123",
+      "Đường thẳng": "21",
+      "Mặt phẳng": "31",
+      "Đường tròn": "41",
+      "Mặt cầu": "51",
+      "Tam giác": "61"
+    },
+    "group_b": {
+      "Điểm_2D": "qT11T122",
+      "Điểm_3D": "qT11T123",
+      "Vecto_2D": "qT11T132",
+      "Vecto_3D": "qT11T133",
+      "Đường thẳng": "qT12T12",
+      "Mặt phẳng": "qT13T12",
+      "Đường tròn": "qT14T12",
+      "Mặt cầu": "qT15T12",
+      "Tam giác": "qT16T12"
+    }
+  },
+  "tcode_mapping": {
+    "default_group_a": {
+      "Điểm": "T1",
+      "Vecto": "T3",
+      "Đường thẳng": "T4",
+      "Mặt phẳng": "T7",
+      "Đường tròn": "Tz",
+      "Mặt cầu": "Tj",
+      "Tam giác": "T9"
+    },
+    "default_group_b": {
+      "Điểm": "T2",
+      "Vecto": "T4",
+      "Đường thẳng": "T5",
+      "Mặt phẳng": "T8",
+      "Đường tròn": "Tx",
+      "Mặt cầu": "Tk",
+      "Tam giác": "T10"
+    },
+    "operation_specific": {
+      "Diện tích": {
+        "group_a": {
+          "Đường tròn": "T1",
+          "Mặt cầu": "T4",
+          "Tam giác": "T6"
+        },
+        "group_b": {
+          "Đường tròn": "T2",
+          "Mặt cầu": "T5",
+          "Tam giác": "T7"
+        }
+      },
+      "Thể tích": {
+        "group_a": {
+          "Mặt cầu": "T7"
+        },
+        "group_b": {
+          "Mặt cầu": "T8"
+        }
+      },
+      "Vecto đơn vị": {
+        "group_a": {
+          "Vecto": "T11"
+        }
+      },
+      "Tích vô hướng 2 vecto": {
+        "group_a": {"Vecto": "T12"},
+        "group_b": {"Vecto": "T13"}
+      },
+      "Phép tính tam giác": {
+        "group_a": {"Tam giác": "T14"}
+      }
+    }
+  },
+  "keylog_format": {
+    "single_object": "{prefix}{shapeA_code}{encoded_values}C{operation_code}{tcode}= =",
+    "two_objects": "{prefix}{shapeA_code}{encoded_values}C{shapeB_code}{encoded_values}C{operation_code}{tcodeA}R{tcodeB}= =",
+    "default_prefix": "wj"
+  },
+  "encoding_rules": {
+    "decimal_separator": ".",
+    "negative_sign": "-",
+    "value_separator": "=",
+    "preserve_expressions": true,
+    "max_precision": 10
+  },
+  "validation_rules": {
+    "max_keylog_length": 500,
+    "required_separators": ["C", "="],
+    "prefix_pattern": "^wj",
+    "suffix_pattern": "= =$"
+  },
+  "metadata": {
+    "version": "2.0",
+    "mode": "Geometry V2 Mode",
+    "description": "Character mapping và encoding rules cho Geometry V2",
+    "created_for": "ConvertKeylogApp",
+    "created_date": "2025-11-25",
+    "compatible_calculators": ["fx-799", "fx-991", "fx-570"],
+    "encoding_system": "TL-compatible keylog format"
+  }
+}

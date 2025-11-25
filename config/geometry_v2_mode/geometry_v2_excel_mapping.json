@@ -1,0 +1,203 @@
+{
+  "excel_columns": {
+    "Điểm": {
+      "group_a": {
+        "2D": ["A_Điểm_X", "A_Điểm_Y"],
+        "3D": ["A_Điểm_X", "A_Điểm_Y", "A_Điểm_Z"]
+      },
+      "group_b": {
+        "2D": ["B_Điểm_X", "B_Điểm_Y"],
+        "3D": ["B_Điểm_X", "B_Điểm_Y", "B_Điểm_Z"]
+      }
+    },
+    "Vecto": {
+      "group_a": {
+        "2D": ["A_Vecto_VX", "A_Vecto_VY"],
+        "3D": ["A_Vecto_VX", "A_Vecto_VY", "A_Vecto_VZ"]
+      },
+      "group_b": {
+        "2D": ["B_Vecto_VX", "B_Vecto_VY"],
+        "3D": ["B_Vecto_VX", "B_Vecto_VY", "B_Vecto_VZ"]
+      }
+    },
+    "Đường thẳng": {
+      "group_a": {
+        "point": ["A_Line_PointX", "A_Line_PointY", "A_Line_PointZ"],
+        "direction": ["A_Line_DirX", "A_Line_DirY", "A_Line_DirZ"]
+      },
+      "group_b": {
+        "point": ["B_Line_PointX", "B_Line_PointY", "B_Line_PointZ"],
+        "direction": ["B_Line_DirX", "B_Line_DirY", "B_Line_DirZ"]
+      }
+    },
+    "Mặt phẳng": {
+      "group_a": ["A_Plane_A", "A_Plane_B", "A_Plane_C", "A_Plane_D"],
+      "group_b": ["B_Plane_A", "B_Plane_B", "B_Plane_C", "B_Plane_D"]
+    },
+    "Đường tròn": {
+      "group_a": {
+        "center": ["A_Circle_CenterX", "A_Circle_CenterY"],
+        "radius": ["A_Circle_Radius"]
+      },
+      "group_b": {
+        "center": ["B_Circle_CenterX", "B_Circle_CenterY"],
+        "radius": ["B_Circle_Radius"]
+      }
+    },
+    "Mặt cầu": {
+      "group_a": {
+        "center": ["A_Sphere_CenterX", "A_Sphere_CenterY", "A_Sphere_CenterZ"],
+        "radius": ["A_Sphere_Radius"]
+      },
+      "group_b": {
+        "center": ["B_Sphere_CenterX", "B_Sphere_CenterY", "B_Sphere_CenterZ"],
+        "radius": ["B_Sphere_Radius"]
+      }
+    },
+    "Tam giác": {
+      "group_a": {
+        "2D": {
+          "A": ["A_Triangle_Ax", "A_Triangle_Ay"],
+          "B": ["A_Triangle_Bx", "A_Triangle_By"],
+          "C": ["A_Triangle_Cx", "A_Triangle_Cy"]
+        },
+        "3D": {
+          "A": ["A_Triangle_Ax", "A_Triangle_Ay", "A_Triangle_Az"],
+          "B": ["A_Triangle_Bx", "A_Triangle_By", "A_Triangle_Bz"],
+          "C": ["A_Triangle_Cx", "A_Triangle_Cy", "A_Triangle_Cz"]
+        }
+      },
+      "group_b": {
+        "2D": {
+          "A": ["B_Triangle_Ax", "B_Triangle_Ay"],
+          "B": ["B_Triangle_Bx", "B_Triangle_By"],
+          "C": ["B_Triangle_Cx", "B_Triangle_Cy"]
+        },
+        "3D": {
+          "A": ["B_Triangle_Ax", "B_Triangle_Ay", "B_Triangle_Az"],
+          "B": ["B_Triangle_Bx", "B_Triangle_By", "B_Triangle_Bz"],
+          "C": ["B_Triangle_Cx", "B_Triangle_Cy", "B_Triangle_Cz"]
+        }
+      }
+    }
+  },
+  "output_columns": {
+    "standard": [
+      "STT",
+      "Phép toán",
+      "Đối tượng A",
+      "Đối tượng B",
+      "Kích thước A",
+      "Kích thước B",
+      "Kết quả mã hóa",
+      "Trạng thái",
+      "Ghi chú"
+    ],
+    "detailed": [
+      "Thời gian xử lý",
+      "Độ dài keylog",
+      "Version",
+      "Prefix",
+      "Operation code",
+      "Tcode A",
+      "Tcode B"
+    ]
+  },
+  "template_headers": {
+    "basic_info": [
+      "STT",
+      "Phép toán",
+      "Đối tượng A",
+      "Đối tượng B",
+      "Kích thước A",
+      "Kích thước B"
+    ],
+    "dynamic_columns": "Generated based on selected shapes"
+  },
+  "validation_rules": {
+    "required_columns": ["Phép toán", "Đối tượng A"],
+    "conditional_required": {
+      "when_two_objects": ["Đối tượng B"],
+      "when_3D": ["Z coordinate columns"]
+    },
+    "numeric_columns": "All coordinate and parameter columns",
+    "allowed_operations": [
+      "Tương giao",
+      "Khoảng cách",
+      "Diện tích",
+      "Thể tích",
+      "PT đường thẳng",
+      "PT mặt phẳng",
+      "Góc",
+      "Tích vô hướng 2 vecto",
+      "Vecto đơn vị",
+      "Phép tính tam giác"
+    ],
+    "allowed_shapes": [
+      "Điểm",
+      "Vecto",
+      "Đường thẳng",
+      "Mặt phẳng",
+      "Đường tròn",
+      "Mặt cầu",
+      "Tam giác"
+    ]
+  },
+  "data_extraction": {
+    "Điểm": {
+      "method": "comma_separated",
+      "format": "x,y[,z]",
+      "single_cell": true
+    },
+    "Vecto": {
+      "method": "comma_separated",
+      "format": "vx,vy[,vz]",
+      "single_cell": true
+    },
+    "Đường thẳng": {
+      "method": "two_cells",
+      "cell1": "point (x,y,z)",
+      "cell2": "direction (dx,dy,dz)"
+    },
+    "Mặt phẳng": {
+      "method": "four_values",
+      "format": "a,b,c,d",
+      "equation": "ax + by + cz + d = 0"
+    },
+    "Đường tròn": {
+      "method": "two_cells",
+      "cell1": "center (x,y)",
+      "cell2": "radius"
+    },
+    "Mặt cầu": {
+      "method": "two_cells",
+      "cell1": "center (x,y,z)",
+      "cell2": "radius"
+    },
+    "Tam giác": {
+      "method": "three_cells",
+      "cell1": "vertex A",
+      "cell2": "vertex B",
+      "cell3": "vertex C",
+      "format_2d": "(x,y)",
+      "format_3d": "(x,y,z)"
+    }
+  },
+  "batch_processing": {
+    "chunk_size": 1000,
+    "large_file_threshold_mb": 10,
+    "max_rows": 100000,
+    "progress_update_interval": 10,
+    "error_handling": "continue_on_error",
+    "output_format": "xlsx"
+  },
+  "metadata": {
+    "version": "2.0",
+    "mode": "Geometry V2 Mode",
+    "description": "Excel column mapping cho Geometry V2 với 7 shapes",
+    "created_for": "ConvertKeylogApp",
+    "created_date": "2025-11-25",
+    "supports_large_files": true,
+    "template_generation": true
+  }
+}
