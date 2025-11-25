@@ -54,6 +54,27 @@
       "config_path": "config/geometry_mode/",
       "enabled": true
     },
+    "geometry_v2": {
+      "name": "Geometry V2 Mode",
+      "version": "2.0",
+      "description": "Hình học nâng cao với 7 shapes và 10 phép toán",
+      "icon": "🔷",
+      "status": "development",
+      "features": [
+        "7 hình dạng: Điểm, Vecto, Đường thẳng, Mặt phẳng, Đường tròn, Mặt cầu, Tam giác",
+        "10 phép toán: Tương giao, Khoảng cách, Diện tích, Thể tích, PT đường thẳng, PT mặt phẳng, Góc, Tích vô hướng, Vecto đơn vị, Phép tính tam giác",
+        "Enhanced vector operations (dot product, unit vector)",
+        "Triangle calculations (area, perimeter, centroid, circumcenter)",
+        "Plane equation from 3 points or point + normal vector",
+        "Angle calculations between vectors/lines/planes",
+        "Excel batch processing with large file support",
+        "TL-compatible keylog encoding"
+      ],
+      "view_class": "GeometryV2View",
+      "service_class": "GeometryV2Service",
+      "config_path": "config/geometry_v2_mode/",
+      "enabled": false
+    },
     "vector": {
       "name": "Vector Mode",
       "version": "1.0",
@@ -73,13 +94,13 @@
       "enabled": true
     }
   },
-  "display_order": ["equation", "polynomial", "geometry", "vector"],
+  "display_order": ["equation", "polynomial", "geometry", "geometry_v2", "vector"],
   "default_mode": "equation",
-  "experimental_modes": ["vector"],
+  "experimental_modes": ["vector", "geometry_v2"],
   "metadata": {
-    "version": "2.2",
-    "last_updated": "2025-11-03",
-    "total_modes": 4,
+    "version": "2.3",
+    "last_updated": "2025-11-25",
+    "total_modes": 5,
     "description": "Configuration for all available calculation modes in ConvertKeylogApp"
   }
 }
