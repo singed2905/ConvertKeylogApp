@@ -9,7 +9,7 @@ class MainView:
         self.root.geometry("480x320")
         self.root.configure(bg="#e8f0f7")  # Màu nền nhẹ xanh pastel
 
-        # Load danh sách mode từ cấu trúc mới (bao gồm Vector Mode và Integral Mode)
+        # Load danh sách mode từ cấu trúc mới (bao gồm Vector Mode, Integral Mode, và Geometry V2 Mode)
         self.modes = self._load_modes()
         self.mode_var = tk.StringVar(value=self.modes[0] if self.modes else "Không có mode")
 
@@ -22,16 +22,18 @@ class MainView:
         """Load modes từ config structure mới"""
         try:
             modes_data = config_loader.get_available_modes()
-            # Đảm bảo Vector Mode và Integral Mode được thêm vào
+            # Đảm bảo Vector Mode, Integral Mode, và Geometry V2 Mode được thêm vào
             if modes_data:
                 if "Vector Mode" not in modes_data:
                     modes_data.append("Vector Mode")
                 if "Integral Mode" not in modes_data:
                     modes_data.append("Integral Mode")
-            return modes_data if modes_data else ["Geometry Mode", "Equation Mode", "Polynomial Equation Mode", "Vector Mode", "Integral Mode"]
+                if "Geometry V2 Mode" not in modes_data:
+                    modes_data.append("Geometry V2 Mode")
+            return modes_data if modes_data else ["Geometry Mode", "Geometry V2 Mode", "Equation Mode", "Polynomial Equation Mode", "Vector Mode", "Integral Mode"]
         except Exception as e:
             messagebox.showwarning("Cảnh báo", f"Không thể load modes từ config mới:\n{str(e)}\n\nSử dụng modes mặc định.")
-            return ["Geometry Mode", "Equation Mode", "Polynomial Equation Mode", "Vector Mode", "Integral Mode"]
+            return ["Geometry Mode", "Geometry V2 Mode", "Equation Mode", "Polynomial Equation Mode", "Vector Mode", "Integral Mode"]
 
     def _setup_ui(self):
         """Tạo giao diện người dùng chính"""
@@ -112,7 +114,7 @@ class MainView:
         # === Thanh thông tin dưới cùng ===
         footer = tk.Label(
             self.root,
-            text="📁 Config: Cấu trúc mới theo mode | 🎯 Version: 2.3 with Integral Mode",
+            text="📁 Config: Cấu trúc mới theo mode | 🎯 Version: 2.3 with Geometry V2 Mode",
             font=("Segoe UI", 9),
             bg="#dfe7ef",
             fg="#444",
@@ -137,6 +139,8 @@ class MainView:
 
         if selected == "Geometry Mode":
             self._open_geometry_mode()
+        elif selected == "Geometry V2 Mode":
+            self._open_geometry_v2_mode()
         elif selected == "Equation Mode":
             self._open_equation_mode()
         elif selected == "Polynomial Equation Mode":
@@ -166,6 +170,23 @@ class MainView:
             
         except Exception as e:
             messagebox.showerror("Lỗi", f"Không thể mở Geometry Mode:\n{str(e)}")
+
+    def _open_geometry_v2_mode(self):
+        try:
+            # Load config cho Geometry V2 Mode (có thể dùng chung config với Geometry Mode)
+            geometry_config = config_loader.get_mode_config("Geometry Mode")
+            
+            from views.geometry_v2_view import GeometryV2View
+            geometry_v2_window = tk.Toplevel(self.root)
+            view = GeometryV2View(geometry_v2_window, config=geometry_config)
+            
+            # Track window and view as tuple
+            self.active_windows["Geometry V2 Mode"] = (geometry_v2_window, view)
+            geometry_v2_window.protocol("WM_DELETE_WINDOW", 
+                                    lambda: self.on_mode_window_close("Geometry V2 Mode"))
+            
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Không thể mở Geometry V2 Mode:\n{str(e)}")
 
     def _open_equation_mode(self):
         try:
