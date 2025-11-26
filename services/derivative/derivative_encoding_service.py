@@ -1,11 +1,10 @@
 """Derivative Encoding Service - Mã hóa LaTeX đạo hàm sang keylog
 
 Format mới (simplified):
-  qv[n]{expression},{variable=value})
+  qv{expression},{variable=value})
   
 Ví dụ:
   qv{2K3[^2)p5K2[p7K4},{[=3K2})     # Đạo hàm bậc 1
-  qv2{[^3)p2[},{[=1})               # Đạo hàm bậc 2
   qv{[^2)p1})                      # Không có evaluation
 """
 import sys
@@ -187,7 +186,7 @@ class DerivativeEncodingService:
         """
         Encode derivative LaTeX to simplified keylog format.
         
-        New Format: qv[n]{expression},{variable=value})
+        Format: qv{expression},{variable=value})
         
         Args:
             latex_expr: LaTeX derivative expression
@@ -242,12 +241,9 @@ class DerivativeEncodingService:
                 eval_encoded = None
                 eval_var_encoded = None
 
-            # Build keylog in new format: qv[n]{expression},{variable=value})
-            # Determine prefix based on order
-            if derivative_order == 1:
-                prefix = "qv"  # First derivative
-            else:
-                prefix = f"qv{derivative_order}"  # nth derivative
+            # Build keylog: Always use 'qv' prefix (for first-order derivatives)
+            # User auto-generates first-order LaTeX only
+            prefix = "qv"
             
             # Assemble keylog
             if eval_encoded:
@@ -265,7 +261,7 @@ class DerivativeEncodingService:
                 'variable': variable,
                 'mode': mode,
                 'format': 'simplified',
-                'pattern': f"qv[{derivative_order}]{{expr}},{{var=val}})"
+                'pattern': "qv{expr},{var=val})"  # Always show 'qv' for simplicity
             }
 
         except Exception as e:
@@ -348,14 +344,13 @@ if __name__ == "__main__":
 
     print("✅ Service initialized successfully")
     print(f"  - Mapping rules: {len(service.encoder.mappings)}")
-    print(f"  - New format: qv[n]{{expr}},{{x=val}})")
+    print(f"  - Format: qv{{expr}},{{var=val}})")
     print()
 
     test_cases = [
         (r"\frac{d}{dx}{x^2}{x=3}", "Simple polynomial"),
         (r"\frac{d}{dx}{2\cdot10^{3}x^{2} + 5\cdot10^{2}x + 7\cdot10^{4}}{x=3\cdot10^{2}}", 
          "Scientific notation"),
-        (r"\frac{d^2}{dx^2}{x^3}{x=2}", "Second derivative"),
         (r"\frac{d}{dx}{e^{2x}}{x=0}", "Exponential"),
         (r"\frac{d}{dx}{\sin(x)}{x=\frac{\pi}{4}}", "Trigonometric"),
         (r"\frac{d}{dx}{x^2 + 1}{}", "No evaluation"),
@@ -368,8 +363,8 @@ if __name__ == "__main__":
         result = service.encode_derivative(latex, "1")
         if result['success']:
             print(f"Expression: {result['function']}")
-            print(f"Order: {result['derivative_order']}")
             print(f"Keylog: {result['keylog']}")
+            print(f"Pattern: {result['pattern']}")
         else:
             print(f"ERROR: {result['error']}")
 
