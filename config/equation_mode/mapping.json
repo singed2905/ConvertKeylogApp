@@ -87,19 +87,19 @@
     },
     {
       "find": "sin(",
-      "replace": "j(",
+      "replace": "j",
       "type": "literal",
       "description": "Hàm sin(x) → j(x)"
     },
     {
       "find": "cos(",
-      "replace": "k(",
+      "replace": "k",
       "type": "literal",
       "description": "Hàm cos(x) → k(x)"
     },
     {
       "find": "tan(",
-      "replace": "l(",
+      "replace": "l",
       "type": "literal",
       "description": "Hàm tan(x) → l(x)"
     },

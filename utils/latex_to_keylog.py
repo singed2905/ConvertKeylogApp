@@ -65,9 +65,9 @@ class LatexToKeylogEncoder:
         result = re.sub(r'(?<!\\)sqrt\(', r'\\sqrt(', result)
 
         # ==== Absolute value: |a|, \\left|a\\right|, \\lvert a \\rvert ====
-        result = re.sub(r'\\left\|([^|]+)\\right\|', r'q(\1)0', result)
-        result = re.sub(r'\|([^|]+)\|', r'q(\1)0', result)
-        result = re.sub(r'\\lvert([^|]+)\\rvert', r'q(\1)0', result)
+        result = re.sub(r'\\left\|([^|]+)\\right\|', r'q(\1)', result)
+        result = re.sub(r'\|([^|]+)\|', r'q(\1)', result)
+        result = re.sub(r'\\lvert([^|]+)\\rvert', r'q(\1)', result)
 
         # ==== Scientific notation: \\times 10^{n} → Kn ====
         result = re.sub(r'\\times10\^\{(\d+)\}', r'K\1', result)
