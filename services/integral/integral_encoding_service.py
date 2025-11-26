@@ -156,7 +156,7 @@ class IntegralEncodingService:
             }
             prefix = mode_prefixes.get(mode, "")
             if prefix:
-                keylog = prefix + keylog
+                keylog = prefix + keylog+"="+" "
 
             return {
                 'success': True,
