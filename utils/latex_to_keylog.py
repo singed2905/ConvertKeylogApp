@@ -295,27 +295,11 @@ class LatexToKeylogEncoder:
         return result
 
     def encode_batch(self, latex_exprs: List[str]) -> List[str]:
-        """
-        Encode multiple LaTeX expressions at once.
 
-        Args:
-            latex_exprs: List of LaTeX expression strings
-
-        Returns:
-            List of encoded keylog strings
-        """
         return [self.encode(expr) for expr in latex_exprs]
 
     def validate_latex(self, latex_expr: str) -> Tuple[bool, Optional[str]]:
-        """
-        Validate LaTeX expression syntax.
 
-        Args:
-            latex_expr: LaTeX expression string
-
-        Returns:
-            Tuple of (is_valid, error_message)
-        """
         if not latex_expr or not latex_expr.strip():
             return False, "Rỗng"
 

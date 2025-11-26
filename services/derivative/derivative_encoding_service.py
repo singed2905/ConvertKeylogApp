@@ -156,17 +156,7 @@ class DerivativeEncodingService:
         return result
 
     def encode_derivative(self, latex_expr: str, mode: str = "1", debug: bool = False) -> Dict[str, Any]:
-        """
-        Encode derivative LaTeX to keylog format.
 
-        Args:
-            latex_expr: LaTeX derivative expression
-            mode: Encoding mode (default "1")
-            debug: Enable debug logging (default False)
-
-        Returns:
-            Dictionary with success status, keylog, and metadata
-        """
         try:
             if debug:
                 print("\n" + "="*80)
