@@ -163,14 +163,14 @@ class DerivativeEncodingService:
             eval_value = components['eval_value']
 
             expr_encoded = self.encoder.encode(expression) if expression else ""
-            prefix = "qy"
+            prefix = "qw13qy"
 
             if eval_value:
                 eval_value = eval_value.replace(' ', '')
                 eval_value = eval_value.replace(r'\times', r'\cdot')
                 eval_value_encoded = self.encoder.encode(eval_value)
                 # BỎ eval_var, chỉ giữ giá trị mã hóa
-                keylog = f"{prefix}({expr_encoded}),({eval_value_encoded}))"+"="+" "
+                keylog = f"{prefix}({expr_encoded})q)({eval_value_encoded}))"+"="+" "
             else:
                 keylog = f"{prefix}({expr_encoded})"
 
@@ -252,7 +252,7 @@ if __name__ == "__main__":
         exit(1)
 
     test_cases = [
-        (r"\frac{d}{dx}{x^2}{x=6.85\times10^{18}}", "Eval with variable (x=...)"),
+        (r"\frac{d}{dx}{\frac{1}{2}}{x=6.85\times10^{18}}", "Eval with variable (x=...)"),
         (r"\frac{d}{dx}{x^2}{6.85\times10^{18}}", "Eval without variable"),
         (r"\frac{d}{dx}{x^2}{}", "No eval"),
         (r"\frac{d}{dx}(3.4598 \cdot 10^{58} x^{4} + 2.6937 \cdot 10^{29} x^{3} + 7.9109 \cdot 10^{39} x^{2} - 1.6893 \cdot 10^{17} x + 9.4305 \cdot 10^{95})\big|_{x=6.85 \times 10^{18}}",

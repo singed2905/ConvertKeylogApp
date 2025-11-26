@@ -48,6 +48,12 @@
       "type": "literal",
       "description": "x thành '['"
     },
+      {
+      "find": "\\pi",
+      "replace": "qK",
+      "type": "literal",
+      "description": "x thành '['"
+    },
     {
   "find": "\\cdot",
   "replace": "O",

@@ -117,39 +117,63 @@ class LatexToKeylogEncoder:
         return result
 
     def _process_fractions(self, text: str) -> str:
-        """
-        Process LaTeX fractions with recursive handling.
-        Handles nested fractions and e^x inside numerator/denominator.
 
-        Examples:
-            \\frac{1}{2} → (1)a(2)
-            \\frac{e^2}{3} → (qh2))a(3)
-            \\frac{e^{\\frac{1}{2}}}{3} → (qh(1)a(2)))a(3)
-        """
+
+        def find_matching_brace(s, start):
+            """Find closing brace matching opening brace at position start"""
+            count = 1
+            i = start + 1
+            while i < len(s) and count > 0:
+                if s[i] == '{':
+                    count += 1
+                elif s[i] == '}':
+                    count -= 1
+                i += 1
+            return i - 1 if count == 0 else -1
+
         result = text
-        max_iterations = 20  # Increased for complex nesting
+        max_iterations = 20
 
         for iteration in range(max_iterations):
-            pattern = r'\\frac\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
-            match = re.search(pattern, result)
-            if not match:
+            # Find \frac{
+            frac_pos = result.find(r'\frac{')
+            if frac_pos == -1:
                 break
 
-            num = match.group(1)
-            den = match.group(2)
+            # Find numerator (between first { and matching })
+            num_start = frac_pos + 6  # len('\frac{') = 6
+            num_end = find_matching_brace(result, num_start - 1)
 
-            # Recursive: Process nested fractions first
-            if r'\frac' in num:
-                num = self._process_fractions(num)
-            if r'\frac' in den:
-                den = self._process_fractions(den)
+            if num_end == -1:
+                break  # No matching brace found
 
-            # Then process e^x patterns (after nested structures resolved)
-            num = self._process_e_power(num)
-            den = self._process_e_power(den)
+            numerator = result[num_start:num_end]
 
-            replacement = f"({num})a({den})"
-            result = result[:match.start()] + replacement + result[match.end():]
+            # Check for }{ pattern (denominator starts here)
+            if num_end >= len(result) - 1 or result[num_end:num_end + 2] != '}{':
+                break  # No denominator found
+
+            den_start = num_end + 2
+            den_end = find_matching_brace(result, den_start - 1)
+
+            if den_end == -1:
+                break  # No matching brace found
+
+            denominator = result[den_start:den_end]
+
+            # Recursive: process nested fractions
+            if r'\frac' in numerator:
+                numerator = self._process_fractions(numerator)
+            if r'\frac' in denominator:
+                denominator = self._process_fractions(denominator)
+
+            # Process e^x patterns
+            numerator = self._process_e_power(numerator)
+            denominator = self._process_e_power(denominator)
+
+            # Replace with (num)a(den)
+            replacement = f"({numerator})a({denominator})"
+            result = result[:frac_pos] + replacement + result[den_end + 1:]
 
         return result
 
@@ -190,30 +214,41 @@ class LatexToKeylogEncoder:
         return result
 
     def _process_special_functions(self, text: str) -> str:
-        """
-        Map LaTeX functions to keylog codes.
 
-        Mapping:
-            \\sqrt → s
-            \\sin → j
-            \\cos → k
-            \\tan → l
-            \\ln → h
-            \\log → i
-            \\cdot → O (multiplication dot)
-        """
         result = text
-        func_map = {
+
+        # Process functions with BRACES first (before converting to parens)
+        func_map_braces = {
+            r'\sqrt{': 's',
+            r'\sin{': 'j',
+            r'\cos{': 'k',
+            r'\tan{': 'l',
+            r'\ln{': 'h',
+            r'\log{': 'i',
+        }
+
+        # Also handle functions with parens (backup)
+        func_map_parens = {
             r'\sqrt(': 's',
             r'\sin(': 'j',
             r'\cos(': 'k',
             r'\tan(': 'l',
             r'\ln(': 'h',
             r'\log(': 'i',
-            r'\cdot': 'O',  # LaTeX multiplication dot
         }
-        for latex_func, keylog_char in func_map.items():
+
+        # Apply braces mappings first
+        for latex_func, keylog_char in func_map_braces.items():
             result = result.replace(latex_func, keylog_char)
+
+        # Then parens mappings (backup)
+        for latex_func, keylog_char in func_map_parens.items():
+            result = result.replace(latex_func, keylog_char)
+
+        # Other mappings (no braces/parens)
+        result = result.replace(r'\cdot', 'O')
+        result = result.replace(r'\pi', 'qK')  # ← THÊM PI Ở ĐÂY!
+
         return result
 
     def _process_exponents(self, text: str) -> str:
@@ -304,7 +339,7 @@ if __name__ == "__main__":
         "Basic Operations": [
             (r"\sin(x)", "2p3"),
             (r"2\cdot3", "2O3"),
-            (r"a\cdot b", "aOb"),
+            (r"\frac{6\pi}{3}", "aOb"),
         ],
 
         "Euler's Number": [
@@ -315,7 +350,7 @@ if __name__ == "__main__":
         ],
 
         "Fractions": [
-            (r"\frac{1}{2}", "(1)a(2)"),
+            (r"\frac{\sqrt(5)}{2}", "(1)a(2)"),
             (r"\frac{x+1}{x-1}", "([p1)a([m1)"),
             (r"\frac{\sqrt{2}}{3}", "(s(2))a(3)"),
         ],
@@ -371,7 +406,7 @@ if __name__ == "__main__":
         "Complex Expressions": [
             (r"\frac{\sin(\frac{\pi}{4})}{\cos(x)}", "(j((π)a(4)))a(k([))"),
             (r"e^{2} + e^{\frac{1}{2}}", "qh2)pqh(1)a(2))"),
-            (r"\frac{1}{2} + \sqrt{4} + \ln(x)", "(1)a(2)ps(4)ph([)"),
+            (r" - \left(\frac{x}{2} + \frac{13}{4}\right) \sqrt{x^{2} + 13 x + 36} + \left(\frac{x}{2} + \frac{15}{4}\right) \sqrt{13 x + \left(x + 1\right)^{2} + 49} - \frac{25 \log{\left(2 x + 2 \sqrt{13 x + \left(x + 1\right)^{2} + 49} + 15 \right)}}{8} + \frac{25 \log{\left(2 x + 2 \sqrt{x^{2} + 13 x + 36} + 13 \right)}}{8}", "(1)a(2)ps(4)ph([)"),
         ],
     }
 

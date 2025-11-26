@@ -22,7 +22,7 @@ class MainView:
         """Load modes từ config structure mới"""
         try:
             modes_data = config_loader.get_available_modes()
-            # Đảm bảo Vector Mode, Integral Mode, và Geometry V2 Mode được thêm vào
+            # Đảm bảo các modes được thêm vào
             if modes_data:
                 if "Vector Mode" not in modes_data:
                     modes_data.append("Vector Mode")
@@ -30,10 +30,29 @@ class MainView:
                     modes_data.append("Integral Mode")
                 if "Geometry V2 Mode" not in modes_data:
                     modes_data.append("Geometry V2 Mode")
-            return modes_data if modes_data else ["Geometry Mode", "Geometry V2 Mode", "Equation Mode", "Polynomial Equation Mode", "Vector Mode", "Integral Mode"]
+                if "Derivative Mode" not in modes_data:  # ← THÊM DÒNG NÀY
+                    modes_data.append("Derivative Mode")
+            return modes_data if modes_data else [
+                "Geometry Mode",
+                "Geometry V2 Mode",
+                "Equation Mode",
+                "Polynomial Equation Mode",
+                "Vector Mode",
+                "Integral Mode",
+                "Derivative Mode"  # ← THÊM VÀO DEFAULT LIST
+            ]
         except Exception as e:
-            messagebox.showwarning("Cảnh báo", f"Không thể load modes từ config mới:\n{str(e)}\n\nSử dụng modes mặc định.")
-            return ["Geometry Mode", "Geometry V2 Mode", "Equation Mode", "Polynomial Equation Mode", "Vector Mode", "Integral Mode"]
+            messagebox.showwarning("Cảnh báo",
+                                   f"Không thể load modes từ config mới:\n{str(e)}\n\nSử dụng modes mặc định.")
+            return [
+                "Geometry Mode",
+                "Geometry V2 Mode",
+                "Equation Mode",
+                "Polynomial Equation Mode",
+                "Vector Mode",
+                "Integral Mode",
+                "Derivative Mode"  # ← THÊM VÀO FALLBACK LIST
+            ]
 
     def _setup_ui(self):
         """Tạo giao diện người dùng chính"""
@@ -149,10 +168,27 @@ class MainView:
             self._open_vector_mode()
         elif selected == "Integral Mode":
             self._open_integral_mode()
+        elif selected == "Derivative Mode":  # ← THÊM ELIF NÀY
+            self._open_derivative_mode()
         elif selected == "Không có mode":
             messagebox.showwarning("Cảnh báo", "Vui lòng chọn một chế độ hợp lệ.")
         else:
-            messagebox.showinfo("Thông báo", f"Mode '{selected}' chưa được hỗ trợ.\nHiện chỉ có giao diện UI (không logic).")
+            messagebox.showinfo("Thông báo",
+                                f"Mode '{selected}' chưa được hỗ trợ.\nHiện chỉ có giao diện UI (không logic).")
+
+    def _open_derivative_mode(self):
+        """Mở Derivative Mode window"""
+        try:
+            from views.derivative_view import DerivativeView
+            view = DerivativeView(self.root)  # DerivativeView creates its own Toplevel
+
+            # Track DerivativeView's root window and view as tuple
+            self.active_windows["Derivative Mode"] = (view.root, view)
+            view.root.protocol("WM_DELETE_WINDOW",
+                               lambda: self.on_mode_window_close("Derivative Mode"))
+
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Không thể mở Derivative Mode:\n{str(e)}")
 
     def _open_geometry_mode(self):
         try:
