@@ -70,8 +70,8 @@ class LatexToKeylogEncoder:
         result = re.sub(r'\\lvert([^|]+)\\rvert', r'q(\1)', result)
 
         # ==== Scientific notation: \\times 10^{n} → Kn ====
-        result = re.sub(r'\\times10\^\{(\d+)\}', r'K\1', result)
-        result = re.sub(r'\\times10\^(\d+)', r'K\1', result)
+        result = re.sub(r'\\times10\^\{(-?\d+)\}', r'K\1', result)
+        result = re.sub(r'\\times10\^(-?\d+)', r'K\1', result)
 
         # ==== Special log bases ====
         result = re.sub(r'\\log_(\d+)\{\((.*?)\)\}', r'i\1,(\2))', result)
@@ -350,7 +350,7 @@ if __name__ == "__main__":
         ],
 
         "Scientific Notation": [
-            (r"3.5\times10^{5}", "3.5K5"),
+            (r"3.5\times10^{-5}", "3.5Kp5"),
             (r"2\times10^{-2}", "2Km2"),
         ],
 

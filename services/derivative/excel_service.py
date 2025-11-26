@@ -35,7 +35,7 @@ class ExcelService:
                         if row_idx == 0:
                             for col_idx, header in enumerate(row):
                                 header_lower = header.strip().lower()
-                                if header_lower == 'deriv_input':
+                                if header_lower == 'derivative_input':
                                     deriv_input_col_idx = col_idx
                                 elif header_lower == 'mode':
                                     mode_col_idx = col_idx
@@ -59,7 +59,7 @@ class ExcelService:
                         for col_idx, header in enumerate(row):
                             if header:
                                 header_lower = str(header).strip().lower()
-                                if header_lower == 'deriv_input':
+                                if header_lower == 'derivative_input':
                                     deriv_input_col_idx = col_idx
                                 elif header_lower == 'mode':
                                     mode_col_idx = col_idx

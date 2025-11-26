@@ -1,11 +1,11 @@
 """Derivative Encoding Service - Mã hóa LaTeX đạo hàm sang keylog
 
 Format mới (simplified - no curly braces):
-  qv(expression),(variable=value)
-  
+  qv(expression),(value)
+
 Ví dụ:
-  qv(2K3[^2)p5K2[p7K4),([=3K2)     # Đạo hàm bậc 1
-  qv([^2)p1)                       # Không có evaluation
+  qv(2K3[^2)p5K2[p7K4),(3K2)     # Đạo hàm bậc 1 với eval (không có x=)
+  qv([^2)p1)                     # Không có evaluation
 """
 import sys
 import os
@@ -34,57 +34,24 @@ class DerivativeEncodingService:
                 )
             else:
                 raise Exception("LatexToKeylogEncoder not available")
-
         except Exception as e:
             print(f"Warning: DerivativeEncodingService init failed: {e}")
             self.encoder = None
 
     def _count_derivative_order(self, latex_expr: str) -> int:
-        """
-        Count derivative order from LaTeX expression.
-        
-        Examples:
-            dy/dx → 1
-            d^2y/dx^2 → 2
-            f'(x) → 1
-            f''(x) → 2
-            f'''(x) → 3
-        """
-        # Check Leibniz notation: d^n
         leibniz_match = re.search(r'd\^(\d+)', latex_expr)
         if leibniz_match:
             return int(leibniz_match.group(1))
-        
-        # Check Lagrange notation: count primes
         prime_count = latex_expr.count("'")
         if prime_count > 0:
             return prime_count
-        
-        # Default: first order
         return 1
 
     def _extract_components_from_pattern(self, latex_expr: str) -> Dict[str, Any]:
-        """
-        Extract components from new pattern: \\frac{d}{dx}{expression}{x=value}
-        
-        Uses balanced brace matching to handle nested structures like:
-          {2\\cdot10^{3}x^{2} + ...}
-        
-        Returns:
-            {
-                'order': 1,
-                'variable': 'x',
-                'expression': '2\\cdot10^{3}x^{2} + ...',
-                'eval_var': 'x',
-                'eval_value': '3\\cdot10^{2}'
-            }
-        """
-        # Extract derivative operator: \frac{d^n}{dx^n}
         deriv_match = re.search(
             r'\\frac\{d(?:\^(\d+))?\}\{d([a-z])(?:\^\d+)?\}',
             latex_expr
         )
-        
         if deriv_match:
             order = int(deriv_match.group(1)) if deriv_match.group(1) else 1
             variable = deriv_match.group(2)
@@ -93,25 +60,16 @@ class DerivativeEncodingService:
             order = 1
             variable = 'x'
             deriv_end = 0
-        
-        # Extract expression using balanced brace matching
-        # Pattern: \frac{d}{dx}{EXPRESSION}{x=value}
-        #                       ^
-        #                       Start after derivative part
-        
+
         expression = ""
         eval_var = None
         eval_value = None
-        
         if deriv_end > 0:
-            # Find first { after derivative operator
             rest = latex_expr[deriv_end:]
             if rest.startswith('{'):
-                # Count balanced braces to extract full expression
                 brace_count = 0
-                start_idx = 1  # Skip opening {
+                start_idx = 1
                 end_idx = start_idx
-                
                 for i, char in enumerate(rest[start_idx:], start=start_idx):
                     if char == '{':
                         brace_count += 1
@@ -120,16 +78,17 @@ class DerivativeEncodingService:
                             end_idx = i
                             break
                         brace_count -= 1
-                
                 expression = rest[start_idx:end_idx]
-                
-                # Extract evaluation from remaining part
-                remaining = rest[end_idx+1:]  # Skip closing }
-                eval_match = re.search(r'^\{([a-z])=([^}]+)\}', remaining)
+                remaining = rest[end_idx+1:]
+                eval_match = re.match(r'^\{([a-zA-Z])=([^}]+)\}', remaining)
                 if eval_match:
                     eval_var = eval_match.group(1)
                     eval_value = eval_match.group(2)
-        
+                else:
+                    eval_value_match = re.match(r'^\{([^}]+)\}', remaining)
+                    if eval_value_match:
+                        eval_var = None
+                        eval_value = eval_value_match.group(1)
         return {
             'order': order,
             'variable': variable,
@@ -139,29 +98,15 @@ class DerivativeEncodingService:
         }
 
     def _preprocess_derivative_latex(self, latex_expr: str) -> str:
-        """
-        Preprocess derivative LaTeX for encoding.
-        
-        Converts various derivative notations to standardized form:
-        - Leibniz: \\frac{dy}{dx} → keep as is
-        - Lagrange: f'(x) → \\frac{df}{dx}
-        - Prime: y' → \\frac{dy}{dx}
-        """
         result = latex_expr
-        
-        # Remove $ delimiters
         result = result.strip()
         if result.startswith('$') and result.endswith('$'):
             result = result[1:-1]
-        
-        # Convert Lagrange f'(x) to Leibniz notation
         result = re.sub(
             r'([a-zA-Z]+)\'\(([a-z])\)',
             r'\\frac{d\1}{d\2}',
             result
         )
-        
-        # Convert f''(x) → \frac{d^2f}{dx^2}
         result = re.sub(
             r'([a-zA-Z]+)\'\'\'\(([a-z])\)',
             r'\\frac{d^3\1}{d\2^3}',
@@ -172,39 +117,33 @@ class DerivativeEncodingService:
             r'\\frac{d^2\1}{d\2^2}',
             result
         )
-        
-        # Convert simple y' → \frac{dy}{dx}
         result = re.sub(
             r'([a-zA-Z])\'(?![a-zA-Z])',
             r'\\frac{d\1}{dx}',
             result
         )
-        
         return result
 
     def encode_derivative(self, latex_expr: str, mode: str = "1") -> Dict[str, Any]:
-        """
-        Encode derivative LaTeX to simplified keylog format.
-        
-        Format: qv(expression),(variable=value)  [NO CURLY BRACES]
-        
-        Args:
-            latex_expr: LaTeX derivative expression
-                Pattern: \\frac{d}{dx}{f(x)}{x=a}
-            mode: Encoding mode (currently only "1" uses qv prefix)
-            
-        Returns:
-            Dict with success, keylog, and metadata
-        """
         try:
+            # Xử lý dạng sách giáo khoa \frac{d}{dx}(...) \big|_{x=...}
+            ltx = latex_expr.replace(" ", "")
+            pattern = re.compile(
+                r'^(\\frac\{d\}\{d[a-zA-Z]+\})\((.*)\)\\big\|_\{([a-zA-Z]=.*)\}\}?$'
+            )
+            m = pattern.match(ltx)
+            if m:
+                deriv_part = m.group(1)
+                expression = m.group(2)
+                eval_part = m.group(3)
+                latex_expr = f"{deriv_part}{{{expression}}}{{{eval_part}}}"
+
             if not self.encoder:
                 return {
                     'success': False,
                     'error': 'Missing encoder',
                     'keylog': ""
                 }
-
-            # Validate LaTeX
             valid, error = self.encoder.validate_latex(latex_expr)
             if not valid:
                 return {
@@ -214,43 +153,25 @@ class DerivativeEncodingService:
                     'latex_input': latex_expr
                 }
 
-            # Preprocess: Convert other notations to Leibniz
             processed_latex = self._preprocess_derivative_latex(latex_expr)
-            
-            # Extract components using new pattern with balanced brace matching
             components = self._extract_components_from_pattern(processed_latex)
-            
+
             derivative_order = components['order']
             variable = components['variable']
             expression = components['expression']
             eval_var = components['eval_var']
             eval_value = components['eval_value']
 
-            # Encode expression using LatexToKeylogEncoder
-            if expression:
-                expr_encoded = self.encoder.encode(expression)
-            else:
-                expr_encoded = ""
-            
-            # Encode evaluation value if present
-            if eval_value:
-                eval_encoded = self.encoder.encode(eval_value)
-                # Replace variable with encoded variable
-                eval_var_encoded = variable.replace('x', '[').replace('t', '[')  
-            else:
-                eval_encoded = None
-                eval_var_encoded = None
+            expr_encoded = self.encoder.encode(expression) if expression else ""
+            prefix = "qy"
 
-            # Build keylog: Always use 'qv' prefix (for first-order derivatives)
-            # User auto-generates first-order LaTeX only
-            prefix = "qv"
-            
-            # Assemble keylog WITHOUT curly braces
-            if eval_encoded:
-                # Format: qv(expr),([=val)
-                keylog = f"{prefix}({expr_encoded}),({eval_var_encoded}={eval_encoded})"
+            if eval_value:
+                eval_value = eval_value.replace(' ', '')
+                eval_value = eval_value.replace(r'\times', r'\cdot')
+                eval_value_encoded = self.encoder.encode(eval_value)
+                # BỎ eval_var, chỉ giữ giá trị mã hóa
+                keylog = f"{prefix}({expr_encoded}),({eval_value_encoded}))"+"="+" "
             else:
-                # Format: qv(expr)
                 keylog = f"{prefix}({expr_encoded})"
 
             return {
@@ -263,7 +184,7 @@ class DerivativeEncodingService:
                 'variable': variable,
                 'mode': mode,
                 'format': 'simplified',
-                'pattern': "qv(expr),(var=val)"  # Updated pattern without braces
+                'pattern': "qv(expr),(val)"
             }
 
         except Exception as e:
@@ -275,15 +196,9 @@ class DerivativeEncodingService:
             }
 
     def encode_batch(self, latex_exprs: List[str], mode: str = "1") -> List[Dict[str, Any]]:
-        """Encode multiple derivative expressions"""
         return [self.encode_derivative(expr, mode) for expr in latex_exprs]
 
     def validate_derivative_latex(self, latex_expr: str) -> Dict[str, Any]:
-        """
-        Validate derivative LaTeX expression.
-        
-        Returns dict with validation status and metadata.
-        """
         try:
             valid, error = self.encoder.validate_latex(latex_expr)
             if not valid:
@@ -292,14 +207,11 @@ class DerivativeEncodingService:
                     'error': error,
                     'is_derivative': False
                 }
-
-            # Check if expression is a derivative
             is_derivative = any([
                 r'\frac{d' in latex_expr,
                 "f'" in latex_expr,
                 "y'" in latex_expr,
             ])
-            
             if is_derivative:
                 processed = self._preprocess_derivative_latex(latex_expr)
                 components = self._extract_components_from_pattern(processed)
@@ -310,7 +222,6 @@ class DerivativeEncodingService:
                 order = 0
                 func = ''
                 var = ''
-
             return {
                 'valid': is_derivative,
                 'is_derivative': is_derivative,
@@ -319,7 +230,6 @@ class DerivativeEncodingService:
                 'variable': var,
                 'error': None if is_derivative else 'Không phải biểu thức đạo hàm (thiếu \\frac{d}{dx} hoặc f\')'
             }
-
         except Exception as e:
             return {
                 'valid': False,
@@ -328,50 +238,32 @@ class DerivativeEncodingService:
             }
 
     def is_available(self) -> bool:
-        """Check if service is available"""
         return self.encoder is not None
 
 
 if __name__ == "__main__":
     print("=" * 80)
-    print("DERIVATIVE ENCODING SERVICE - TEST (Simplified Format - No Braces)")
+    print("DERIVATIVE ENCODING SERVICE - TEST (simplified without variable eval)")
     print("=" * 80)
-    print()
-
     service = DerivativeEncodingService()
 
     if not service.is_available():
         print("❌ Service not available")
         exit(1)
 
-    print("✅ Service initialized successfully")
-    print(f"  - Mapping rules: {len(service.encoder.mappings)}")
-    print(f"  - Format: qv(expr),(var=val)  [NO CURLY BRACES]")
-    print()
-
     test_cases = [
-        (r"\frac{d}{dx}{x^2}{x=3}", "Simple polynomial"),
-        (r"\frac{d}{dx}{2\cdot10^{3}x^{2} + 5\cdot10^{2}x + 7\cdot10^{4}}{x=3\cdot10^{2}}", 
-         "Scientific notation"),
-        (r"\frac{d}{dx}{e^{2x}}{x=0}", "Exponential"),
-        (r"\frac{d}{dx}{\sin(x)}{x=\frac{\pi}{4}}", "Trigonometric"),
-        (r"\frac{d}{dx}{x^2 + 1}{}", "No evaluation"),
+        (r"\frac{d}{dx}{x^2}{x=6.85\times10^{18}}", "Eval with variable (x=...)"),
+        (r"\frac{d}{dx}{x^2}{6.85\times10^{18}}", "Eval without variable"),
+        (r"\frac{d}{dx}{x^2}{}", "No eval"),
+        (r"\frac{d}{dx}(3.4598 \cdot 10^{58} x^{4} + 2.6937 \cdot 10^{29} x^{3} + 7.9109 \cdot 10^{39} x^{2} - 1.6893 \cdot 10^{17} x + 9.4305 \cdot 10^{95})\big|_{x=6.85 \times 10^{18}}",
+         "Textbook style input"),
     ]
 
     for latex, desc in test_cases:
-        print(f"--- {desc} ---")
+        print(f"\n--- {desc} ---")
         print(f"LaTeX: {latex}")
-
-        result = service.encode_derivative(latex, "1")
-        if result['success']:
-            print(f"Expression: {result['function']}")
-            print(f"Keylog: {result['keylog']}")
-            print(f"Pattern: {result['pattern']}")
+        res = service.encode_derivative(latex)
+        if res['success']:
+            print(f"Keylog: {res['keylog']}")
         else:
-            print(f"ERROR: {result['error']}")
-
-        print()
-
-    print("=" * 80)
-    print("✅ ALL TESTS COMPLETED")
-    print("=" * 80)
+            print("Error:", res['error'])
