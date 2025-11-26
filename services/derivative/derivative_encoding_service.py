@@ -68,6 +68,9 @@ class DerivativeEncodingService:
         """
         Extract components from new pattern: \\frac{d}{dx}{expression}{x=value}
         
+        Uses balanced brace matching to handle nested structures like:
+          {2\\cdot10^{3}x^{2} + ...}
+        
         Returns:
             {
                 'order': 1,
@@ -86,30 +89,47 @@ class DerivativeEncodingService:
         if deriv_match:
             order = int(deriv_match.group(1)) if deriv_match.group(1) else 1
             variable = deriv_match.group(2)
+            deriv_end = deriv_match.end()
         else:
             order = 1
             variable = 'x'
+            deriv_end = 0
         
-        # Extract expression from {expression} pattern
-        expr_match = re.search(r'\}\{([^}]+)\}\{', latex_expr)
-        if expr_match:
-            expression = expr_match.group(1)
-        else:
-            # Fallback: try to get content between first } and last {
-            parts = latex_expr.split('}')
-            if len(parts) > 2:
-                expression = parts[1].strip('{').strip()
-            else:
-                expression = ""
+        # Extract expression using balanced brace matching
+        # Pattern: \frac{d}{dx}{EXPRESSION}{x=value}
+        #                       ^
+        #                       Start after derivative part
         
-        # Extract evaluation: {x=value}
-        eval_match = re.search(r'\}\{([a-z])=([^}]+)\}', latex_expr)
-        if eval_match:
-            eval_var = eval_match.group(1)
-            eval_value = eval_match.group(2)
-        else:
-            eval_var = None
-            eval_value = None
+        expression = ""
+        eval_var = None
+        eval_value = None
+        
+        if deriv_end > 0:
+            # Find first { after derivative operator
+            rest = latex_expr[deriv_end:]
+            if rest.startswith('{'):
+                # Count balanced braces to extract full expression
+                brace_count = 0
+                start_idx = 1  # Skip opening {
+                end_idx = start_idx
+                
+                for i, char in enumerate(rest[start_idx:], start=start_idx):
+                    if char == '{':
+                        brace_count += 1
+                    elif char == '}':
+                        if brace_count == 0:
+                            end_idx = i
+                            break
+                        brace_count -= 1
+                
+                expression = rest[start_idx:end_idx]
+                
+                # Extract evaluation from remaining part
+                remaining = rest[end_idx+1:]  # Skip closing }
+                eval_match = re.search(r'^\{([a-z])=([^}]+)\}', remaining)
+                if eval_match:
+                    eval_var = eval_match.group(1)
+                    eval_value = eval_match.group(2)
         
         return {
             'order': order,
@@ -198,7 +218,7 @@ class DerivativeEncodingService:
             # Preprocess: Convert other notations to Leibniz
             processed_latex = self._preprocess_derivative_latex(latex_expr)
             
-            # Extract components using new pattern
+            # Extract components using new pattern with balanced brace matching
             components = self._extract_components_from_pattern(processed_latex)
             
             derivative_order = components['order']
@@ -217,7 +237,7 @@ class DerivativeEncodingService:
             if eval_value:
                 eval_encoded = self.encoder.encode(eval_value)
                 # Replace variable with encoded variable
-                eval_var_encoded = variable.replace('x', '[').replace('t', '[')
+                eval_var_encoded = variable.replace('x', '[').replace('t', '[')  
             else:
                 eval_encoded = None
                 eval_var_encoded = None
@@ -347,9 +367,9 @@ if __name__ == "__main__":
 
         result = service.encode_derivative(latex, "1")
         if result['success']:
+            print(f"Expression: {result['function']}")
             print(f"Order: {result['derivative_order']}")
             print(f"Keylog: {result['keylog']}")
-            print(f"Pattern: {result['pattern']}")
         else:
             print(f"ERROR: {result['error']}")
 
