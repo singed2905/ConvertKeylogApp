@@ -1,4 +1,13 @@
-"""Derivative Encoding Service - Mã hóa LaTeX đạo hàm sang keylog"""
+"""Derivative Encoding Service - Mã hóa LaTeX đạo hàm sang keylog
+
+Format mới (simplified):
+  qv[n]{expression},{variable=value})
+  
+Ví dụ:
+  qv{2K3[^2)p5K2[p7K4},{[=3K2})     # Đạo hàm bậc 1
+  qv2{[^3)p2[},{[=1})               # Đạo hàm bậc 2
+  qv{[^2)p1})                      # Không có evaluation
+"""
 import sys
 import os
 import re
@@ -55,33 +64,60 @@ class DerivativeEncodingService:
         # Default: first order
         return 1
 
-    def _extract_function_and_variable(self, latex_expr: str) -> Dict[str, str]:
+    def _extract_components_from_pattern(self, latex_expr: str) -> Dict[str, Any]:
         """
-        Extract function and variable from derivative expression.
+        Extract components from new pattern: \\frac{d}{dx}{expression}{x=value}
         
-        Examples:
-            \\frac{dy}{dx} → {function: 'y', variable: 'x'}
-            \\frac{d(x^2)}{dx} → {function: 'x^2', variable: 'x'}
-            f'(x) → {function: 'f', variable: 'x'}
+        Returns:
+            {
+                'order': 1,
+                'variable': 'x',
+                'expression': '2\\cdot10^{3}x^{2} + ...',
+                'eval_var': 'x',
+                'eval_value': '3\\cdot10^{2}'
+            }
         """
-        # Leibniz notation: \frac{d(...)}{dx}
-        leibniz_match = re.search(r'\\frac\{d(?:\^\d+)?\(?([^}\)]+)\)?\}\{d([a-z])(?:\^\d+)?\}', latex_expr)
-        if leibniz_match:
-            return {
-                'function': leibniz_match.group(1),
-                'variable': leibniz_match.group(2)
-            }
+        # Extract derivative operator: \frac{d^n}{dx^n}
+        deriv_match = re.search(
+            r'\\frac\{d(?:\^(\d+))?\}\{d([a-z])(?:\^\d+)?\}',
+            latex_expr
+        )
         
-        # Lagrange notation: f'(x)
-        lagrange_match = re.search(r'([a-zA-Z]+)\'*\(([a-z])\)', latex_expr)
-        if lagrange_match:
-            return {
-                'function': lagrange_match.group(1),
-                'variable': lagrange_match.group(2)
-            }
+        if deriv_match:
+            order = int(deriv_match.group(1)) if deriv_match.group(1) else 1
+            variable = deriv_match.group(2)
+        else:
+            order = 1
+            variable = 'x'
         
-        # Default fallback
-        return {'function': 'y', 'variable': 'x'}
+        # Extract expression from {expression} pattern
+        expr_match = re.search(r'\}\{([^}]+)\}\{', latex_expr)
+        if expr_match:
+            expression = expr_match.group(1)
+        else:
+            # Fallback: try to get content between first } and last {
+            parts = latex_expr.split('}')
+            if len(parts) > 2:
+                expression = parts[1].strip('{').strip()
+            else:
+                expression = ""
+        
+        # Extract evaluation: {x=value}
+        eval_match = re.search(r'\}\{([a-z])=([^}]+)\}', latex_expr)
+        if eval_match:
+            eval_var = eval_match.group(1)
+            eval_value = eval_match.group(2)
+        else:
+            eval_var = None
+            eval_value = None
+        
+        return {
+            'order': order,
+            'variable': variable,
+            'expression': expression,
+            'eval_var': eval_var,
+            'eval_value': eval_value
+        }
 
     def _preprocess_derivative_latex(self, latex_expr: str) -> str:
         """
@@ -100,7 +136,6 @@ class DerivativeEncodingService:
             result = result[1:-1]
         
         # Convert Lagrange f'(x) to Leibniz notation
-        # f'(x) → \frac{df}{dx}
         result = re.sub(
             r'([a-zA-Z]+)\'\(([a-z])\)',
             r'\\frac{d\1}{d\2}',
@@ -109,15 +144,13 @@ class DerivativeEncodingService:
         
         # Convert f''(x) → \frac{d^2f}{dx^2}
         result = re.sub(
-            r'([a-zA-Z]+)\'\'\(([a-z])\)',
-            r'\\frac{d^2\1}{d\2^2}',
-            result
-        )
-        
-        # Convert f'''(x) → \frac{d^3f}{dx^3}
-        result = re.sub(
             r'([a-zA-Z]+)\'\'\'\(([a-z])\)',
             r'\\frac{d^3\1}{d\2^3}',
+            result
+        )
+        result = re.sub(
+            r'([a-zA-Z]+)\'\'\(([a-z])\)',
+            r'\\frac{d^2\1}{d\2^2}',
             result
         )
         
@@ -132,11 +165,14 @@ class DerivativeEncodingService:
 
     def encode_derivative(self, latex_expr: str, mode: str = "1") -> Dict[str, Any]:
         """
-        Encode derivative LaTeX to keylog format.
+        Encode derivative LaTeX to simplified keylog format.
+        
+        New Format: qv[n]{expression},{variable=value})
         
         Args:
             latex_expr: LaTeX derivative expression
-            mode: Encoding mode ("1", "2", "3", "4")
+                Pattern: \\frac{d}{dx}{f(x)}{x=a}
+            mode: Encoding mode (currently only "1" uses qv prefix)
             
         Returns:
             Dict with success, keylog, and metadata
@@ -159,33 +195,45 @@ class DerivativeEncodingService:
                     'latex_input': latex_expr
                 }
 
-            # Preprocess: Convert to standardized Leibniz notation
+            # Preprocess: Convert other notations to Leibniz
             processed_latex = self._preprocess_derivative_latex(latex_expr)
             
-            # Extract metadata
-            derivative_order = self._count_derivative_order(processed_latex)
-            func_var_info = self._extract_function_and_variable(processed_latex)
-
-            # Remove \left and \right
-            processed_latex = processed_latex.replace(r'\left', '').replace(r'\right', '')
-
-            # Main encoding using LatexToKeylogEncoder
-            keylog = self.encoder.encode(processed_latex)
+            # Extract components using new pattern
+            components = self._extract_components_from_pattern(processed_latex)
             
-            # Post-processing: Mode-specific adjustments
-            if mode in ["1", "2"]:
-                keylog = keylog.replace("q)", "$")
+            derivative_order = components['order']
+            variable = components['variable']
+            expression = components['expression']
+            eval_var = components['eval_var']
+            eval_value = components['eval_value']
 
-            # Add mode prefix
-            mode_prefixes = {
-                "1": "qw21",  # Mode 1: Derivative prefix
-                "2": "qw22",  # Mode 2: Alternative format
-                "3": "qw23",  # Mode 3: Advanced
-                "4": "qw24"   # Mode 4: Extended
-            }
-            prefix = mode_prefixes.get(mode, "")
-            if prefix:
-                keylog = prefix + keylog
+            # Encode expression using LatexToKeylogEncoder
+            if expression:
+                expr_encoded = self.encoder.encode(expression)
+            else:
+                expr_encoded = ""
+            
+            # Encode evaluation value if present
+            if eval_value:
+                eval_encoded = self.encoder.encode(eval_value)
+                # Replace variable with encoded variable
+                eval_var_encoded = variable.replace('x', '[').replace('t', '[')
+            else:
+                eval_encoded = None
+                eval_var_encoded = None
+
+            # Build keylog in new format: qv[n]{expression},{variable=value})
+            # Determine prefix based on order
+            if derivative_order == 1:
+                prefix = "qv"  # First derivative
+            else:
+                prefix = f"qv{derivative_order}"  # nth derivative
+            
+            # Assemble keylog
+            if eval_encoded:
+                keylog = f"{prefix}{{{expr_encoded}}},{{{eval_var_encoded}={eval_encoded}}})"
+            else:
+                keylog = f"{prefix}{{{expr_encoded}}})"
 
             return {
                 'success': True,
@@ -193,9 +241,11 @@ class DerivativeEncodingService:
                 'latex_input': latex_expr,
                 'processed_latex': processed_latex,
                 'derivative_order': derivative_order,
-                'function': func_var_info['function'],
-                'variable': func_var_info['variable'],
-                'mode': mode
+                'function': expression,
+                'variable': variable,
+                'mode': mode,
+                'format': 'simplified',
+                'pattern': f"qv[{derivative_order}]{{expr}},{{var=val}})"
             }
 
         except Exception as e:
@@ -234,18 +284,21 @@ class DerivativeEncodingService:
             
             if is_derivative:
                 processed = self._preprocess_derivative_latex(latex_expr)
-                order = self._count_derivative_order(processed)
-                func_var = self._extract_function_and_variable(processed)
+                components = self._extract_components_from_pattern(processed)
+                order = components['order']
+                func = components['expression']
+                var = components['variable']
             else:
                 order = 0
-                func_var = {'function': '', 'variable': ''}
+                func = ''
+                var = ''
 
             return {
                 'valid': is_derivative,
                 'is_derivative': is_derivative,
                 'derivative_order': order,
-                'function': func_var['function'],
-                'variable': func_var['variable'],
+                'function': func,
+                'variable': var,
                 'error': None if is_derivative else 'Không phải biểu thức đạo hàm (thiếu \\frac{d}{dx} hoặc f\')'
             }
 
@@ -263,7 +316,7 @@ class DerivativeEncodingService:
 
 if __name__ == "__main__":
     print("=" * 80)
-    print("DERIVATIVE ENCODING SERVICE - TEST")
+    print("DERIVATIVE ENCODING SERVICE - TEST (Simplified Format)")
     print("=" * 80)
     print()
 
@@ -275,32 +328,30 @@ if __name__ == "__main__":
 
     print("✅ Service initialized successfully")
     print(f"  - Mapping rules: {len(service.encoder.mappings)}")
+    print(f"  - New format: qv[n]{{expr}},{{x=val}})")
     print()
 
     test_cases = [
-        (r"\frac{dy}{dx}", "First order - Leibniz"),
-        (r"\frac{d^2y}{dx^2}", "Second order - Leibniz"),
-        (r"\frac{d(x^2)}{dx}", "Function x^2"),
-        (r"f'(x)", "Lagrange notation"),
-        (r"f''(x)", "Second derivative - Lagrange"),
-        (r"y'", "Simple prime notation"),
-        (r"\frac{d(\sin(x))}{dx}", "Trigonometric function"),
-        (r"\frac{d(e^x)}{dx}", "Exponential function"),
+        (r"\frac{d}{dx}{x^2}{x=3}", "Simple polynomial"),
+        (r"\frac{d}{dx}{2\cdot10^{3}x^{2} + 5\cdot10^{2}x + 7\cdot10^{4}}{x=3\cdot10^{2}}", 
+         "Scientific notation"),
+        (r"\frac{d^2}{dx^2}{x^3}{x=2}", "Second derivative"),
+        (r"\frac{d}{dx}{e^{2x}}{x=0}", "Exponential"),
+        (r"\frac{d}{dx}{\sin(x)}{x=\frac{\pi}{4}}", "Trigonometric"),
+        (r"\frac{d}{dx}{x^2 + 1}{}", "No evaluation"),
     ]
 
     for latex, desc in test_cases:
         print(f"--- {desc} ---")
         print(f"LaTeX: {latex}")
 
-        validation = service.validate_derivative_latex(latex)
-        print(f"Valid: {validation['valid']}, Order: {validation.get('derivative_order', 0)}")
-
-        for mode in ["1", "2", "3", "4"]:
-            result = service.encode_derivative(latex, mode)
-            if result['success']:
-                print(f"  Mode {mode}: {result['keylog']}")
-            else:
-                print(f"  Mode {mode}: ERROR - {result['error']}")
+        result = service.encode_derivative(latex, "1")
+        if result['success']:
+            print(f"Order: {result['derivative_order']}")
+            print(f"Keylog: {result['keylog']}")
+            print(f"Pattern: {result['pattern']}")
+        else:
+            print(f"ERROR: {result['error']}")
 
         print()
 
