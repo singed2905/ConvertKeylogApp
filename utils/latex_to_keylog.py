@@ -204,12 +204,12 @@ class LatexToKeylogEncoder:
         """
         result = text
         func_map = {
-            r'\sqrt': 's',
-            r'\sin': 'j',
-            r'\cos': 'k',
-            r'\tan': 'l',
-            r'\ln': 'h',
-            r'\log': 'i',
+            r'\sqrt(': 's',
+            r'\sin(': 'j',
+            r'\cos(': 'k',
+            r'\tan(': 'l',
+            r'\ln(': 'h',
+            r'\log(': 'i',
             r'\cdot': 'O',  # LaTeX multiplication dot
         }
         for latex_func, keylog_char in func_map.items():
@@ -302,7 +302,7 @@ if __name__ == "__main__":
 
     test_suites = {
         "Basic Operations": [
-            (r"2+3", "2p3"),
+            (r"\sin(x)", "2p3"),
             (r"2\cdot3", "2O3"),
             (r"a\cdot b", "aOb"),
         ],

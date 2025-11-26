@@ -85,24 +85,43 @@
       "type": "literal",
       "description": "Hàm sqrt{ không dấu \\ → s("
     },
-    {
-      "find": "sin(",
-      "replace": "j",
-      "type": "literal",
-      "description": "Hàm sin(x) → j(x)"
-    },
-    {
-      "find": "cos(",
-      "replace": "k",
-      "type": "literal",
-      "description": "Hàm cos(x) → k(x)"
-    },
-    {
-      "find": "tan(",
-      "replace": "l",
-      "type": "literal",
-      "description": "Hàm tan(x) → l(x)"
-    },
+   {
+  "find": "\\sin(",
+  "replace": "j",
+  "type": "literal",
+  "description": "Hàm \\sin(x) → j"
+},
+{
+  "find": "\\cos(",
+  "replace": "k",
+  "type": "literal",
+  "description": "Hàm \\cos(x) → k"
+},
+{
+  "find": "\\tan(",
+  "replace": "l",
+  "type": "literal",
+  "description": "Hàm \\tan(x) → l"
+},
+{
+  "find": "sin(",
+  "replace": "j",
+  "type": "literal",
+  "description": "Hàm sin(x) → j"
+},
+{
+  "find": "cos(",
+  "replace": "k",
+  "type": "literal",
+  "description": "Hàm cos(x) → k"
+},
+{
+  "find": "tan(",
+  "replace": "l",
+  "type": "literal",
+  "description": "Hàm tan(x) → l"
+},
+
     {
       "find": "ln(",
       "replace": "h(",
