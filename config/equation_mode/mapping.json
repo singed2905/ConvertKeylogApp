@@ -49,11 +49,12 @@
       "description": "x thành '['"
     },
     {
-      "find": "*",
-      "replace": "O",
-      "type": "literal",
-      "description": "Dấu nhân (*) thành 'O'"
-    },
+  "find": "\\cdot",
+  "replace": "O",
+  "type": "literal",
+  "description": "Dấu nhân LaTeX (\\cdot) thành 'O'"
+},
+
     {
       "find": "/",
       "replace": "P",

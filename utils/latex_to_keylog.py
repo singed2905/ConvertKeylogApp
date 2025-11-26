@@ -3,6 +3,7 @@ import os
 import re
 from typing import List, Dict, Any, Tuple, Optional
 
+
 class LatexToKeylogEncoder:
     """Utility to encode LaTeX math expressions to calculator keylog format."""
 
@@ -28,26 +29,47 @@ class LatexToKeylogEncoder:
             return []
 
     def encode(self, latex_expr: str) -> str:
+        """
+        Encode LaTeX expression to keylog format.
+
+        Pipeline order (critical for nested structures):
+        1. Normalize (spaces, \\left, \\right)
+        2. Process fractions (recursive, handles nested e^x inside)
+        3. Process remaining e^x (outside fractions)
+        4. Process sqrt normalization
+        5. Process absolute values
+        6. Process scientific notation
+        7. Process log bases
+        8. Process special functions (sin, cos, ln, sqrt, cdot)
+        9. Process integrals
+        10. Process general exponents
+        11. Convert braces to parens
+        12. Apply custom mappings
+        13. Finalize separators
+        """
         if not latex_expr or not latex_expr.strip():
             return "0"
+
         result = latex_expr.strip()
         result = result.replace(" ", "")
         result = result.replace(r'\left', '').replace(r'\right', '')
 
-        # ==== E^ (Euler number): e^{anything} → qh... ) ====
-        result = re.sub(r'e\^\{([^}]+)\}', r'qh\1)', result)
-        result = re.sub(r'e\^([0-9]+)', r'qh\1)', result)
+        # ==== CRITICAL: Process fractions FIRST (with recursive e^x handling) ====
+        result = self._process_fractions(result)
 
-        # ==== SQRT normalization: sqrt{...} / sqrt(...) không cần \ ====
+        # ==== E^ (Euler number): e^{anything} → qh... ) ====
+        result = self._process_e_power(result)
+
+        # ==== SQRT normalization: sqrt{...} / sqrt(...) without backslash ====
         result = re.sub(r'(?<!\\)sqrt\{', r'\\sqrt{', result)
         result = re.sub(r'(?<!\\)sqrt\(', r'\\sqrt(', result)
 
-        # ==== Absolute value: |a|, \left|a\right|, \lvert a \rvert ====
+        # ==== Absolute value: |a|, \\left|a\\right|, \\lvert a \\rvert ====
         result = re.sub(r'\\left\|([^|]+)\\right\|', r'q(\1)0', result)
         result = re.sub(r'\|([^|]+)\|', r'q(\1)0', result)
         result = re.sub(r'\\lvert([^|]+)\\rvert', r'q(\1)0', result)
 
-        # ==== Scientific notation: \times 10^{n} → Kn ====
+        # ==== Scientific notation: \\times 10^{n} → Kn ====
         result = re.sub(r'\\times10\^\{(\d+)\}', r'K\1', result)
         result = re.sub(r'\\times10\^(\d+)', r'K\1', result)
 
@@ -59,7 +81,10 @@ class LatexToKeylogEncoder:
         result = re.sub(r'\\log_(\d+)\s*\(([^)]*)\)', r'i(\2__SEP__\1)', result)
         result = re.sub(r'\\log_(\d+)\s*([a-zA-Z0-9])', r'i(\2__SEP__\1)', result)
 
+        # ==== Special functions (sin, cos, ln, sqrt, cdot) ====
         result = self._process_special_functions(result)
+
+        # ==== Integrals: \\int_{lower}^{upper}function d(var) → y(function,lower,upper) ====
         max_iterations = 20
         for iteration in range(max_iterations):
             pattern = r'\\int_\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}\^\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}(.*?)d([a-z])'
@@ -76,15 +101,74 @@ class LatexToKeylogEncoder:
             replacement = f"y({function_clean},{lower_clean},{upper_clean})"
             result = result[:match.start()] + replacement + result[match.end():]
 
+        # ==== General exponents (x^n) ====
         result = self._process_exponents(result)
-        result = self._process_fractions(result)
+
+        # ==== Convert braces to parentheses ====
         result = result.replace("{", "(")
         result = result.replace("}", ")")
+
+        # ==== Apply custom mappings from config ====
         result = self._apply_mappings(result)
+
+        # ==== Finalize separators ====
         result = result.replace('__SEP__', 'q)')
+
+        return result
+
+    def _process_fractions(self, text: str) -> str:
+        """
+        Process LaTeX fractions with recursive handling.
+        Handles nested fractions and e^x inside numerator/denominator.
+
+        Examples:
+            \\frac{1}{2} → (1)a(2)
+            \\frac{e^2}{3} → (qh2))a(3)
+            \\frac{e^{\\frac{1}{2}}}{3} → (qh(1)a(2)))a(3)
+        """
+        result = text
+        max_iterations = 20  # Increased for complex nesting
+
+        for iteration in range(max_iterations):
+            pattern = r'\\frac\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
+            match = re.search(pattern, result)
+            if not match:
+                break
+
+            num = match.group(1)
+            den = match.group(2)
+
+            # Recursive: Process nested fractions first
+            if r'\frac' in num:
+                num = self._process_fractions(num)
+            if r'\frac' in den:
+                den = self._process_fractions(den)
+
+            # Then process e^x patterns (after nested structures resolved)
+            num = self._process_e_power(num)
+            den = self._process_e_power(den)
+
+            replacement = f"({num})a({den})"
+            result = result[:match.start()] + replacement + result[match.end():]
+
+        return result
+
+    def _process_e_power(self, text: str) -> str:
+        """
+        Process Euler's number e^x patterns.
+
+        Examples:
+            e^{2} → qh2)
+            e^{x+1} → qhxp1)
+            e^{(1)a(2)} → qh(1)a(2))  [after fraction processing]
+        """
+        result = text
+        result = re.sub(r'e\^\{([^}]+)\}', r'qh\1)', result)
+        result = re.sub(r'e\^([0-9]+)', r'qh\1)', result)
         return result
 
     def _clean_bounds(self, bound: str) -> str:
+        """Clean integral bounds (lower/upper limits)."""
         result = bound
         result = result.replace(r'\left', '').replace(r'\right', '')
         result = self._process_special_functions(result)
@@ -95,6 +179,7 @@ class LatexToKeylogEncoder:
         return result
 
     def _clean_function(self, func: str) -> str:
+        """Clean integral function expression."""
         result = func
         result = result.replace(r'\left', '').replace(r'\right', '')
         result = self._process_special_functions(result)
@@ -105,6 +190,18 @@ class LatexToKeylogEncoder:
         return result
 
     def _process_special_functions(self, text: str) -> str:
+        """
+        Map LaTeX functions to keylog codes.
+
+        Mapping:
+            \\sqrt → s
+            \\sin → j
+            \\cos → k
+            \\tan → l
+            \\ln → h
+            \\log → i
+            \\cdot → O (multiplication dot)
+        """
         result = text
         func_map = {
             r'\sqrt': 's',
@@ -113,72 +210,190 @@ class LatexToKeylogEncoder:
             r'\tan': 'l',
             r'\ln': 'h',
             r'\log': 'i',
+            r'\cdot': 'O',  # LaTeX multiplication dot
         }
         for latex_func, keylog_char in func_map.items():
             result = result.replace(latex_func, keylog_char)
         return result
 
-    def _process_fractions(self, text: str) -> str:
-        result = text
-        for _ in range(15):
-            pattern = r'\\frac\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
-            match = re.search(pattern, result)
-            if not match:
-                break
-            num = match.group(1)
-            den = match.group(2)
-            replacement = f"({num})a({den})"
-            result = result[:match.start()] + replacement + result[match.end():]
-        return result
-
     def _process_exponents(self, text: str) -> str:
+        """
+        Process general exponents (not e^x, which is handled separately).
+
+        Examples:
+            x^{2} → x^2)
+            x^2 → x^2)
+            (x+1)^{3} → (x+1)^3)
+        """
         result = text
         result = re.sub(r'\^\{([^}]+)\}', r'^\1)', result)
         result = re.sub(r'\^([a-zA-Z0-9])(?![0-9\)])', r'^\1)', result)
         return result
 
     def _apply_mappings(self, text: str) -> str:
+        """
+        Apply custom character mappings from config file.
+        Skips patterns that might conflict with LaTeX structures already processed.
+        """
         result = text
-        skip_keywords = ["frac", "tích phân", "ngoặc", "{", "}", "sqrt", "sin", "cos", "tan", "ln", "\\"]
+        skip_keywords = ["frac", "tích phân", "ngoặc", "{", "}",
+                         "sqrt", "sin", "cos", "tan", "ln", "\\"]
+
         for mapping in self.mappings:
             find_pat = mapping.get("find", "")
             repl_pat = mapping.get("replace", "")
             typ = mapping.get("type", "literal")
             desc = mapping.get("description", "").lower()
+
+            # Skip if mapping might conflict with processed structures
             if any(kw in desc or kw in find_pat.lower() for kw in skip_keywords):
                 continue
+
             if typ == "regex":
                 try:
                     result = re.sub(find_pat, repl_pat, result)
                 except:
-                    pass
+                    pass  # Ignore regex errors
             else:
                 result = result.replace(find_pat, repl_pat)
+
         return result
 
     def encode_batch(self, latex_exprs: List[str]) -> List[str]:
+        """
+        Encode multiple LaTeX expressions at once.
+
+        Args:
+            latex_exprs: List of LaTeX expression strings
+
+        Returns:
+            List of encoded keylog strings
+        """
         return [self.encode(expr) for expr in latex_exprs]
 
     def validate_latex(self, latex_expr: str) -> Tuple[bool, Optional[str]]:
+        """
+        Validate LaTeX expression syntax.
+
+        Args:
+            latex_expr: LaTeX expression string
+
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
         if not latex_expr or not latex_expr.strip():
             return False, "Rỗng"
+
         if latex_expr.count("{") != latex_expr.count("}"):
             return False, "Dấu { } không khớp"
+
         return True, None
 
-# Example test cases (rút ngắn)
+
+# ============================================================================
+# TEST CASES
+# ============================================================================
 if __name__ == "__main__":
     encoder = LatexToKeylogEncoder()
-    tests = [
-        ("e^{2}", "qh2)"),
-        (r"e^{\frac{1}{2}}", "qh(1)a(2))"),
-        ("e^{x+1}", "qh[Ka1)"),
-        ("sqrt{4}", "s(4)"),
-        ("|x|", "q([)0"),
-        (r"\left|x\right|", "q([)0"),
-        ("e^{-|y|}", "qhq([)0p)"),
-        (r"e^{\sqrt{x}}", "qhs([))"),
-    ]
-    for latex, expect in tests:
-        result = encoder.encode(latex)
-        print(f"{latex:20} → {result:20} (expect: {expect})")
+
+    print("=" * 70)
+    print("LATEX TO KEYLOG ENCODER - COMPREHENSIVE TEST SUITE")
+    print("=" * 70)
+
+    test_suites = {
+        "Basic Operations": [
+            (r"2+3", "2p3"),
+            (r"2\cdot3", "2O3"),
+            (r"a\cdot b", "aOb"),
+        ],
+
+        "Euler's Number": [
+            ("e^{2}", "qh2)"),
+            ("e^2", "qh2)"),
+            ("e^{x+1}", "qh[p1)"),
+            ("e^{-x}", "qhm[)"),
+        ],
+
+        "Fractions": [
+            (r"\frac{1}{2}", "(1)a(2)"),
+            (r"\frac{x+1}{x-1}", "([p1)a([m1)"),
+            (r"\frac{\sqrt{2}}{3}", "(s(2))a(3)"),
+        ],
+
+        "e^x in Fractions": [
+            (r"\frac{e^2}{3}", "(qh2))a(3)"),
+            (r"\frac{1}{e^2}", "(1)a(qh2))"),
+            (r"\frac{e^x}{e^y}", "(qh[))a(qh]))"),
+        ],
+
+        "Fractions in e^x (Critical)": [
+            (r"e^{\frac{1}{2}}", "qh(1)a(2))"),
+            (r"e^{\frac{x+1}{x-1}}", "qh([p1)a([m1))"),
+        ],
+
+        "Nested Fractions + e^x": [
+            (r"\frac{e^{\frac{1}{2}}}{3}", "(qh(1)a(2)))a(3)"),
+            (r"\frac{2}{e^{\frac{3}{4}}}", "(2)a(qh(3)a(4)))"),
+            (r"e^{\frac{e^2}{3}}", "qh(qh2))a(3))"),
+        ],
+
+        "Square Roots": [
+            (r"\sqrt{4}", "s(4)"),
+            ("sqrt{4}", "s(4)"),
+            (r"e^{\sqrt{x}}", "qhs([))"),
+        ],
+
+        "Absolute Values": [
+            ("|x|", "q([)0"),
+            (r"\left|x\right|", "q([)0"),
+            ("e^{-|y|}", "qhmq([)0)"),
+        ],
+
+        "Scientific Notation": [
+            (r"3.5\times10^{5}", "3.5K5"),
+            (r"2\times10^{-2}", "2Km2"),
+        ],
+
+        "Trigonometric Functions": [
+            (r"\sin(30)", "j(30)"),
+            (r"\cos(x)", "k([)"),
+            (r"\tan(\frac{\pi}{4})", "l((π)a(4))"),
+            (r"\sin(x)\cdot\cos(x)", "j([)Ok([)"),
+        ],
+
+        "Logarithms": [
+            (r"\ln(x)", "h([)"),
+            (r"\log(100)", "i(100)"),
+            (r"\log_2(8)", "i(8q)2)"),
+            (r"\log_{10}(100)", "i(100q)10)"),
+        ],
+
+        "Complex Expressions": [
+            (r"\frac{\sin(\frac{\pi}{4})}{\cos(x)}", "(j((π)a(4)))a(k([))"),
+            (r"e^{2} + e^{\frac{1}{2}}", "qh2)pqh(1)a(2))"),
+            (r"\frac{1}{2} + \sqrt{4} + \ln(x)", "(1)a(2)ps(4)ph([)"),
+        ],
+    }
+
+    total_tests = 0
+    passed_tests = 0
+
+    for suite_name, tests in test_suites.items():
+        print(f"\n{suite_name}:")
+        print("-" * 70)
+
+        for latex, expected in tests:
+            result = encoder.encode(latex)
+            status = "✅" if result == expected else "❌"
+            total_tests += 1
+            if result == expected:
+                passed_tests += 1
+
+            print(f"{status} {latex:35} → {result:25}")
+            if result != expected:
+                print(f"   Expected: {expected}")
+
+    print("\n" + "=" * 70)
+    print(f"RESULTS: {passed_tests}/{total_tests} tests passed "
+          f"({100 * passed_tests // total_tests}%)")
+    print("=" * 70)
