@@ -92,15 +92,35 @@
       "service_class": "VectorService",
       "config_path": "config/vector_mode/",
       "enabled": true
+    },
+    "derivative": {
+      "name": "Derivative Mode",
+      "version": "1.0",
+      "description": "Tính đạo hàm các hàm số LaTeX",
+      "icon": "📉",
+      "status": "beta",
+      "features": [
+        "Hỗ trợ ký hiệu Leibniz: \\frac{dy}{dx}, \\frac{d^2y}{dx^2}",
+        "Hỗ trợ ký hiệu Lagrange: f'(x), f''(x), f'''(x)",
+        "Hỗ trợ ký hiệu Prime: y', y'', y'''",
+        "Tự động chuyển đổi giữa các ký hiệu",
+        "Multi-mode encoding (Mode 1-4)",
+        "Keylog encoding tương thích TL (prefix qw21-qw24)",
+        "Excel template và batch processing"
+      ],
+      "view_class": "DerivativeView",
+      "service_class": "DerivativeService",
+      "config_path": "config/derivative_mode/",
+      "enabled": true
     }
   },
-  "display_order": ["equation", "polynomial", "geometry", "geometry_v2", "vector"],
+  "display_order": ["equation", "polynomial", "geometry", "geometry_v2", "vector", "derivative"],
   "default_mode": "equation",
-  "experimental_modes": ["vector", "geometry_v2"],
+  "experimental_modes": ["vector", "geometry_v2", "derivative"],
   "metadata": {
-    "version": "2.3",
-    "last_updated": "2025-11-25",
-    "total_modes": 5,
+    "version": "2.4",
+    "last_updated": "2025-11-26",
+    "total_modes": 6,
     "description": "Configuration for all available calculation modes in ConvertKeylogApp"
   }
 }
