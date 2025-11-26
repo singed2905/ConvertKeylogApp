@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import os
 from services.derivative.derivative_encoding_service import DerivativeEncodingService
-# from services.derivative.excel_service import ExcelService  # TODO: Create this
+from services.derivative.excel_service import ExcelService
 
 
 class DerivativeView:
@@ -16,7 +16,7 @@ class DerivativeView:
         self.root.resizable(False, False)
 
         self.service = DerivativeEncodingService()
-        # self.excel_service = ExcelService()  # TODO: Create excel service
+        self.excel_service = ExcelService()
         self.mode_var = tk.StringVar(value="1")
         self.latex_entry = None
         self.keylog_output = None
@@ -28,7 +28,7 @@ class DerivativeView:
         self.mode_data = {
             "1": {
                 "title": "Mode 1: Đạo hàm bậc 1",
-                "description": "Đạo hàm của hàm số tại điểm x. Format: qv{function},{x=value})",
+                "description": "Đạo hàm của hàm số tại điểm x. Format: qv(function),([=value)",
                 "example": r"\frac{d}{dx}{x^2}{x=3}"
             }
         }
@@ -133,24 +133,113 @@ class DerivativeView:
 
     def _on_import_click(self):
         """Khi click nút Import Excel"""
-        messagebox.showinfo("Coming Soon", "Excel import tính năng sẽ được hoàn thiện sau!")
-        # TODO: Implement when excel_service is ready
-        return
+        file_path = filedialog.askopenfilename(
+            title="Chọn file Excel/CSV",
+            filetypes=[
+                ("Excel files", "*.xlsx"),
+                ("CSV files", "*.csv"),
+                ("All files", "*.*")
+            ]
+        )
+
+        if not file_path:
+            return
+
+        self._set_status("🔄 Đang đọc file...")
+
+        # Dùng service để đọc file
+        success, rows, error = self.excel_service.read_excel_file(file_path)
+
+        if not success:
+            messagebox.showerror("Lỗi", error)
+            self._set_status("❌ Lỗi đọc file")
+            return
+
+        self.batch_rows = rows
+        self.current_file_path = file_path
+
+        # Hiển thị thông tin file
+        self._display_file_ready()
+        self._show_batch_mode()
 
     def _display_file_ready(self):
         """Hiển thị file sẵn sàng xử lý"""
-        # TODO: Implement when excel_service is ready
-        pass
+        self.keylog_output.config(state="normal")
+        self.keylog_output.delete("1.0", tk.END)
+
+        self.keylog_output.tag_configure("filepath", font=("Arial", 10, "bold"), foreground="#2980B9")
+
+        file_info = self.excel_service.get_file_info()
+
+        file_display = f"📁 File: {file_info['path']}\n"
+        file_display += f"📊 Kích thước: {file_info['size_mb']} MB\n"
+        file_display += f"📝 Số dòng: {len(self.batch_rows)}\n"
+        file_display += "=" * 120 + "\n"
+        file_display += "⏳ Chờ xử lý...\n"
+
+        self.keylog_output.insert("1.0", file_display, "filepath")
+        self.keylog_output.config(state="disabled")
+        self._set_status(f"📁 File sẵn sàng: {len(self.batch_rows)} dòng")
 
     def _process_batch_direct(self):
         """Khi click nút Process Excel"""
-        # TODO: Implement when excel_service is ready
-        messagebox.showinfo("Coming Soon", "Batch processing sẽ được hoàn thiện sau!")
+        self.batch_results = []
+        total = len(self.batch_rows)
+
+        self._set_status("🔄 Đang xử lý...")
+
+        for idx, (latex, mode) in enumerate(self.batch_rows):
+            if not latex or mode not in ["1"]:
+                continue
+
+            # Mã hóa LaTeX → keylog
+            result = self.service.encode_derivative(latex, mode)
+
+            # Lưu kết quả: phải lưu keylog thực tế từ result
+            self.batch_results.append({
+                'latex': latex,
+                'mode': mode,
+                'keylog': result.get('keylog', 'ERROR'),
+                'status': 'success' if result.get('success') else 'error'
+            })
+
+            self._set_status(f"🔄 Đã xử lý {idx + 1}/{total}")
+
+        # Export kết quả ra file (dùng service)
+        success, output_file, message = self.excel_service.export_results(self.batch_results)
+
+        if success:
+            self.output_file_path = output_file
+            messagebox.showinfo("✅ Thành công", message)
+        else:
+            messagebox.showerror("Lỗi", message)
+
+        self._display_batch_results()
 
     def _display_batch_results(self):
         """Hiển thị kết quả sau khi xử lý"""
-        # TODO: Implement when excel_service is ready
-        pass
+        self.keylog_output.config(state="normal")
+        self.keylog_output.delete("1.0", tk.END)
+
+        self.keylog_output.tag_configure("filepath", font=("Arial", 10, "bold"), foreground="#2980B9")
+
+        file_info = self.excel_service.get_file_info()
+
+        # Xác định định dạng output
+        output_extension = '.csv' if file_info['use_csv'] else '.xlsx'
+        output_file = self.excel_service._get_output_file_path(output_extension)
+
+        display_text = f"📁 File gốc: {file_info['path']}\n"
+        display_text += f"📊 Kích thước: {file_info['size_mb']} MB\n"
+        display_text += f"📝 Format: {'CSV (tối ưu file lớn)' if file_info['use_csv'] else 'Excel'}\n"
+        display_text += f"📈 Số dòng xử lý: {len(self.batch_results)}\n"
+        display_text += f"📁 File kết quả: {output_file}\n"
+        display_text += "=" * 120 + "\n"
+        display_text += "✅ Xử lý thành công!\n"
+
+        self.keylog_output.insert("1.0", display_text, "filepath")
+        self.keylog_output.config(state="disabled")
+        self._set_status(f"✅ Hoàn thành: {len(self.batch_results)} kết quả")
 
     def _show_batch_mode(self):
         """Ẩn nút ENCODE, hiện nút PROCESS"""
