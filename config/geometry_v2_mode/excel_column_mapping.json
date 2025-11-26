@@ -25,7 +25,7 @@
           "example": "4,5,6"
         }
       },
-      "required_columns": ["data_A"],
+      "required_columns": ["data_v1"],
       "total_columns": 1
     },
     "Đường thẳng": {
@@ -181,7 +181,7 @@
           "example": "1,0,0"
         }
       },
-      "required_columns": ["data_B"],
+      "required_columns": ["data_v2"],
       "total_columns": 1
     },
     "Đường thẳng": {
@@ -311,87 +311,10 @@
       "total_columns": 3
     }
   },
-  "common_columns": {
-    "operation": {
-      "excel_column": "operation",
-      "description": "Phép toán cần thực hiện",
-      "required": true,
-      "allowed_values": [
-        "Tương giao",
-        "Khoảng cách",
-        "Diện tích",
-        "Thể tích",
-        "PT đường thẳng",
-        "PT mặt phẳng",
-        "Góc",
-        "Tích vô hướng 2 vecto",
-        "Vecto đơn vị",
-        "Phép tính tam giác"
-      ]
-    },
-    "shape_a": {
-      "excel_column": "shape_A",
-      "description": "Loại hình học cho nhóm A",
-      "required": true,
-      "allowed_values": [
-        "Điểm",
-        "Vecto",
-        "Đường thẳng",
-        "Mặt phẳng",
-        "Đường tròn",
-        "Mặt cầu",
-        "Tam giác"
-      ]
-    },
-    "shape_b": {
-      "excel_column": "shape_B",
-      "description": "Loại hình học cho nhóm B (nếu cần)",
-      "required": false,
-      "allowed_values": [
-        "Điểm",
-        "Vecto",
-        "Đường thẳng",
-        "Mặt phẳng",
-        "Đường tròn",
-        "Mặt cầu",
-        "Tam giác",
-        ""
-      ]
-    },
-    "dimension_a": {
-      "excel_column": "dim_A",
-      "description": "Kích thước cho nhóm A (2D/3D)",
-      "required": false,
-      "default": "3",
-      "allowed_values": ["2", "3"]
-    },
-    "dimension_b": {
-      "excel_column": "dim_B",
-      "description": "Kích thước cho nhóm B (2D/3D)",
-      "required": false,
-      "default": "3",
-      "allowed_values": ["2", "3"]
-    },
-    "version": {
-      "excel_column": "version",
-      "description": "Phiên bản máy tính Casio",
-      "required": false,
-      "default": "fx799",
-      "allowed_values": ["fx799", "fx880", "fx801"]
-    }
-  },
   "output_columns": {
     "encoded": {
       "excel_column": "keylog",
       "description": "Kết quả mã hóa keylog"
-    },
-    "status": {
-      "excel_column": "status",
-      "description": "Trạng thái xử lý (Success/Error)"
-    },
-    "error_message": {
-      "excel_column": "error",
-      "description": "Thông báo lỗi (nếu có)"
     }
   },
   "metadata": {
@@ -419,6 +342,7 @@
       "Phép tính tam giác"
     ],
     "last_updated": "2025-11-25",
-    "author": "singed2905"
+    "author": "singed2905",
+    "note": "Config không yêu cầu columns operation, shape_A, shape_B trong Excel. Các giá trị này lấy từ UI dropdown."
   }
 }

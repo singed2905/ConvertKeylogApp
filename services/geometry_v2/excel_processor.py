@@ -1,16 +1,30 @@
-
+"""
+Excel Processor for Geometry V2 Mode
+- Validates Excel columns based on UI dropdown selections
+- Processes batch encoding with shape-specific data extraction
+- Supports chunked processing for large files
+"""
 
 import pandas as pd
 import os
 import json
 import gc
+import warnings
 from datetime import datetime
 from typing import Dict, List, Tuple, Optional, Callable
+
+# Suppress pandas warnings
+warnings.filterwarnings('ignore', category=FutureWarning)
 
 
 class ExcelProcessor:
     def __init__(self, service):
+        """
+        Initialize Excel Processor
 
+        Args:
+            service: GeometryV2Service instance
+        """
         self.service = service
         self.column_mapping = self._load_column_mapping()
 
@@ -44,28 +58,21 @@ class ExcelProcessor:
     # ========== FILE VALIDATION ==========
 
     def is_large_file(self, file_path: str) -> Tuple[bool, Dict]:
+        """
+        Kiểm tra file có phải large file không
 
+        Args:
+            file_path: Đường dẫn file Excel
+
+        Returns:
+            Tuple[bool, Dict]: (is_large, file_info)
+        """
         try:
             file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
-
-            # Quick row count check (read only first sheet metadata)
-            try:
-                with pd.ExcelFile(file_path) as xls:
-                    # Get first sheet
-                    sheet_name = xls.sheet_names[0]
-                    df_sample = pd.read_excel(xls, sheet_name=sheet_name, nrows=0)
-
-                    # Estimate total rows (might not be exact)
-                    # For accurate count, need to read entire file
-                    row_count = None  # Unknown for now
-            except:
-                row_count = None
-
             is_large = file_size_mb > self.LARGE_FILE_SIZE_MB
 
             file_info = {
                 'size_mb': round(file_size_mb, 2),
-                'row_count': row_count,
                 'is_large': is_large,
                 'recommended_chunk_size': self.DEFAULT_CHUNK_SIZE if is_large else None
             }
@@ -75,77 +82,48 @@ class ExcelProcessor:
         except Exception as e:
             return False, {'error': str(e)}
 
-    def validate_columns(self, df: pd.DataFrame, operation: str,
-                        shape_a: str, shape_b: Optional[str] = None) -> Dict:
+    def _get_shape_required_columns(self, shape: str, group: str) -> List[str]:
+        """
+        Lấy danh sách columns cần thiết cho 1 shape
 
-        try:
-            required_columns = self._get_required_columns(operation, shape_a, shape_b)
-            existing_columns = set(df.columns)
-            missing_columns = [col for col in required_columns if col not in existing_columns]
+        Args:
+            shape: Tên shape (Điểm, Vecto, Đường thẳng, ...)
+            group: 'a' hoặc 'b'
 
-            if missing_columns:
-                return {
-                    'valid': False,
-                    'missing_columns': missing_columns,
-                    'message': f"Thiếu {len(missing_columns)} cột: {', '.join(missing_columns)}"
-                }
+        Returns:
+            List các column names cần có trong Excel
+        """
+        if not shape:
+            return []
 
-            return {
-                'valid': True,
-                'missing_columns': [],
-                'message': 'Tất cả columns cần thiết đều có sẵn'
-            }
+        mapping_key = f"group_{group}_mapping"
+        shape_mapping = self.column_mapping.get(mapping_key, {}).get(shape, {})
 
-        except Exception as e:
-            return {
-                'valid': False,
-                'missing_columns': [],
-                'message': f'Lỗi validation: {str(e)}'
-            }
+        if not shape_mapping:
+            print(f"⚠️ Warning: No mapping found for {group.upper()} - {shape}")
+            return []
 
-    def _get_required_columns(self, operation: str, shape_a: str,
-                             shape_b: Optional[str] = None) -> List[str]:
-        """Get danh sách columns cần thiết"""
-        columns = []
+        return shape_mapping.get('required_columns', [])
 
-        # Common columns
-        common = self.column_mapping.get('common_columns', {})
-        if common:
-            columns.append(common.get('operation', {}).get('excel_column', 'operation'))
-            columns.append(common.get('shape_a', {}).get('excel_column', 'shape_A'))
+    def _extract_shape_data_from_row(self, row: pd.Series, shape: str, group: str) -> Dict:
+        """
+        Extract data từ Excel row cho một shape cụ thể
 
-            if shape_b:
-                columns.append(common.get('shape_b', {}).get('excel_column', 'shape_B'))
+        Args:
+            row: Pandas Series (1 row)
+            shape: Shape name (Điểm, Vecto, ...)
+            group: 'a' hoặc 'b'
 
-            columns.append(common.get('dimension_a', {}).get('excel_column', 'dim_A'))
-            if shape_b:
-                columns.append(common.get('dimension_b', {}).get('excel_column', 'dim_B'))
-
-        # Shape A columns
-        shape_a_mapping = self.column_mapping.get('group_a_mapping', {}).get(shape_a, {})
-        if shape_a_mapping:
-            columns.extend(shape_a_mapping.get('required_columns', []))
-
-        # Shape B columns
-        if shape_b:
-            shape_b_mapping = self.column_mapping.get('group_b_mapping', {}).get(shape_b, {})
-            if shape_b_mapping:
-                columns.extend(shape_b_mapping.get('required_columns', []))
-
-        return columns
-
-    # ========== DATA EXTRACTION ==========
-
-    def _extract_data_from_row(self, row: pd.Series, group: str, shape: str) -> Dict:
-
-        data = {}
-
+        Returns:
+            Dict data cho encoder
+        """
         mapping_key = f"group_{group}_mapping"
         shape_mapping = self.column_mapping.get(mapping_key, {}).get(shape, {})
 
         if not shape_mapping:
             raise ValueError(f"No mapping found for {group.upper()} - {shape}")
 
+        data = {}
         columns_config = shape_mapping.get('columns', {})
 
         for data_key, col_config in columns_config.items():
@@ -163,13 +141,13 @@ class ExcelProcessor:
                 # Check required
                 if col_config.get('required', False) and not value:
                     raise ValueError(
-                        f"Missing required value in column '{excel_col}' for {shape}"
+                        f"Missing required value in '{excel_col}' for {shape}"
                     )
 
                 data[data_key] = value
             elif col_config.get('required', False):
                 raise ValueError(
-                    f"Required column '{excel_col}' not found"
+                    f"Column '{excel_col}' not found (required for {shape})"
                 )
 
         return data
@@ -177,76 +155,149 @@ class ExcelProcessor:
     # ========== NORMAL FILE PROCESSING ==========
 
     def process_file(self, input_path: str, output_path: str,
-                     progress_callback: Optional[Callable] = None) -> Dict:
+                     progress_callback: Optional[Callable] = None,
+                     operation: str = None,
+                     shape_a: str = None,
+                     shape_b: str = None,
+                     dimension_a: str = "3",
+                     dimension_b: str = "3",
+                     version: str = "fx799") -> Dict:
+        """
+        Xử lý Excel theo workflow:
+        1. Validate columns dựa trên Shape A & B từ UI
+        2. Đọc Operation từ UI
+        3. Xử lý hàng loạt
 
+        Args:
+            input_path: File Excel input
+            output_path: File Excel output
+            progress_callback: Progress callback function
+            operation: Phép toán từ UI dropdown
+            shape_a: Shape nhóm A từ UI dropdown
+            shape_b: Shape nhóm B từ UI dropdown (None nếu single-object)
+            dimension_a: Dimension A (2D/3D)
+            dimension_b: Dimension B (2D/3D)
+            version: Casio version
+        """
         try:
-            # Read Excel
+            # ========== 1. READ EXCEL ==========
             df = pd.read_excel(input_path)
             total_rows = len(df)
 
-            print(f"📊 Processing {total_rows} rows...")
-            print(f"📋 Original columns: {list(df.columns)}")
+            print(f"\n📊 Processing {total_rows} rows...")
+            print(f"📋 Excel columns: {list(df.columns)}")
 
-            # ✅ Check nếu đã có column keylog
+            # ========== 2. VALIDATE REQUIRED PARAMS ==========
+            if not operation or not shape_a:
+                return {
+                    'success': False,
+                    'error': 'Vui lòng chọn Phép toán và Shape A từ UI dropdown!'
+                }
+
+            print(f"\n📌 Config từ UI:")
+            print(f"   Operation: {operation}")
+            print(f"   Shape A: {shape_a} ({dimension_a}D)")
+            if shape_b:
+                print(f"   Shape B: {shape_b} ({dimension_b}D)")
+
+            # ========== 3. GET REQUIRED COLUMNS cho Shape A & B ==========
+            required_columns_a = self._get_shape_required_columns(shape_a, 'a')
+            required_columns_b = self._get_shape_required_columns(shape_b, 'b') if shape_b else []
+
+            all_required_columns = required_columns_a + required_columns_b
+
+            print(f"\n🔍 Checking Excel columns...")
+            print(f"   Shape A ({shape_a}) cần: {required_columns_a}")
+            if shape_b:
+                print(f"   Shape B ({shape_b}) cần: {required_columns_b}")
+
+            # ========== 4. VALIDATE EXCEL HAS REQUIRED COLUMNS ==========
+            excel_columns = set(df.columns)
+            missing_columns = [col for col in all_required_columns if col not in excel_columns]
+
+            if missing_columns:
+                error_msg = (
+                    f"❌ File Excel thiếu các cột cần thiết!\n\n"
+                    f"Dropdown hiện tại:\n"
+                    f"  • Shape A: {shape_a}\n"
+                )
+                if shape_b:
+                    error_msg += f"  • Shape B: {shape_b}\n"
+
+                error_msg += f"\nCác cột bị thiếu:\n"
+                for col in missing_columns:
+                    error_msg += f"  ❌ {col}\n"
+
+                error_msg += f"\nCác cột có trong Excel:\n"
+                for col in sorted(excel_columns):
+                    error_msg += f"  ✓ {col}\n"
+
+                print(error_msg)
+                return {'success': False, 'error': error_msg}
+
+            print(f"   ✅ Tất cả columns cần thiết đều có!")
+
+            # ========== 5. ENSURE KEYLOG COLUMN ==========
             if 'keylog' not in df.columns:
-                df['keylog'] = ''  # Thêm mới
+                df['keylog'] = pd.Series('', dtype='str', index=df.index)
                 print("   → Added 'keylog' column")
             else:
+                df['keylog'] = df['keylog'].astype('str')
                 print("   → 'keylog' column exists, will overwrite")
 
+            # ========== 6. CONFIGURE SERVICE ==========
+            self.service.set_operation(operation)
+            self.service.set_shapes(shape_a, shape_b)
+            self.service.set_dimension(dimension_a, dimension_b)
+            self.service.set_version(version)
+
+            # ========== 7. PROCESS ROWS ==========
             processed = 0
             errors = 0
 
-            # Process từng row
+            print(f"\n⚙️ Processing rows...\n")
+
             for idx, row in df.iterrows():
                 try:
-                    # Extract metadata
-                    operation = str(row.get('operation', '')).strip()
-                    shape_a = str(row.get('shape_A', '')).strip()
-                    shape_b = str(row.get('shape_B', '')).strip() if pd.notna(row.get('shape_B')) else None
-                    dimension_a = str(row.get('dim_A', '3')).strip()
-                    dimension_b = str(row.get('dim_B', '3')).strip()
-                    version = str(row.get('version', 'fx799')).strip()
+                    # Extract data cho Shape A
+                    data_a = self._extract_shape_data_from_row(row, shape_a, 'a')
 
-                    # Extract data
-                    data_a = self._extract_data_from_row(row, 'a', shape_a)
-                    data_b = self._extract_data_from_row(row, 'b', shape_b) if shape_b else None
-
-                    # Configure service
-                    self.service.set_operation(operation)
-                    self.service.set_shapes(shape_a, shape_b)
-                    self.service.set_dimension(dimension_a, dimension_b)
-                    self.service.set_version(version)
+                    # Extract data cho Shape B (nếu có)
+                    data_b = None
+                    if shape_b:
+                        data_b = self._extract_shape_data_from_row(row, shape_b, 'b')
 
                     # Encode
                     result = self.service.process_manual_data(data_a, data_b)
 
                     if result['success']:
-                        # ✅ CHỈ GHI VÀO COLUMN KEYLOG
-                        df.at[idx, 'keylog'] = result['encoded']
+                        df.loc[idx, 'keylog'] = str(result['encoded'])
                         processed += 1
                     else:
-                        # Ghi error vào keylog (hoặc để trống)
-                        df.at[idx, 'keylog'] = f"ERROR: {result.get('error', 'Unknown error')}"
+                        df.loc[idx, 'keylog'] = f"ERROR: {result.get('error', 'Unknown')}"
                         errors += 1
 
                     # Progress callback
-                    if progress_callback:
+                    if progress_callback and (idx + 1) % 100 == 0:
                         progress_callback(idx + 1, total_rows, errors)
 
                 except Exception as e:
-                    # Ghi error message vào keylog
-                    df.at[idx, 'keylog'] = f"ERROR: {str(e)}"
+                    df.loc[idx, 'keylog'] = f"ERROR: {str(e)}"
                     errors += 1
+                    if errors <= 5:
+                        print(f"⚠️ Row {idx + 1}: {str(e)}")
 
-
+            # ========== 8. SAVE OUTPUT ==========
+            # Move keylog to end
             if 'keylog' in df.columns:
                 cols = [c for c in df.columns if c != 'keylog'] + ['keylog']
                 df = df[cols]
 
             df.to_excel(output_path, index=False)
 
-            print(f"✅ Processing complete: {processed} success, {errors} errors")
+            print(f"\n✅ Processing complete!")
+            print(f"   Success: {processed}/{total_rows}")
+            print(f"   Errors: {errors}/{total_rows}")
             print(f"📁 Output: {output_path}")
 
             return {
@@ -258,116 +309,126 @@ class ExcelProcessor:
             }
 
         except Exception as e:
-            return {
-                'success': False,
-                'error': f'Lỗi xử lý file: {str(e)}'
-            }
+            return {'success': False, 'error': f'Lỗi xử lý file: {str(e)}'}
 
     # ========== LARGE FILE PROCESSING (CHUNKED) ==========
 
     def process_large_file(self, input_path: str, output_path: str,
                            chunk_size: int = 1000,
-                           progress_callback: Optional[Callable] = None) -> Dict:
-
+                           progress_callback: Optional[Callable] = None,
+                           operation: str = None,
+                           shape_a: str = None,
+                           shape_b: str = None,
+                           dimension_a: str = "3",
+                           dimension_b: str = "3",
+                           version: str = "fx799") -> Dict:
+        """
+        Xử lý large file với manual chunking (pandas read_excel không support chunksize)
+        """
         try:
             print(f"🔄 Large file processing: chunk_size={chunk_size}")
 
-            # Get total rows
-            total_rows = self._get_total_rows(input_path)
+            # Validate params
+            if not operation or not shape_a:
+                return {
+                    'success': False,
+                    'error': 'Vui lòng chọn Phép toán và Shape A từ UI dropdown!'
+                }
 
+            # ✅ READ ENTIRE FILE FIRST (có thể tốn memory nhưng cần thiết)
+            print(f"📖 Reading Excel file...")
+            df = pd.read_excel(input_path)
+            total_rows = len(df)
+
+            print(f"📊 Total rows: {total_rows}")
+
+            # Get required columns
+            required_columns_a = self._get_shape_required_columns(shape_a, 'a')
+            required_columns_b = self._get_shape_required_columns(shape_b, 'b') if shape_b else []
+            all_required_columns = required_columns_a + required_columns_b
+
+            # Validate columns
+            excel_columns = set(df.columns)
+            missing_columns = [col for col in all_required_columns if col not in excel_columns]
+
+            if missing_columns:
+                error_msg = (
+                    f"❌ File Excel thiếu các cột:\n"
+                    f"{', '.join(missing_columns)}\n\n"
+                    f"Cần có: {', '.join(all_required_columns)}"
+                )
+                return {'success': False, 'error': error_msg}
+
+            print(f"\n📌 Config từ UI:")
+            print(f"   Operation: {operation}")
+            print(f"   Shape A: {shape_a} ({dimension_a}D)")
+            if shape_b:
+                print(f"   Shape B: {shape_b} ({dimension_b}D)")
+
+            # Configure service once
+            self.service.set_operation(operation)
+            self.service.set_shapes(shape_a, shape_b)
+            self.service.set_dimension(dimension_a, dimension_b)
+            self.service.set_version(version)
+
+            # Ensure keylog column
+            if 'keylog' not in df.columns:
+                df['keylog'] = pd.Series('', dtype='str', index=df.index)
+            else:
+                df['keylog'] = df['keylog'].astype('str')
+
+            # ✅ PROCESS IN CHUNKS MANUALLY
             processed = 0
             errors = 0
-            current_row = 0
+            num_chunks = (total_rows + chunk_size - 1) // chunk_size
 
-            # Create Excel writer
-            writer = pd.ExcelWriter(output_path, engine='openpyxl')
+            print(f"\n⚙️ Processing {num_chunks} chunks...")
 
-            # Process chunks
-            chunk_iterator = pd.read_excel(input_path, chunksize=chunk_size)
+            for chunk_idx in range(num_chunks):
+                start_idx = chunk_idx * chunk_size
+                end_idx = min(start_idx + chunk_size, total_rows)
 
-            first_chunk = True
+                print(f"📦 Chunk {chunk_idx + 1}/{num_chunks} (rows {start_idx}-{end_idx})")
 
-            for chunk_idx, chunk_df in enumerate(chunk_iterator):
-                print(f"📦 Processing chunk {chunk_idx + 1} ({len(chunk_df)} rows)...")
-
-                # ✅ Check và thêm column keylog nếu cần
-                if 'keylog' not in chunk_df.columns:
-                    chunk_df['keylog'] = ''
-
-                # Process rows in chunk
-                for idx, row in chunk_df.iterrows():
+                # Process rows in this chunk
+                for idx in range(start_idx, end_idx):
                     try:
-                        # Extract & process (same as normal processing)
-                        operation = str(row.get('operation', '')).strip()
-                        shape_a = str(row.get('shape_A', '')).strip()
-                        shape_b = str(row.get('shape_B', '')).strip() if pd.notna(row.get('shape_B')) else None
-                        dimension_a = str(row.get('dim_A', '3')).strip()
-                        dimension_b = str(row.get('dim_B', '3')).strip()
-                        version = str(row.get('version', 'fx799')).strip()
+                        row = df.iloc[idx]
 
-                        data_a = self._extract_data_from_row(row, 'a', shape_a)
-                        data_b = self._extract_data_from_row(row, 'b', shape_b) if shape_b else None
-
-                        self.service.set_operation(operation)
-                        self.service.set_shapes(shape_a, shape_b)
-                        self.service.set_dimension(dimension_a, dimension_b)
-                        self.service.set_version(version)
+                        data_a = self._extract_shape_data_from_row(row, shape_a, 'a')
+                        data_b = None
+                        if shape_b:
+                            data_b = self._extract_shape_data_from_row(row, shape_b, 'b')
 
                         result = self.service.process_manual_data(data_a, data_b)
 
                         if result['success']:
-                            # ✅ CHỈ GHI VÀO KEYLOG
-                            chunk_df.at[idx, 'keylog'] = result['encoded']
+                            df.at[idx, 'keylog'] = str(result['encoded'])
                             processed += 1
                         else:
-                            chunk_df.at[idx, 'keylog'] = f"ERROR: {result.get('error', 'Unknown')}"
+                            df.at[idx, 'keylog'] = f"ERROR: {result.get('error', 'Unknown')}"
                             errors += 1
 
-                        current_row += 1
-
-                        if progress_callback and current_row % 100 == 0:
-                            progress_callback(current_row, total_rows, errors)
+                        if progress_callback and (idx + 1) % 100 == 0:
+                            progress_callback(idx + 1, total_rows, errors)
 
                     except Exception as e:
-                        chunk_df.at[idx, 'keylog'] = f"ERROR: {str(e)}"
+                        df.at[idx, 'keylog'] = f"ERROR: {str(e)}"
                         errors += 1
-                        current_row += 1
 
-                # ✅ Move keylog column to end (if newly added)
-                if 'keylog' in chunk_df.columns:
-                    cols = [c for c in chunk_df.columns if c != 'keylog'] + ['keylog']
-                    chunk_df = chunk_df[cols]
-
-                # Write chunk
-                if first_chunk:
-                    chunk_df.to_excel(writer, sheet_name='Data', index=False, startrow=0)
-                    first_chunk = False
-                else:
-                    startrow = writer.sheets['Data'].max_row
-                    chunk_df.to_excel(writer, sheet_name='Data', index=False,
-                                      startrow=startrow, header=False)
-
-                # Clean memory
-                del chunk_df
+                # Memory cleanup after each chunk
                 gc.collect()
 
-                print(f"✓ Chunk {chunk_idx + 1} complete")
+            # Move keylog to end
+            if 'keylog' in df.columns:
+                cols = [c for c in df.columns if c != 'keylog'] + ['keylog']
+                df = df[cols]
 
-            # Add summary sheet
-            summary_df = pd.DataFrame({
-                'Metric': ['Total Rows', 'Processed', 'Errors', 'Success Rate'],
-                'Value': [
-                    total_rows,
-                    processed,
-                    errors,
-                    f"{(processed / total_rows * 100):.2f}%" if total_rows > 0 else "0%"
-                ]
-            })
-            summary_df.to_excel(writer, sheet_name='Summary', index=False)
+            # ✅ WRITE OUTPUT
+            print(f"\n💾 Writing output file...")
+            df.to_excel(output_path, index=False)
 
-            writer.close()
-
-            print(f"✅ Large file processing complete!")
+            print(f"\n✅ Large file processing complete!")
             print(f"   Total: {total_rows} | Success: {processed} | Errors: {errors}")
 
             return {
@@ -376,20 +437,15 @@ class ExcelProcessor:
                 'errors': errors,
                 'total': total_rows,
                 'output_file': output_path,
-                'chunks_processed': chunk_idx + 1
+                'chunks_processed': num_chunks
             }
 
         except Exception as e:
-            return {
-                'success': False,
-                'error': f'Lỗi xử lý large file: {str(e)}'
-            }
+            return {'success': False, 'error': f'Lỗi xử lý large file: {str(e)}'}
 
     def _get_total_rows(self, file_path: str) -> int:
         """Get total rows trong Excel file"""
         try:
-            df = pd.read_excel(file_path, nrows=0)
-            # Count rows (excluding header)
             with pd.ExcelFile(file_path) as xls:
                 sheet = xls.parse(xls.sheet_names[0])
                 return len(sheet)
@@ -399,8 +455,16 @@ class ExcelProcessor:
     # ========== AUTO PROCESSOR (SMART SELECTION) ==========
 
     def process_file_auto(self, input_path: str, output_path: str,
-                         progress_callback: Optional[Callable] = None) -> Dict:
-
+                          progress_callback: Optional[Callable] = None,
+                          operation: str = None,
+                          shape_a: str = None,
+                          shape_b: str = None,
+                          dimension_a: str = "3",
+                          dimension_b: str = "3",
+                          version: str = "fx799") -> Dict:
+        """
+        Tự động chọn processor phù hợp (normal vs chunked)
+        """
         is_large, file_info = self.is_large_file(input_path)
 
         if is_large:
@@ -410,7 +474,13 @@ class ExcelProcessor:
                 input_path,
                 output_path,
                 chunk_size=file_info['recommended_chunk_size'],
-                progress_callback=progress_callback
+                progress_callback=progress_callback,
+                operation=operation,
+                shape_a=shape_a,
+                shape_b=shape_b,
+                dimension_a=dimension_a,
+                dimension_b=dimension_b,
+                version=version
             )
         else:
             print(f"📄 Normal file ({file_info['size_mb']} MB)")
@@ -418,120 +488,11 @@ class ExcelProcessor:
             return self.process_file(
                 input_path,
                 output_path,
-                progress_callback=progress_callback
+                progress_callback=progress_callback,
+                operation=operation,
+                shape_a=shape_a,
+                shape_b=shape_b,
+                dimension_a=dimension_a,
+                dimension_b=dimension_b,
+                version=version
             )
-
-    # ========== TEMPLATE GENERATION ==========
-
-    def create_template(self, output_path: str, operation: str,
-                       shape_a: str, shape_b: Optional[str] = None) -> Dict:
-
-        try:
-            columns = self._get_required_columns(operation, shape_a, shape_b)
-
-            # Add output columns
-            output_cols = self.column_mapping.get('output_columns', {})
-            columns.append(output_cols.get('encoded', {}).get('excel_column', 'keylog'))
-            columns.append(output_cols.get('status', {}).get('excel_column', 'status'))
-            columns.append(output_cols.get('error_message', {}).get('excel_column', 'error'))
-
-            # Create DataFrame with sample data
-            sample_data = self._generate_sample_data(operation, shape_a, shape_b)
-            df = pd.DataFrame(sample_data)
-
-            # Ensure all columns exist
-            for col in columns:
-                if col not in df.columns:
-                    df[col] = ''
-
-            # Reorder columns
-            df = df[columns]
-
-            # Write to Excel
-            df.to_excel(output_path, index=False)
-
-            print(f"✅ Template created: {output_path}")
-            print(f"   Columns: {len(columns)}")
-
-            return {
-                'success': True,
-                'file': output_path,
-                'columns': columns,
-                'sample_rows': len(sample_data)
-            }
-
-        except Exception as e:
-            return {
-                'success': False,
-                'error': f'Lỗi tạo template: {str(e)}'
-            }
-
-    def _generate_sample_data(self, operation: str, shape_a: str,
-                             shape_b: Optional[str] = None) -> List[Dict]:
-        """Generate sample data cho template"""
-        samples = []
-
-        # Sample 1: Basic example
-        sample1 = {
-            'operation': operation,
-            'shape_A': shape_a,
-            'shape_B': shape_b if shape_b else '',
-            'dim_A': '3',
-            'dim_B': '3' if shape_b else '',
-            'version': 'fx799'
-        }
-
-        # Add shape-specific data
-        if shape_a == 'Điểm':
-            sample1['data_A'] = '1,2,3'
-        elif shape_a == 'Vecto':
-            sample1['data_v1'] = '4,5,6'
-        elif shape_a == 'Đường thẳng':
-            sample1['d_P_data_A'] = '1,2,3'
-            sample1['d_V_data_A'] = '1,1,1'
-        elif shape_a == 'Mặt phẳng':
-            sample1['P1_a'] = '1'
-            sample1['P1_b'] = '1'
-            sample1['P1_c'] = '1'
-            sample1['P1_d'] = '-6'
-        elif shape_a == 'Đường tròn':
-            sample1['C_data_I1'] = '0,0'
-            sample1['C_data_R1'] = '5'
-        elif shape_a == 'Mặt cầu':
-            sample1['S_data_I1'] = '0,0,0'
-            sample1['S_data_R1'] = '5'
-        elif shape_a == 'Tam giác':
-            sample1['T_data_a'] = '3'
-            sample1['T_data_b'] = '4'
-            sample1['T_data_c'] = '90'
-
-        # Add shape B data if needed
-        if shape_b:
-            if shape_b == 'Điểm':
-                sample1['data_B'] = '4,5,6'
-            elif shape_b == 'Vecto':
-                sample1['data_v2'] = '1,0,0'
-            elif shape_b == 'Đường thẳng':
-                sample1['d_P_data_B'] = '0,0,0'
-                sample1['d_V_data_B'] = '1,1,1'
-            elif shape_b == 'Mặt phẳng':
-                sample1['P2_a'] = '1'
-                sample1['P2_b'] = '0'
-                sample1['P2_c'] = '0'
-                sample1['P2_d'] = '0'
-            elif shape_b == 'Đường tròn':
-                sample1['C_data_I2'] = '3,4'
-                sample1['C_data_R2'] = '10'
-            elif shape_b == 'Mặt cầu':
-                sample1['S_data_I2'] = '1,2,3'
-                sample1['S_data_R2'] = '7'
-
-        samples.append(sample1)
-
-        # Sample 2: With expressions
-        sample2 = sample1.copy()
-        if shape_a == 'Điểm':
-            sample2['data_A'] = 'sqrt(2),-3,0'
-        samples.append(sample2)
-
-        return samples
