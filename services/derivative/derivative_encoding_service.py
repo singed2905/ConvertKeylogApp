@@ -1,11 +1,11 @@
 """Derivative Encoding Service - Mã hóa LaTeX đạo hàm sang keylog
 
-Format mới (simplified):
-  qv{expression},{variable=value})
+Format mới (simplified - no curly braces):
+  qv(expression),(variable=value)
   
 Ví dụ:
-  qv{2K3[^2)p5K2[p7K4},{[=3K2})     # Đạo hàm bậc 1
-  qv{[^2)p1})                      # Không có evaluation
+  qv(2K3[^2)p5K2[p7K4),([=3K2)     # Đạo hàm bậc 1
+  qv([^2)p1)                       # Không có evaluation
 """
 import sys
 import os
@@ -186,7 +186,7 @@ class DerivativeEncodingService:
         """
         Encode derivative LaTeX to simplified keylog format.
         
-        Format: qv{expression},{variable=value})
+        Format: qv(expression),(variable=value)  [NO CURLY BRACES]
         
         Args:
             latex_expr: LaTeX derivative expression
@@ -245,11 +245,13 @@ class DerivativeEncodingService:
             # User auto-generates first-order LaTeX only
             prefix = "qv"
             
-            # Assemble keylog
+            # Assemble keylog WITHOUT curly braces
             if eval_encoded:
-                keylog = f"{prefix}{{{expr_encoded}}},{{{eval_var_encoded}={eval_encoded}}})"
+                # Format: qv(expr),([=val)
+                keylog = f"{prefix}({expr_encoded}),({eval_var_encoded}={eval_encoded})"
             else:
-                keylog = f"{prefix}{{{expr_encoded}}})"
+                # Format: qv(expr)
+                keylog = f"{prefix}({expr_encoded})"
 
             return {
                 'success': True,
@@ -261,7 +263,7 @@ class DerivativeEncodingService:
                 'variable': variable,
                 'mode': mode,
                 'format': 'simplified',
-                'pattern': "qv{expr},{var=val})"  # Always show 'qv' for simplicity
+                'pattern': "qv(expr),(var=val)"  # Updated pattern without braces
             }
 
         except Exception as e:
@@ -332,7 +334,7 @@ class DerivativeEncodingService:
 
 if __name__ == "__main__":
     print("=" * 80)
-    print("DERIVATIVE ENCODING SERVICE - TEST (Simplified Format)")
+    print("DERIVATIVE ENCODING SERVICE - TEST (Simplified Format - No Braces)")
     print("=" * 80)
     print()
 
@@ -344,7 +346,7 @@ if __name__ == "__main__":
 
     print("✅ Service initialized successfully")
     print(f"  - Mapping rules: {len(service.encoder.mappings)}")
-    print(f"  - Format: qv{{expr}},{{var=val}})")
+    print(f"  - Format: qv(expr),(var=val)  [NO CURLY BRACES]")
     print()
 
     test_cases = [
