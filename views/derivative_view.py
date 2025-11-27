@@ -132,17 +132,25 @@ class DerivativeView:
             self._set_status(f"Đã chọn {mode_info['title']}")
 
     def _on_import_click(self):
-        """Khi click nút Import Excel"""
+        """Khi click nút Import Excel - CHỈ XLSX"""
         file_path = filedialog.askopenfilename(
-            title="Chọn file Excel/CSV",
+            title="Chọn file Excel",
             filetypes=[
                 ("Excel files", "*.xlsx"),
-                ("CSV files", "*.csv"),
                 ("All files", "*.*")
             ]
         )
 
         if not file_path:
+            return
+
+        # Validate file extension
+        if not file_path.endswith('.xlsx'):
+            messagebox.showerror(
+                "Lỗi định dạng",
+                "❌ Chỉ hỗ trợ file Excel (.xlsx)\n\n"
+                f"File của bạn: {os.path.basename(file_path)}"
+            )
             return
 
         self._set_status("🔄 Đang đọc file...")
@@ -173,16 +181,76 @@ class DerivativeView:
 
         file_display = f"📁 File: {file_info['path']}\n"
         file_display += f"📊 Kích thước: {file_info['size_mb']} MB\n"
-        file_display += f"📝 Số dòng: {len(self.batch_rows)}\n"
+        file_display += f"📝 Số dòng: {len(self.batch_rows):,}\n"
+        
+        # Hiển thị thông tin chế độ
+        if file_info.get('is_large_file', False):
+            file_display += f"⚡ Chế độ: FILE LỚN - Sử dụng chunked processing\n"
+            file_display += f"🛡️ Giới hạn: {file_info.get('max_rows_allowed', 250000):,} dòng tối đa\n"
+        else:
+            file_display += f"⚡ Chế độ: FILE NHỞ - Xử lý thông thường\n"
+        
         file_display += "=" * 120 + "\n"
         file_display += "⏳ Chờ xử lý...\n"
 
         self.keylog_output.insert("1.0", file_display, "filepath")
         self.keylog_output.config(state="disabled")
-        self._set_status(f"📁 File sẵn sàng: {len(self.batch_rows)} dòng")
+        self._set_status(f"📁 File sẵn sàng: {len(self.batch_rows):,} dòng")
 
     def _process_batch_direct(self):
-        """Khi click nút Process Excel"""
+        """Khi click nút Process Excel - Tự động detect large file"""
+        
+        file_info = self.excel_service.get_file_info()
+        
+        # Check nếu là file lớn
+        if file_info.get('is_large_file', False):
+            self._process_large_file()
+        else:
+            self._process_normal_file()
+
+    def _process_large_file(self):
+        """Xử lý file lớn với chunked processing"""
+        
+        try:
+            self._set_status("🚀 Bắt đầu xử lý file lớn...")
+            
+            # Callback để update progress
+            def progress_callback(percent, current, total, errors):
+                status_text = (
+                    f"🔥 Đang xử lý: {current:,}/{total:,} ({percent:.1f}%) - "
+                    f"Lỗi: {errors}"
+                )
+                self._set_status(status_text)
+                self.root.update_idletasks()  # Force UI update
+            
+            # Get output path
+            output_path = self.excel_service._get_output_file_path('.xlsx')
+            
+            # Process với chunking
+            success_count, error_count, output_file = self.excel_service.process_large_file(
+                file_path=self.current_file_path,
+                encoding_service=self.service,
+                output_path=output_path,
+                progress_callback=progress_callback
+            )
+            
+            # Hiển thị kết quả
+            messagebox.showinfo(
+                "✅ Hoàn thành",
+                f"Xử lý thành công!\n\n"
+                f"✅ Success: {success_count:,}\n"
+                f"❌ Errors: {error_count:,}\n\n"
+                f"File: {output_file}"
+            )
+            
+            self._display_large_file_results(success_count, error_count, output_file)
+            
+        except Exception as e:
+            messagebox.showerror("Lỗi", str(e))
+            self._set_status("❌ Lỗi xử lý")
+
+    def _process_normal_file(self):
+        """Xử lý file nhỏ (code cũ)"""
         self.batch_results = []
         total = len(self.batch_rows)
 
@@ -195,7 +263,7 @@ class DerivativeView:
             # Mã hóa LaTeX → keylog
             result = self.service.encode_derivative(latex, mode)
 
-            # Lưu kết quả: phải lưu keylog thực tế từ result
+            # Lưu kết quả
             self.batch_results.append({
                 'latex': latex,
                 'mode': mode,
@@ -203,9 +271,12 @@ class DerivativeView:
                 'status': 'success' if result.get('success') else 'error'
             })
 
-            self._set_status(f"🔄 Đã xử lý {idx + 1}/{total}")
+            # Update progress mỗi 100 dòng
+            if idx % 100 == 0:
+                self._set_status(f"🔄 Đã xử lý {idx + 1}/{total}")
+                self.root.update_idletasks()
 
-        # Export kết quả ra file (dùng service)
+        # Export kết quả ra file
         success, output_file, message = self.excel_service.export_results(self.batch_results)
 
         if success:
@@ -216,30 +287,65 @@ class DerivativeView:
 
         self._display_batch_results()
 
+    def _display_large_file_results(self, success_count, error_count, output_file):
+        """Hiển thị kết quả sau khi xử lý file lớn"""
+        self.keylog_output.config(state="normal")
+        self.keylog_output.delete("1.0", tk.END)
+
+        self.keylog_output.tag_configure("filepath", font=("Arial", 10, "bold"), foreground="#2980B9")
+        self.keylog_output.tag_configure("success", font=("Arial", 10, "bold"), foreground="#27AE60")
+        self.keylog_output.tag_configure("error", font=("Arial", 10, "bold"), foreground="#E74C3C")
+
+        file_info = self.excel_service.get_file_info()
+        total_processed = success_count + error_count
+
+        display_text = f"📁 File gốc: {file_info['path']}\n"
+        display_text += f"📊 Kích thước: {file_info['size_mb']} MB\n"
+        display_text += f"📝 Format: Excel (XLSX)\n"
+        display_text += f"📈 Tổng số dòng: {total_processed:,}\n"
+        display_text += "=" * 120 + "\n"
+        
+        self.keylog_output.insert(tk.END, display_text, "filepath")
+        
+        # Success count
+        success_text = f"✅ Thành công: {success_count:,} dòng\n"
+        self.keylog_output.insert(tk.END, success_text, "success")
+        
+        # Error count
+        if error_count > 0:
+            error_text = f"❌ Lỗi: {error_count:,} dòng\n"
+            self.keylog_output.insert(tk.END, error_text, "error")
+        
+        output_text = f"\n📁 File kết quả: {output_file}\n"
+        output_text += "=" * 120 + "\n"
+        output_text += "✅ Xử lý thành công!\n"
+        
+        self.keylog_output.insert(tk.END, output_text, "filepath")
+        self.keylog_output.config(state="disabled")
+        
+        self._set_status(f"✅ Hoàn thành: {success_count:,} success, {error_count:,} errors")
+
     def _display_batch_results(self):
-        """Hiển thị kết quả sau khi xử lý"""
+        """Hiển thị kết quả sau khi xử lý file nhỏ"""
         self.keylog_output.config(state="normal")
         self.keylog_output.delete("1.0", tk.END)
 
         self.keylog_output.tag_configure("filepath", font=("Arial", 10, "bold"), foreground="#2980B9")
 
         file_info = self.excel_service.get_file_info()
-
-        # Xác định định dạng output
-        output_extension = '.csv' if file_info['use_csv'] else '.xlsx'
-        output_file = self.excel_service._get_output_file_path(output_extension)
+        output_file = self.output_file_path
 
         display_text = f"📁 File gốc: {file_info['path']}\n"
         display_text += f"📊 Kích thước: {file_info['size_mb']} MB\n"
-        display_text += f"📝 Format: {'CSV (tối ưu file lớn)' if file_info['use_csv'] else 'Excel'}\n"
-        display_text += f"📈 Số dòng xử lý: {len(self.batch_results)}\n"
+        display_text += f"📝 Format: Excel (XLSX)\n"
+        display_text += f"📈 Số dòng xử lý: {len(self.batch_results):,}\n"
         display_text += f"📁 File kết quả: {output_file}\n"
         display_text += "=" * 120 + "\n"
         display_text += "✅ Xử lý thành công!\n"
 
         self.keylog_output.insert("1.0", display_text, "filepath")
         self.keylog_output.config(state="disabled")
-        self._set_status(f"✅ Hoàn thành: {len(self.batch_results)} kết quả")
+        self._set_status(f"✅ Hoàn thành: {len(self.batch_results):,} kết quả")
 
     def _show_batch_mode(self):
         """Ẩn nút ENCODE, hiện nút PROCESS"""
