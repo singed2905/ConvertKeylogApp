@@ -114,13 +114,15 @@ class GeometryEncoder:
                 op_code = f"{base_op_code}{code_a_full}R{code_b_full}"
 
                 # Keylog: dùng code_a_short (a1) và code_b_short (b2)
-                keylog = f"{prefix}{code_a_short}{data_a_encoded}C{prefix}{code_b_short}{data_b_encoded}C{op_code}= ="
+                keylog = f"{prefix}{code_a_short}{data_a_encoded}C{prefix}{code_b_short}{data_b_encoded}C{op_code}= "
             else:
                 # Op code = base_op + code_a_full
                 op_code = f"{base_op_code}{code_a_full}"
-
-                # Keylog: dùng code_a_short (a1)
-                keylog = f"{prefix}{code_a_short}{data_a_encoded}C{op_code}= ="
+                if shape_a == "Tam giác":
+                    keylog = f"{prefix}{code_a_short}{data_a_encoded}C{op_code}= = = "
+                else:
+                 # Keylog: dùng code_a_short (a1)
+                    keylog = f"{prefix}{code_a_short}{data_a_encoded}C{op_code}= "
 
             return keylog
         except Exception as e:
