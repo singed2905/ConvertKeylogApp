@@ -1,0 +1,128 @@
+flowchart TD
+    Start([START: main.py]) --> MainView[MainView - Mode Selector]
+    
+    MainView --> |User selects mode| ModeChoice{Choose Mode}
+    
+    ModeChoice --> |1| EqMode[Equation Mode]
+    ModeChoice --> |2| GeoMode[Geometry Mode]
+    ModeChoice --> |3| GeoV2Mode[Geometry V2 Mode]
+    ModeChoice --> |4| PolyMode[Polynomial Mode]
+    ModeChoice --> |5| VecMode[Vector Mode]
+    ModeChoice --> |6| IntMode[Integral Mode]
+    ModeChoice --> |7| DerivMode[Derivative Mode]
+    
+    %% Equation Mode Workflow
+    EqMode --> EqInput[Input: System of Equations<br/>2-4 variables]
+    EqInput --> EqService[equation_service.py<br/>Parse → Solve → Rank Analysis]
+    EqService --> EqSolve{Solution Type?}
+    EqSolve --> |Unique| EqUnique[det A ≠ 0]
+    EqSolve --> |Infinite| EqInf[rank A = rank Ab < n]
+    EqSolve --> |No Solution| EqNone[rank A < rank Ab]
+    EqUnique --> EqEncode[equation_encoding_service.py<br/>Encode with mapping.json]
+    EqInf --> EqEncode
+    EqNone --> EqEncode
+    EqEncode --> EqPrefix[prefix_resolver.py<br/>Add calculator prefix]
+    EqPrefix --> EqOutput[Output: Solution + Keylog]
+    EqOutput --> EqBatch{Batch Processing?}
+    EqBatch --> |Yes| EqExcel[equation_batch_processor.py<br/>Excel processing]
+    EqBatch --> |No| EndEq([END])
+    EqExcel --> EndEq
+    
+    %% Geometry Mode Workflow
+    GeoMode --> GeoInput[Input: Select Objects<br/>Point/Line/Plane/Circle/Sphere]
+    GeoInput --> GeoOp[Select Operation<br/>Intersection/Distance/Area/Volume]
+    GeoOp --> GeoService[geometry_service.py<br/>NumPy calculations]
+    GeoService --> GeoEncode[geometry_encoding_service.py<br/>Encode values]
+    GeoEncode --> GeoOutput[Output: Result + Keylog]
+    GeoOutput --> GeoBatch{Excel Processing?}
+    GeoBatch --> |Yes| GeoExcel[Check file size]
+    GeoBatch --> |No| EndGeo([END])
+    GeoExcel --> GeoSize{>10MB or >50k rows?}
+    GeoSize --> |Yes| GeoLarge[large_file_processor.py<br/>Chunked processing]
+    GeoSize --> |No| GeoNormal[excel_service.py<br/>Standard processing]
+    GeoLarge --> EndGeo
+    GeoNormal --> EndGeo
+    
+    %% Geometry V2 Mode Workflow
+    GeoV2Mode --> GeoV2Input[Enhanced UI<br/>Object Selection Logic]
+    GeoV2Input --> GeoV2Filter[Operation-specific<br/>Type Filtering]
+    GeoV2Filter --> GeoV2Service[geometry_v2_service.py<br/>Improved calculations]
+    GeoV2Service --> GeoV2Output[Output: Result + Keylog]
+    GeoV2Output --> EndGeoV2([END])
+    
+    %% Polynomial Mode Workflow
+    PolyMode --> PolyInput[Input: Polynomial<br/>Degree 2-4]
+    PolyInput --> PolyService[polynomial_service.py<br/>np.roots or analytical]
+    PolyService --> PolyRoot[Detect Repeated Roots<br/>threshold 1e-8]
+    PolyRoot --> PolyEncode[polynomial_encoding_service.py<br/>Encode coefficients]
+    PolyEncode --> PolyPrefix[polynomial_prefix_resolver.py<br/>wjP2/P3/P4 or POLY2/3/4]
+    PolyPrefix --> PolyOutput[Output: Roots + Multiplicity + Keylog]
+    PolyOutput --> EndPoly([END])
+    
+    %% Vector Mode Workflow
+    VecMode --> VecInput[Input: Vector A and/or B<br/>2D/3D + expressions]
+    VecInput --> VecOpType{Operation Type}
+    VecOpType --> |Scalar-Vector| VecScalar[multiply/divide/add/subtract]
+    VecOpType --> |Vector-Vector| VecVector[dot/cross/angle/distance]
+    VecScalar --> VecService[vector_service.py<br/>Calculate operations]
+    VecVector --> VecService
+    VecService --> VecEncode[vector_encoding_service.py<br/>Fixed values system]
+    VecEncode --> VecOutput[Output: Result + Keylog wv prefix]
+    VecOutput --> EndVec([END])
+    
+    %% Integral Mode Workflow
+    IntMode --> IntInput[Input: Integral expression<br/>with bounds]
+    IntInput --> IntService[integral_service.py<br/>Calculate integral]
+    IntService --> IntEncode[integral_encoding_service.py<br/>Encode result]
+    IntEncode --> IntOutput[Output: Integral value + Keylog]
+    IntOutput --> EndInt([END])
+    
+    %% Derivative Mode Workflow
+    DerivMode --> DerivInput[Input: Function to differentiate]
+    DerivInput --> DerivService[derivative_service.py<br/>Calculate derivative]
+    DerivService --> DerivEncode[derivative_encoding_service.py<br/>Encode result]
+    DerivEncode --> DerivOutput[Output: Derivative + Keylog]
+    DerivOutput --> EndDeriv([END])
+    
+    %% Common Components
+    ConfigLoader[config_loader.py<br/>Load mode configs]
+    ConfigDir[(config/ directory<br/>mapping.json<br/>settings.json<br/>templates.json)]
+    ExcelSupport[Excel Processing<br/>excel_service.py<br/>large_file_processor.py<br/>Memory optimization]
+    VersionSupport[Version Support<br/>fx799: wj<br/>fx991: FX<br/>fx570: V]
+    
+    ConfigLoader -.-> ConfigDir
+    ConfigLoader -.-> MainView
+    ConfigDir -.-> EqService
+    ConfigDir -.-> GeoService
+    ConfigDir -.-> PolyService
+    ConfigDir -.-> VecService
+    ConfigDir -.-> IntService
+    ConfigDir -.-> DerivService
+    
+    ExcelSupport -.-> EqExcel
+    ExcelSupport -.-> GeoExcel
+    
+    VersionSupport -.-> EqPrefix
+    VersionSupport -.-> PolyPrefix
+    VersionSupport -.-> VecEncode
+    
+    style Start fill:#90EE90
+    style MainView fill:#87CEEB
+    style ModeChoice fill:#FFD700
+    style EqMode fill:#FFB6C1
+    style GeoMode fill:#FFB6C1
+    style GeoV2Mode fill:#FFB6C1
+    style PolyMode fill:#FFB6C1
+    style VecMode fill:#FFB6C1
+    style IntMode fill:#FFB6C1
+    style DerivMode fill:#FFB6C1
+    style ConfigLoader fill:#DDA0DD
+    style ExcelSupport fill:#DDA0DD
+    style VersionSupport fill:#DDA0DD
+    style EndEq fill:#90EE90
+    style EndGeo fill:#90EE90
+    style EndGeoV2 fill:#90EE90
+    style EndPoly fill:#90EE90
+    style EndVec fill:#90EE90
+    style EndInt fill:#90EE90
+    style EndDeriv fill:#90EE90

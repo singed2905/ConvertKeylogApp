@@ -1,0 +1,387 @@
+classDiagram
+    %% Core Application Classes
+    class MainView {
+        -root: Tk
+        -modes: List~string~
+        -mode_var: StringVar
+        -active_windows: Dict
+        +__init__()
+        +_load_modes() List~string~
+        +_setup_ui()
+        +_open_selected_mode()
+        +_open_equation_mode()
+        +_open_geometry_mode()
+        +_open_geometry_v2_mode()
+        +_open_polynomial_mode()
+        +_open_vector_mode()
+        +_open_integral_mode()
+        +_open_derivative_mode()
+        +run()
+        +on_closing()
+    }
+    
+    %% View Classes
+    class EquationView {
+        -root: Toplevel
+        -service: EquationService
+        -config: Dict
+        -current_variables: int
+        -current_version: string
+        +__init__(root, config)
+        +_setup_ui()
+        +_on_solve_click()
+        +_on_encode_click()
+        +_on_excel_import()
+        +_display_results()
+    }
+    
+    class GeometryView {
+        -root: Toplevel
+        -service: GeometryService
+        -config: Dict
+        -shape_a_var: StringVar
+        -shape_b_var: StringVar
+        -operation_var: StringVar
+        +__init__(root, config)
+        +_setup_ui()
+        +_on_calculate_click()
+        +_on_excel_import()
+        +_display_keylog()
+    }
+    
+    class GeometryV2View {
+        -root: Toplevel
+        -service: GeometryV2Service
+        -config: Dict
+        -operation_var: StringVar
+        -group_a_var: StringVar
+        -group_b_var: StringVar
+        +__init__(root, config)
+        +_setup_ui()
+        +_update_selection_rules()
+        +_on_calculate_click()
+        +_filter_available_types()
+    }
+    
+    class PolynomialEquationView {
+        -root: Toplevel
+        -service: PolynomialService
+        -config: Dict
+        -degree: int
+        -version: string
+        +__init__(root, config)
+        +_setup_ui()
+        +_on_solve_click()
+        +_display_roots()
+        +_show_multiplicity()
+    }
+    
+    class VectorView {
+        -root: Toplevel
+        -service: VectorService
+        -operation_type: string
+        -vector_a: List~float~
+        -vector_b: List~float~
+        +__init__(root)
+        +_setup_ui()
+        +_on_calculate_click()
+        +_parse_vector_input()
+        +_display_result()
+    }
+    
+    class IntegralView {
+        -root: Toplevel
+        -service: IntegralService
+        -function: string
+        -lower_bound: float
+        -upper_bound: float
+        +__init__(root)
+        +_setup_ui()
+        +_on_calculate_click()
+        +_display_result()
+    }
+    
+    class DerivativeView {
+        -root: Toplevel
+        -service: DerivativeService
+        -function: string
+        -point: float
+        +__init__(root)
+        +_setup_ui()
+        +_on_calculate_click()
+        +_display_result()
+    }
+    
+    %% Service Classes
+    class EquationService {
+        -config: Dict
+        -current_variables: int
+        -current_version: string
+        -A_matrix: ndarray
+        -b_vector: ndarray
+        -coeff_text_list: List~string~
+        -solutions: ndarray
+        -encoded_coefficients: List~string~
+        -encoding_service: EquationEncodingService
+        -mapper: MappingManager
+        +set_variables_count(count: int)
+        +set_version(version: string)
+        +validate_input(inputs: List) bool
+        +parse_equation_input(inputs: List) bool
+        +solve_system() bool
+        +encode_coefficients_tl_format() List~string~
+        +generate_final_result_tl_format() string
+        +process_complete_workflow(inputs: List) Tuple
+    }
+    
+    class EquationEncodingService {
+        -mapping_manager: MappingManager
+        -variables_count: int
+        -version: string
+        +set_variables_count(count: int)
+        +set_version(version: string)
+        +encode_equation_data(coeffs: List, n: int, version: string) Dict
+        +get_final_keylog(encoded: List, n: int) string
+        -_encode_coefficient(text: string) string
+    }
+    
+    class GeometryService {
+        -config: Dict
+        -version: string
+        -shape_a: GeometricObject
+        -shape_b: GeometricObject
+        -operation: string
+        -result: Any
+        -mapping_adapter: MappingAdapter
+        +set_version(version: string)
+        +set_shapes(shape_a: string, shape_b: string)
+        +set_operation(operation: string)
+        +parse_shape_data(shape: string, data: List) bool
+        +calculate() bool
+        +generate_keylog() string
+        +process_workflow(data: Dict) Tuple
+    }
+    
+    class GeometryV2Service {
+        -config: Dict
+        -version: string
+        -operation_rules: Dict
+        -group_a: GeometricObject
+        -group_b: GeometricObject
+        +get_allowed_types(operation: string, group: string) List
+        +validate_selection(operation: string, shape_a: string, shape_b: string) bool
+        +calculate_with_rules() bool
+        +generate_keylog_v2() string
+    }
+    
+    class PolynomialService {
+        -config: Dict
+        -degree: int
+        -version: string
+        -coefficients: List~float~
+        -roots: List~complex~
+        -multiplicities: Dict
+        -encoding_service: PolynomialEncodingService
+        +set_degree(degree: int)
+        +set_version(version: string)
+        +parse_coefficients(coeffs: List) bool
+        +solve_polynomial() bool
+        +detect_repeated_roots() Dict
+        +encode_coefficients() List~string~
+        +generate_keylog() string
+    }
+    
+    class VectorService {
+        -vector_a: ndarray
+        -vector_b: ndarray
+        -scalar: float
+        -operation: string
+        -fixed_values: Dict
+        -encoding_service: VectorEncodingService
+        +set_vectors(a: List, b: List)
+        +set_operation(operation: string)
+        +calculate_scalar_vector() float
+        +calculate_vector_vector() Any
+        +calculate_dot_product() float
+        +calculate_cross_product() ndarray
+        +calculate_angle() float
+        +encode_result() string
+        +generate_keylog() string
+    }
+    
+    class IntegralService {
+        -function: string
+        -lower_bound: float
+        -upper_bound: float
+        -result: float
+        -encoding_service: IntegralEncodingService
+        +set_function(func: string)
+        +set_bounds(lower: float, upper: float)
+        +calculate_integral() float
+        +encode_result() string
+        +generate_keylog() string
+    }
+    
+    class DerivativeService {
+        -function: string
+        -point: float
+        -result: float
+        -encoding_service: DerivativeEncodingService
+        +set_function(func: string)
+        +set_point(point: float)
+        +calculate_derivative() float
+        +encode_result() string
+        +generate_keylog() string
+    }
+    
+    %% Encoding Services
+    class PolynomialEncodingService {
+        -mapping: Dict
+        -prefix_resolver: PolynomialPrefixResolver
+        +encode_coefficient(value: float, position: int) string
+        +get_prefix(degree: int, version: string) string
+        +get_suffix(version: string) string
+    }
+    
+    class VectorEncodingService {
+        -mapping: Dict
+        -fixed_values: Dict
+        +encode_vector(vector: ndarray) string
+        +encode_scalar(value: float) string
+        +get_operation_code(operation: string) string
+        +get_fixed_value(operation: string) string
+    }
+    
+    class MappingManager {
+        -mappings: Dict
+        -reverse_mappings: Dict
+        +load_mapping(mode: string) Dict
+        +get_character_mapping(char: string) string
+        +get_reverse_mapping(code: string) string
+    }
+    
+    class PrefixResolver {
+        -version_configs: Dict
+        +resolve_prefix(version: string, mode: string) string
+        +get_suffix(version: string) string
+    }
+    
+    %% Excel Processing
+    class ExcelService {
+        -file_path: string
+        -data: DataFrame
+        +load_file(path: string) bool
+        +validate_columns(required: List) bool
+        +process_rows(processor: Callable) List
+        +export_results(results: List, path: string) bool
+    }
+    
+    class LargeFileProcessor {
+        -file_path: string
+        -chunk_size: int
+        -progress_callback: Callable
+        +is_large_file(path: string) Tuple
+        +process_in_chunks(processor: Callable) bool
+        +optimize_memory()
+        +track_progress(current: int, total: int)
+    }
+    
+    %% Utility Classes
+    class ConfigLoader {
+        -config_cache: Dict
+        +get_available_modes() List~string~
+        +get_mode_config(mode: string) Dict
+        +load_mapping(mode: string) Dict
+        +load_settings(mode: string) Dict
+    }
+    
+    class GeometricObject {
+        <<abstract>>
+        -dimension: int
+        -coordinates: List~float~
+        +validate() bool
+        +to_dict() Dict
+    }
+    
+    class Point {
+        -x: float
+        -y: float
+        -z: float
+        +distance_to(other: Point) float
+    }
+    
+    class Line {
+        -point: Point
+        -direction: ndarray
+        +intersect_with(other: Line) Point
+        +distance_to_point(point: Point) float
+    }
+    
+    class Plane {
+        -a: float
+        -b: float
+        -c: float
+        -d: float
+        +intersect_with(line: Line) Point
+        +distance_to_point(point: Point) float
+    }
+    
+    class Circle {
+        -center: Point
+        -radius: float
+        +area() float
+        +intersect_with(other: Circle) List~Point~
+    }
+    
+    class Sphere {
+        -center: Point
+        -radius: float
+        +volume() float
+        +surface_area() float
+        +intersect_with(line: Line) List~Point~
+    }
+    
+    %% Relationships
+    MainView --> EquationView : creates
+    MainView --> GeometryView : creates
+    MainView --> GeometryV2View : creates
+    MainView --> PolynomialEquationView : creates
+    MainView --> VectorView : creates
+    MainView --> IntegralView : creates
+    MainView --> DerivativeView : creates
+    MainView --> ConfigLoader : uses
+    
+    EquationView --> EquationService : uses
+    GeometryView --> GeometryService : uses
+    GeometryV2View --> GeometryV2Service : uses
+    PolynomialEquationView --> PolynomialService : uses
+    VectorView --> VectorService : uses
+    IntegralView --> IntegralService : uses
+    DerivativeView --> DerivativeService : uses
+    
+    EquationService --> EquationEncodingService : uses
+    EquationService --> MappingManager : uses
+    EquationEncodingService --> MappingManager : uses
+    EquationEncodingService --> PrefixResolver : uses
+    
+    GeometryService --> MappingManager : uses
+    GeometryService --> GeometricObject : uses
+    GeometryV2Service --> GeometricObject : uses
+    
+    PolynomialService --> PolynomialEncodingService : uses
+    PolynomialEncodingService --> MappingManager : uses
+    
+    VectorService --> VectorEncodingService : uses
+    VectorEncodingService --> MappingManager : uses
+    
+    EquationView --> ExcelService : uses
+    GeometryView --> ExcelService : uses
+    GeometryView --> LargeFileProcessor : uses
+    
+    ExcelService --> LargeFileProcessor : delegates for large files
+    
+    Point --|> GeometricObject : implements
+    Line --|> GeometricObject : implements
+    Plane --|> GeometricObject : implements
+    Circle --|> GeometricObject : implements
+    Sphere --|> GeometricObject : implements

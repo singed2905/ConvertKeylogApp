@@ -136,12 +136,34 @@ class ExcelService:
             return False, "", f"❌ Lỗi export Excel chunk: {str(e)}"
 
     def _get_output_file_path(self, extension: str) -> str:
-        """Tạo đường dẫn file output với timestamp"""
+        """Tạo đường dẫn file output với timestamp và số dòng"""
         file_name = os.path.basename(self.file_path)
         file_name_without_ext = os.path.splitext(file_name)[0]
         output_dir = os.path.dirname(self.file_path)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        return os.path.join(output_dir, f"{file_name_without_ext}_encoded_{timestamp}{extension}")
+        timestamp = datetime.now().strftime("%Y%m%d")
+
+        # Đếm số dòng dữ liệu (không tính header)
+        try:
+            import openpyxl
+            wb = openpyxl.load_workbook(self.file_path, read_only=True, data_only=True)
+            ws = wb.active
+            row_count = max(0, ws.max_row - 1) if hasattr(ws, 'max_row') and ws.max_row else 0
+            wb.close()
+        except Exception as e:
+            print(f"Không thể đếm số dòng: {e}, sử dụng pandas")
+            try:
+                import pandas as pd
+                df = pd.read_excel(self.file_path, nrows=0)  # Chỉ đọc header để kiểm tra
+                df_full = pd.read_excel(self.file_path)
+                row_count = len(df_full)
+            except Exception:
+                row_count = 0
+
+        # Format: filename_encoded_YYYYMMDD_XXXXrows.xlsx
+        return os.path.join(
+            output_dir,
+            f"{file_name_without_ext}_encoded_{timestamp}_{row_count}rows{extension}"
+        )
 
     def get_file_info(self) -> Dict:
         """Lấy thông tin file"""

@@ -1,0 +1,4 @@
+thay đổi tên các cột dữ liệu của file excel thì thay đổi các file excel_mapping trong thư mục config
+trừ 2 mode đạo hàm tích phân đã fix các cột cứng là derivative_input và int_input
+khi build dùng câu lệnh pyinstaller --name="ConvertKeylogApp" --onedir --windowed --add-data "config;config"  main.py 
+sau đó copy thư mục config vào đặt ngang cấp với file main.exe
