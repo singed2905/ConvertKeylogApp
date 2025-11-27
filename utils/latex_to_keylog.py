@@ -29,24 +29,7 @@ class LatexToKeylogEncoder:
             return []
 
     def encode(self, latex_expr: str) -> str:
-        """
-        Encode LaTeX expression to keylog format.
-
-        Pipeline order (critical for nested structures):
-        1. Normalize (spaces, \\left, \\right)
-        2. Process fractions (recursive, handles nested e^x inside)
-        3. Process remaining e^x (outside fractions)
-        4. Process sqrt normalization
-        5. Process absolute values
-        6. Process scientific notation
-        7. Process log bases
-        8. Process special functions (sin, cos, ln, sqrt, cdot)
-        9. Process integrals
-        10. Process general exponents
-        11. Convert braces to parens
-        12. Apply custom mappings
-        13. Finalize separators
-        """
+      
         if not latex_expr or not latex_expr.strip():
             return "0"
 
@@ -288,7 +271,7 @@ class LatexToKeylogEncoder:
                 try:
                     result = re.sub(find_pat, repl_pat, result)
                 except:
-                    pass  # Ignore regex errors
+                    pass
             else:
                 result = result.replace(find_pat, repl_pat)
 

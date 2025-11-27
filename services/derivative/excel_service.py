@@ -1,15 +1,3 @@
-"""Enhanced Excel Service for Derivative Mode - Chunked Processing with Memory Monitoring
-
-Features:
-- Streaming read/write (XLSX only, removed CSV)
-- Memory monitoring with psutil
-- Progress tracking with ETA
-- Pre-validation before processing
-- Dynamic chunk sizing based on file size
-- Row limit protection (250K rows)
-- Emergency memory cleanup
-"""
-
 import os
 import gc
 import openpyxl
@@ -36,7 +24,7 @@ except ImportError:
 
 
 class ExcelService:
-    """Enhanced Excel service with chunked processing and memory monitoring (XLSX ONLY)"""
+
 
     # ========== CONSTANTS ==========
     MAX_ROWS_ALLOWED = 250_000      # Giới hạn số dòng tối đa
@@ -132,12 +120,7 @@ class ExcelService:
     # ========== PRE-VALIDATION ==========
 
     def _validate_first_row(self, file_path: str) -> Dict:
-        """
-        Validate dòng đầu tiên trước khi chunking
 
-        Returns:
-            Dict: {'valid': bool, 'issues': List[str], 'warnings': List[str], 'sample_data': Dict}
-        """
         result = {
             'valid': True,
             'issues': [],
