@@ -62,7 +62,7 @@ class IntegralEncodingService:
         }
 
     def _encode_nested_integrals(self, latex_expr: str, mode: str) -> Dict[str, Any]:
-        """Xử lý tích phân lồng nhau (nested integrals)"""
+        
         try:
             integral_count = self._count_nested_integrals(latex_expr)
 

@@ -29,7 +29,7 @@ class DerivativeView:
             "1": {
                 "title": "Mode 1: Đạo hàm bậc 1",
                 "description": "Đạo hàm của hàm số tại điểm x. Format: qv(function),([=value)",
-                "example": r"\frac{d}{dx}{x^2}{x=3}"
+                "example": r"\frac{d}{dx}( - 5.0427 \cdot 10^{72} x^{4} - 1.6984 \cdot 10^{76} x^{3} + 3.7726 \cdot 10^{52} x^{2} - 7.0 x - 5.6312 \cdot 10^{16} )\big|_{x=\frac{4\pi}{2}}"
             }
         }
 
@@ -58,7 +58,7 @@ class DerivativeView:
 
         mode_dropdown = ttk.Combobox(main, textvariable=self.mode_var, state="readonly", font=("Arial", 11), width=75)
         mode_dropdown['values'] = (
-            "1 - First Derivative (qv format)",
+            "1 ",
         )
         mode_dropdown.current(0)
         mode_dropdown.pack(padx=10, pady=5)
