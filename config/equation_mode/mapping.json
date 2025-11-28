@@ -60,6 +60,12 @@
   "type": "literal",
   "description": "Dấu nhân LaTeX (\\cdot) thành 'O'"
 },
+    {
+  "find": "*",
+  "replace": "O",
+  "type": "literal",
+  "description": "Dấu nhân LaTeX (*) thành 'O'"
+},
 
     {
       "find": "/",

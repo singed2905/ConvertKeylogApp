@@ -66,20 +66,7 @@ class GeometryV2Service:
 
     # ========== MANUAL PROCESSING ==========
     def process_manual_data(self, data_a, data_b=None):
-        """
-        Xử lý và encode dữ liệu thủ công
 
-        Args:
-            data_a: Dict chứa dữ liệu nhóm A
-            data_b: Dict chứa dữ liệu nhóm B (optional)
-
-        Returns:
-            Dict {
-                'success': bool,
-                'encoded': encoded keylog string,
-                'error': error message if failed
-            }
-        """
         try:
             if not self.encoder:
                 return {
